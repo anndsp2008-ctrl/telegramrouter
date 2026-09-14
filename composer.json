@@ -1,0 +1,16 @@
+{
+  "name": "telegram-media-router/php",
+  "description": "Telegram Media Router em PHP para hospedagem compartilhada",
+  "type": "project",
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-json": "*",
+    "ext-openssl": "*",
+    "ext-mbstring": "*",
+    "danog/madelineproto": "^8.4"
+  },
+  "autoload": {
+    "psr-4": { "App\\": "app/" }
+  }
+}

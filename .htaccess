@@ -1,0 +1,9 @@
+Options -Indexes
+RewriteEngine On
+<FilesMatch "^\.env|^(composer\.(json|lock)|README\.md)$">
+    Require all denied
+</FilesMatch>
+RewriteRule ^(app|config|database|scripts|storage|vendor)/ - [F,L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
