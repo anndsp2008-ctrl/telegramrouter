@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+storage/*
+!storage/.gitkeep
+*.log
+.DS_Store
+Thumbs.db
