@@ -13,7 +13,9 @@ if (!in_array($script, ['index.php', 'reset.php'], true)) {
     return;
 }
 
-ob_start(static function (string $html) use ($script): string {
+$resetIcon = '<svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+
+ob_start(static function (string $html) use ($script, $resetIcon): string {
     if ($script === 'index.php') {
         $html = str_replace(
             [
@@ -57,19 +59,24 @@ ob_start(static function (string $html) use ($script): string {
         ) ?? $html;
 
         if (!str_contains($html, 'href="/reset.php"')) {
-            $resetLink = '<a href="/reset.php"><span class="nav-icon">↺</span>Reset de dados</a>';
+            $resetLink = '<a href="/reset.php"><span class="nav-icon">'.$resetIcon.'</span>Reset de dados</a>';
             $html = preg_replace('/<\/nav>/', $resetLink.'</nav>', $html, 1) ?? $html;
         }
 
         if (!str_contains($html, 'id="telegramrouter-sidebar-sync"')) {
             $sidebarSync = <<<'HTML'
+<style id="telegramrouter-sidebar-icon-compat">
+.saas-sidebar .nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;min-width:22px;min-height:22px;line-height:0}
+.saas-sidebar .nav-icon .nav-icon-svg{display:block;width:20px;height:20px;min-width:20px;min-height:20px;stroke:currentColor}
+</style>
 <script id="telegramrouter-sidebar-sync">
 (()=>{
     try {
         const sidebar=document.querySelector('.saas-sidebar');
         if(!sidebar) return;
         sessionStorage.setItem('telegramrouter.sidebar.html',sidebar.outerHTML);
-        sessionStorage.setItem('telegramrouter.sidebar.width',String(Math.round(sidebar.getBoundingClientRect().width)));
+        const width=Math.round(sidebar.getBoundingClientRect().width);
+        if(width>=180&&width<=480) sessionStorage.setItem('telegramrouter.sidebar.width',String(width));
     } catch (_) {}
 })();
 </script>
@@ -80,28 +87,39 @@ HTML;
         return $html;
     }
 
-    // Reset module: reuse the already-rendered sidebar from the main panel.
-    // This keeps width, patched icons, menu spacing and branding identical.
+    // The main runtime injects responsive.css into index/connect/install only.
+    // Reset must load the same responsive layer to preserve sidebar geometry.
+    if (!str_contains($html, '/assets/responsive.css?v=4')) {
+        $html = str_replace(
+            '<link rel="stylesheet" href="/assets/reset.css?v=2">',
+            '<link rel="stylesheet" href="/assets/responsive.css?v=4"><link rel="stylesheet" href="/assets/reset.css?v=2">',
+            $html
+        );
+    }
+
     if (!str_contains($html, 'id="telegramrouter-reset-sidebar-compat"')) {
         $compat = <<<'HTML'
 <style id="telegramrouter-reset-sidebar-compat">
-.saas-sidebar .nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;min-width:22px;min-height:22px;line-height:1;font-size:18px}
+.saas-sidebar{flex-shrink:0;box-sizing:border-box}
 .saas-sidebar .saas-nav a{box-sizing:border-box}
-@media (min-width:981px){
-  .saas-sidebar{width:var(--telegramrouter-sidebar-width,260px);min-width:var(--telegramrouter-sidebar-width,260px);max-width:var(--telegramrouter-sidebar-width,260px);flex:0 0 var(--telegramrouter-sidebar-width,260px);box-sizing:border-box}
-  .saas-main{min-width:0}
-}
+.saas-sidebar .nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;min-width:22px;min-height:22px;line-height:0}
+.saas-sidebar .nav-icon .nav-icon-svg{display:block;width:20px;height:20px;min-width:20px;min-height:20px;stroke:currentColor}
 </style>
 <script id="telegramrouter-reset-sidebar-sync">
 (()=>{
-    try {
-        const current=document.querySelector('.saas-sidebar');
-        if(!current) return;
+    const svg=(body)=>'<svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+body+'</svg>';
+    const fallbackIcons={
+        '/?page=dashboard':svg('<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/>'),
+        '/?page=rules':svg('<path d="M4 6h10"/><path d="M18 6h2"/><path d="M4 12h2"/><path d="M10 12h10"/><path d="M4 18h7"/><path d="M15 18h5"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="13" cy="18" r="2"/>'),
+        '/?page=events':svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+        '/?page=integrations':svg('<path d="M8 12h8"/><path d="M12 8v8"/><path d="M7 3v4"/><path d="M17 3v4"/><path d="M7 17v4"/><path d="M17 17v4"/><path d="M5 7h14v10H5z"/>'),
+        '/connect.php':svg('<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>'),
+        '/reset.php':svg('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 8v4"/><path d="M12 16h.01"/>')
+    };
 
-        const storedWidth=Number(sessionStorage.getItem('telegramrouter.sidebar.width')||0);
-        if(Number.isFinite(storedWidth)&&storedWidth>=200&&storedWidth<=420){
-            document.documentElement.style.setProperty('--telegramrouter-sidebar-width',storedWidth+'px');
-        }
+    try {
+        let current=document.querySelector('.saas-sidebar');
+        if(!current) return;
 
         const saved=sessionStorage.getItem('telegramrouter.sidebar.html');
         if(saved){
@@ -111,9 +129,9 @@ HTML;
             if(restored){
                 const restoredNav=restored.querySelector('.saas-nav');
                 let resetLink=restored.querySelector('a[href="/reset.php"]');
-                if(!resetLink){
+                if(!resetLink&&restoredNav){
                     const localReset=current.querySelector('a[href="/reset.php"]');
-                    if(localReset&&restoredNav){
+                    if(localReset){
                         resetLink=localReset.cloneNode(true);
                         restoredNav.appendChild(resetLink);
                     }
@@ -121,12 +139,29 @@ HTML;
                 restored.querySelectorAll('.saas-nav a.active').forEach(link=>link.classList.remove('active'));
                 if(resetLink) resetLink.classList.add('active');
                 current.replaceWith(restored);
+                current=restored;
             }
         }
 
-        const activeReset=document.querySelector('.saas-sidebar a[href="/reset.php"]');
+        const storedWidth=Number(sessionStorage.getItem('telegramrouter.sidebar.width')||0);
+        if(Number.isFinite(storedWidth)&&storedWidth>=180&&storedWidth<=480){
+            current.style.width=storedWidth+'px';
+            current.style.minWidth=storedWidth+'px';
+            current.style.maxWidth=storedWidth+'px';
+            current.style.flexBasis=storedWidth+'px';
+        }
+
+        // If there is no stored sidebar (direct URL/bookmark), keep the same
+        // vector treatment instead of falling back to smaller Unicode glyphs.
+        current.querySelectorAll('.saas-nav a').forEach(link=>{
+            const href=link.getAttribute('href')||'';
+            const icon=link.querySelector('.nav-icon');
+            if(icon&&fallbackIcons[href]&&!icon.querySelector('svg')) icon.innerHTML=fallbackIcons[href];
+        });
+
+        const activeReset=current.querySelector('a[href="/reset.php"]');
         if(activeReset){
-            document.querySelectorAll('.saas-sidebar .saas-nav a.active').forEach(link=>link.classList.remove('active'));
+            current.querySelectorAll('.saas-nav a.active').forEach(link=>link.classList.remove('active'));
             activeReset.classList.add('active');
         }
     } catch (_) {}
