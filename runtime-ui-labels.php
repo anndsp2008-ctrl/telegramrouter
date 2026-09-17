@@ -60,5 +60,23 @@ ob_start(static function (string $html): string {
         $html = preg_replace('/<\/nav>/', $resetLink.'</nav>', $html, 1) ?? $html;
     }
 
+    // Preserve the fully rendered/patched sidebar so secondary modules can reuse
+    // exactly the same icons, dimensions and navigation styling.
+    if (!str_contains($html, 'id="telegramrouter-sidebar-sync"')) {
+        $sidebarSync = <<<'HTML'
+<script id="telegramrouter-sidebar-sync">
+(()=>{
+    try {
+        const sidebar=document.querySelector('.saas-sidebar');
+        if(!sidebar) return;
+        sessionStorage.setItem('telegramrouter.sidebar.html',sidebar.outerHTML);
+        sessionStorage.setItem('telegramrouter.sidebar.width',String(Math.round(sidebar.getBoundingClientRect().width)));
+    } catch (_) {}
+})();
+</script>
+HTML;
+        $html = str_replace('</body>', $sidebarSync.'</body>', $html);
+    }
+
     return $html;
 });
