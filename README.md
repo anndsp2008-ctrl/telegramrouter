@@ -4,6 +4,8 @@ Aplicação PHP para monitorar uma conta de usuário do Telegram, aplicar regras
 
 > A interface operacional apresenta rótulos amigáveis em português, mantendo os identificadores técnicos internos intactos para diagnóstico.
 
+> O painel inclui um módulo protegido de reset de dados com modos personalizado e completo, confirmação por frase de segurança e auditoria das operações destrutivas.
+
 ## Requisitos
 
 O servidor precisa ter PHP 8.2 ou superior, MySQL ou MariaDB, Composer ou a pasta `vendor` já incluída, além das extensões `pdo_mysql`, `openssl`, `mbstring`, `curl`, `json`, `gmp`, `xml`, `fileinfo` e `iconv`. O projeto não possui pasta `public`: o document root deve apontar diretamente para a pasta onde estão `index.php`, `login.php` e `install.php`.
