@@ -1,7 +1,7 @@
 <?php declare(strict_types=1);
 
 /*
- * UI-only formatter for operational event details.
+ * UI-only formatter for operational event details and navigation.
  * Internal identifiers, database values and worker logs remain untouched.
  */
 if (PHP_SAPI === 'cli') {
@@ -54,6 +54,11 @@ ob_start(static function (string $html): string {
         },
         $html
     ) ?? $html;
+
+    if (!str_contains($html, 'href="/reset.php"')) {
+        $resetLink = '<a href="/reset.php"><span class="nav-icon">↺</span>Reset de dados</a>';
+        $html = preg_replace('/<\/nav>/', $resetLink.'</nav>', $html, 1) ?? $html;
+    }
 
     return $html;
 });
