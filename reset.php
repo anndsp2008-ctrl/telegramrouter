@@ -127,9 +127,32 @@ function resetAllTables(PDO $pdo): array {
 
 function resetIsProtectedTable(string $table): bool {
     $name = strtolower($table);
-    if (in_array($name, ['reset_security', 'reset_audit'], true)) return true;
+    // app_settings is never deleted wholesale. Its rows are reset by key/category.
+    if (in_array($name, ['reset_security', 'reset_audit', 'app_settings'], true)) return true;
     if (str_contains($name, 'telegram') || str_contains($name, 'credential')) return false;
     return (bool)preg_match('/(^|_)(admin|admins|user|users|migration|migrations|schema|schemas|password|passwords)($|_)/i', $name);
+}
+
+function resetSettingCategory(string $key): ?string {
+    $key = strtolower(trim($key));
+    if ($key === '') return null;
+    if (str_starts_with($key, 'telegram_')) return 'telegram';
+    if (preg_match('/^(azure_|gemini_|google_cloud_|google_|microsoft_|deepl_|openai_|libretranslate_|translator_)/i', $key)) return 'integrations';
+    if (str_starts_with($key, 'translation_')) return 'translation';
+    return null;
+}
+
+function resetAppSettingsInventory(PDO $pdo): array {
+    if (!in_array('app_settings', resetAllTables($pdo), true)) return [];
+    $rows = $pdo->query('SELECT setting_key FROM app_settings ORDER BY setting_key')->fetchAll(PDO::FETCH_COLUMN);
+    $counts = [];
+    foreach ($rows as $key) {
+        if (!is_string($key)) continue;
+        $category = resetSettingCategory($key);
+        if ($category === null) continue;
+        $counts[$category] = ($counts[$category] ?? 0) + 1;
+    }
+    return $counts;
 }
 
 function resetCategoryForTable(string $table): string {
@@ -185,6 +208,10 @@ function resetInventory(PDO $pdo): array {
         } catch (Throwable) {}
     }
 
+    foreach (resetAppSettingsInventory($pdo) as $category => $count) {
+        if (isset($categories[$category])) $categories[$category]['rows'] += (int)$count;
+    }
+
     $categories['storage']['rows'] = resetStorageItemCount();
     return $categories;
 }
@@ -224,6 +251,35 @@ function resetClearOperationalStorage(): int {
     $files += resetDeleteDirectoryContents(resetStoragePath('auth-jobs'));
     $files += resetDeleteDirectoryContents(resetStoragePath('cache'));
     return $files;
+}
+
+function resetDeleteAppSettings(PDO $pdo, array $selectedCategories): int {
+    if (!in_array('app_settings', resetAllTables($pdo), true)) return 0;
+
+    $keys = $pdo->query('SELECT setting_key FROM app_settings ORDER BY setting_key')->fetchAll(PDO::FETCH_COLUMN);
+    $targets = [];
+    foreach ($keys as $key) {
+        if (!is_string($key) || $key === '') continue;
+        $category = resetSettingCategory($key);
+        if ($category !== null && in_array($category, $selectedCategories, true)) $targets[] = $key;
+    }
+    $targets = array_values(array_unique($targets));
+    if (!$targets) return 0;
+
+    $deleted = 0;
+    $stmt = $pdo->prepare('DELETE FROM app_settings WHERE setting_key = :key');
+    $pdo->beginTransaction();
+    try {
+        foreach ($targets as $key) {
+            $stmt->execute(['key' => $key]);
+            $deleted += $stmt->rowCount();
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+    return $deleted;
 }
 
 function resetDeleteTables(PDO $pdo, array $tables): array {
@@ -305,6 +361,11 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $tables=[];
             foreach($selected as $category) foreach(($inventory[$category]['tables']??[]) as $table) $tables[]=$table;
             $result=resetDeleteTables($pdo,$tables);
+            $settingsDeleted=resetDeleteAppSettings($pdo,$selected);
+            if ($settingsDeleted > 0) {
+                $result['rows'] += $settingsDeleted;
+                $result['tables'] += 1;
+            }
             $result['files']=in_array('storage',$selected,true)?resetClearOperationalStorage():0;
             $result['telegram_disconnected']=$telegramDisconnected;
             resetAudit($pdo,$mode,$selected,$result,'success');
