@@ -87,12 +87,15 @@ HTML;
         return $html;
     }
 
+    // Force a new stylesheet revision so browsers do not keep the previous compact layout.
+    $html = str_replace('/assets/reset.css?v=2', '/assets/reset.css?v=3', $html);
+
     // The main runtime injects responsive.css into index/connect/install only.
     // Reset must load the same responsive layer to preserve sidebar geometry.
     if (!str_contains($html, '/assets/responsive.css?v=4')) {
         $html = str_replace(
-            '<link rel="stylesheet" href="/assets/reset.css?v=2">',
-            '<link rel="stylesheet" href="/assets/responsive.css?v=4"><link rel="stylesheet" href="/assets/reset.css?v=2">',
+            '<link rel="stylesheet" href="/assets/reset.css?v=3">',
+            '<link rel="stylesheet" href="/assets/responsive.css?v=4"><link rel="stylesheet" href="/assets/reset.css?v=3">',
             $html
         );
     }
@@ -151,8 +154,6 @@ HTML;
             current.style.flexBasis=storedWidth+'px';
         }
 
-        // If there is no stored sidebar (direct URL/bookmark), keep the same
-        // vector treatment instead of falling back to smaller Unicode glyphs.
         current.querySelectorAll('.saas-nav a').forEach(link=>{
             const href=link.getAttribute('href')||'';
             const icon=link.querySelector('.nav-icon');
