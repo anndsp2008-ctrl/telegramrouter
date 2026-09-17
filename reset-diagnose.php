@@ -72,4 +72,34 @@ $zeroCritical = array_values(array_filter($summary, static function(array $row):
 }));
 out('RESET_DIAG_ZERO_CRITICAL', $zeroCritical);
 
+
+try {
+    $cols = $pdo->query("SHOW COLUMNS FROM app_settings")->fetchAll();
+    $safeCols = array_map(static fn(array $c): array => ['field'=>$c['Field']??null,'type'=>$c['Type']??null], $cols);
+    out('RESET_DIAG_APP_SETTINGS_COLUMNS', $safeCols);
+    $fields = array_values(array_filter(array_map(static fn(array $c): string => (string)($c['Field']??''), $cols)));
+    $keyCol = null;
+    foreach (['setting_key','key_name','key','name','setting'] as $candidate) {
+        if (in_array($candidate, $fields, true)) { $keyCol = $candidate; break; }
+    }
+    if ($keyCol !== null) {
+        $keys = $pdo->query('SELECT '.qid($keyCol).' FROM app_settings ORDER BY '.qid($keyCol))->fetchAll(PDO::FETCH_COLUMN);
+        out('RESET_DIAG_APP_SETTINGS_KEYS', array_values(array_map('strval',$keys)));
+    } else {
+        out('RESET_DIAG_APP_SETTINGS_KEYS', ['key_column_not_identified']);
+    }
+} catch (Throwable $e) {
+    out('RESET_DIAG_APP_SETTINGS_ERROR', get_class($e).': '.$e->getMessage());
+}
+
+try {
+    $cols = $pdo->query("SHOW COLUMNS FROM worker_status")->fetchAll();
+    $fields = array_values(array_filter(array_map(static fn(array $c): string => (string)($c['Field']??''), $cols)));
+    $safe = [];
+    foreach (['status','last_activity_at','updated_at','last_error'] as $field) if (in_array($field,$fields,true)) $safe[] = qid($field);
+    if ($safe) out('RESET_DIAG_WORKER_STATUS', $pdo->query('SELECT '.implode(',',$safe).' FROM worker_status LIMIT 3')->fetchAll());
+} catch (Throwable $e) {
+    out('RESET_DIAG_WORKER_STATUS_ERROR', get_class($e).': '.$e->getMessage());
+}
+
 echo "RESET_DIAG_END\n";
