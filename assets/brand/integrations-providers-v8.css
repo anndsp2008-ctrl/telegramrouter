@@ -116,7 +116,7 @@
   line-height:1.35!important;
 }
 
-/* v4-style status pill */
+/* API credential state stays visible while the card is collapsed */
 .translation-provider-grid .provider-badge{
   display:inline-flex!important;
   align-items:center!important;
@@ -128,7 +128,7 @@
   border-radius:999px!important;
   background:rgba(15,23,42,.36)!important;
   color:#cbd5e1!important;
-  font-size:10px!important;
+  font-size:0!important;
   font-weight:800!important;
   line-height:1!important;
   white-space:nowrap!important;
@@ -140,6 +140,22 @@
   flex:0 0 6px;
   border-radius:50%;
   background:#64748b;
+}
+.translation-provider-grid .provider-badge::after{
+  content:"Sem chave";
+  font-size:10px!important;
+  line-height:1!important;
+}
+.translation-provider-grid>*:has(input[type="password"][placeholder^="••"]) .provider-badge{
+  color:#bbf7d0!important;
+  border-color:rgba(34,197,94,.16)!important;
+  background:rgba(34,197,94,.045)!important;
+}
+.translation-provider-grid>*:has(input[type="password"][placeholder^="••"]) .provider-badge::before{
+  background:#22c55e!important;
+}
+.translation-provider-grid>*:has(input[type="password"][placeholder^="••"]) .provider-badge::after{
+  content:"Chave salva";
 }
 
 /* v4 chevron, improved */
@@ -163,10 +179,51 @@
   background-color:#dbeafe!important;
 }
 
-/* Stable collapsed state: body never flashes before JS */
-.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-form,
-.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test{
+/* Stable collapsed state: fields stay hidden, but each card keeps its own test summary visible */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-form{
   display:none!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test{
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:7px 10px!important;
+  margin:0!important;
+  padding:9px 15px 10px 17px!important;
+  border:0!important;
+  border-top:1px solid rgba(148,163,184,.07)!important;
+  border-radius:0!important;
+  background:rgba(7,12,21,.24)!important;
+  cursor:default!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test>b{
+  color:rgba(203,213,225,.46)!important;
+  font-size:9px!important;
+  font-weight:800!important;
+  letter-spacing:.06em!important;
+  text-transform:uppercase!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test>span{
+  min-width:0!important;
+  color:#cbd5e1!important;
+  font-size:11px!important;
+  font-weight:750!important;
+  overflow-wrap:anywhere!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test>small{
+  justify-self:end!important;
+  color:rgba(203,213,225,.48)!important;
+  font-size:10px!important;
+  white-space:nowrap!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test>em{
+  display:none!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test.ok>span{
+  color:#86efac!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test.bad>span{
+  color:#fca5a5!important;
 }
 
 /* Expanded body follows v4 proportions but cleaner */
@@ -227,38 +284,27 @@
   border-radius:9px!important;
 }
 
-/* v4-style test area */
+/* Expanded card keeps the same provider-local test and reveals full failure details */
 .translation-provider-grid>*.is-expanded>.provider-test{
-  display:grid!important;
   grid-template-columns:auto minmax(0,1fr) auto!important;
-  align-items:center!important;
   gap:7px 11px!important;
   margin:0 17px 16px!important;
   padding:11px 12px!important;
   border:1px solid rgba(148,163,184,.10)!important;
   border-radius:11px!important;
   background:rgba(15,23,42,.28)!important;
-  cursor:default!important;
 }
 .translation-provider-grid>*.is-expanded>.provider-test>b{
   font-size:10px!important;
-  letter-spacing:.05em!important;
-  text-transform:uppercase!important;
-  opacity:.5!important;
 }
 .translation-provider-grid>*.is-expanded>.provider-test>span{
-  min-width:0!important;
   font-size:12px!important;
-  font-weight:750!important;
-  overflow-wrap:anywhere!important;
 }
 .translation-provider-grid>*.is-expanded>.provider-test>small{
-  justify-self:end!important;
   font-size:11px!important;
-  opacity:.5!important;
-  white-space:nowrap!important;
 }
 .translation-provider-grid>*.is-expanded>.provider-test>em{
+  display:block!important;
   grid-column:1/-1!important;
   padding-top:7px!important;
   border-top:1px solid rgba(148,163,184,.08)!important;
@@ -311,6 +357,13 @@
   }
   .translation-provider-grid .provider-badge{
     display:none!important;
+  }
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test{
+    grid-template-columns:1fr auto!important;
+    padding:9px 12px 10px 14px!important;
+  }
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test>b{
+    grid-column:1/-1!important;
   }
   .translation-provider-grid>*.is-expanded>.provider-form{
     padding:15px 13px 13px!important;
