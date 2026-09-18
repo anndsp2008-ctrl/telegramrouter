@@ -372,9 +372,45 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   display:none!important;
 }
 
-/* Remove noisy telemetry walls after the provider test row, but never hide the provider form */
-.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test ~ :not(.provider-form){
+/* Provider telemetry belongs to its own card: compact when collapsed, full when expanded */
+.translation-provider-grid>*:has(.provider-form input[name="provider"]):not(.is-expanded)>.provider-test ~ :not(.provider-form){
   display:none!important;
+}
+.translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form){
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+  margin:0 18px 18px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*{
+  min-width:0!important;
+  margin:0!important;
+  padding:11px 12px!important;
+  border:1px solid rgba(148,163,184,.08)!important;
+  border-radius:10px!important;
+  background:rgba(7,13,23,.34)!important;
+  box-shadow:none!important;
+}
+.translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*>span,
+.translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*>small{
+  color:rgba(148,163,184,.60)!important;
+  font-size:9px!important;
+  font-weight:800!important;
+  letter-spacing:.05em!important;
+  text-transform:uppercase!important;
+}
+.translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*>strong,
+.translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*>b{
+  display:block!important;
+  margin-top:4px!important;
+  color:#eef3f9!important;
+  font-size:12px!important;
+  font-weight:780!important;
+  line-height:1.25!important;
 }
 
 /* Form is hidden only while collapsed and always shown when the card is expanded */
@@ -586,5 +622,78 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   .translation-provider-grid > * > .provider-head::after,
   .translation-provider-grid > * > .saas-card-head::after{
     transition:none!important;
+  }
+}
+
+
+/* Provider-local test action — must look active, not disabled */
+.translation-provider-grid button[value="test_translation_provider"]:not(:disabled),
+.translation-provider-grid [name="action"][value="test_translation_provider"]:not(:disabled){
+  position:relative!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  min-width:154px!important;
+  min-height:42px!important;
+  padding:9px 14px!important;
+  border:1px solid color-mix(in srgb,var(--provider-accent) 48%,rgba(148,163,184,.16))!important;
+  border-radius:10px!important;
+  background:color-mix(in srgb,var(--provider-accent) 16%,rgba(15,23,42,.88))!important;
+  color:#f8fbff!important;
+  font-weight:800!important;
+  opacity:1!important;
+  filter:none!important;
+  box-shadow:0 8px 18px rgba(0,0,0,.12),inset 0 0 0 1px rgba(255,255,255,.025)!important;
+  cursor:pointer!important;
+}
+.translation-provider-grid button[value="test_translation_provider"]:not(:disabled)::before,
+.translation-provider-grid [name="action"][value="test_translation_provider"]:not(:disabled)::before{
+  content:""!important;
+  display:block!important;
+  width:15px!important;
+  height:15px!important;
+  flex:0 0 15px!important;
+  background-color:currentColor!important;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat!important;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat!important;
+}
+.translation-provider-grid button[value="test_translation_provider"]:not(:disabled):hover,
+.translation-provider-grid [name="action"][value="test_translation_provider"]:not(:disabled):hover{
+  border-color:color-mix(in srgb,var(--provider-accent) 68%,rgba(148,163,184,.16))!important;
+  background:color-mix(in srgb,var(--provider-accent) 22%,rgba(15,23,42,.88))!important;
+}
+.translation-provider-grid button[value="test_translation_provider"]:not(:disabled):focus-visible,
+.translation-provider-grid [name="action"][value="test_translation_provider"]:not(:disabled):focus-visible{
+  outline:0!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--provider-accent) 13%,transparent),0 8px 18px rgba(0,0,0,.12)!important;
+}
+.translation-provider-grid button[value="test_translation_provider"]:disabled,
+.translation-provider-grid [name="action"][value="test_translation_provider"]:disabled{
+  opacity:.42!important;
+  cursor:not-allowed!important;
+}
+
+/* Last-test strip gives date/time and duration room without pushing data to the page header */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test{
+  min-height:42px!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test>small{
+  text-align:right!important;
+  font-variant-numeric:tabular-nums!important;
+}
+@media(max-width:820px){
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form){
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
+@media(max-width:520px){
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form){
+    grid-template-columns:1fr!important;
+    margin:0 13px 13px!important;
+  }
+  .translation-provider-grid button[value="test_translation_provider"]:not(:disabled),
+  .translation-provider-grid [name="action"][value="test_translation_provider"]:not(:disabled){
+    width:100%!important;
   }
 }
