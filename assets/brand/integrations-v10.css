@@ -185,18 +185,19 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   background:linear-gradient(180deg,rgba(11,18,31,.82),rgba(8,14,25,.82))!important;
   box-shadow:0 8px 28px rgba(0,0,0,.08)!important;
   cursor:pointer!important;
-  transition:border-color .15s ease,background .15s ease,box-shadow .15s ease!important;
+  transition:none!important;
+  isolation:isolate!important;
 }
 .translation-provider-grid>*:has(input[name="provider"][value="azure"]){--provider-accent:#3b82f6}
 .translation-provider-grid>*:has(input[name="provider"][value="gemini"]){--provider-accent:#8b5cf6}
 .translation-provider-grid>*:has(input[name="provider"][value="google_cloud"]){--provider-accent:#f59e0b}
 .translation-provider-grid>*:has(.provider-form input[name="provider"]):hover{
   border-color:rgba(148,163,184,.19)!important;
-  background:linear-gradient(180deg,rgba(14,22,38,.90),rgba(9,16,29,.90))!important;
 }
 .translation-provider-grid>*.is-expanded{
   border-color:color-mix(in srgb,var(--provider-accent) 36%,rgba(148,163,184,.12))!important;
-  box-shadow:0 14px 34px rgba(0,0,0,.13)!important;
+  background:linear-gradient(180deg,rgba(11,18,31,.82),rgba(8,14,25,.82))!important;
+  box-shadow:0 8px 28px rgba(0,0,0,.08)!important;
 }
 
 /* Thin provider accent */
@@ -320,7 +321,9 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   background-repeat:no-repeat!important;
   background-size:17px 17px!important;
   transform:rotate(0deg)!important;
-  transition:transform .15s ease,border-color .15s ease,background-color .15s ease!important;
+  transform-origin:50% 50%!important;
+  transition:transform .14s ease!important;
+  will-change:transform!important;
 }
 .translation-provider-grid>*.is-expanded>.provider-head::after,
 .translation-provider-grid>*.is-expanded>.saas-card-head::after{
@@ -558,4 +561,30 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   visibility:visible!important;
   opacity:1!important;
   pointer-events:auto!important;
+}
+
+
+/* Anti-flash: opening/closing must not animate large painted surfaces */
+.translation-provider-grid > * ,
+.translation-provider-grid > * > .provider-form,
+.translation-provider-grid > * > .provider-test{
+  animation:none!important;
+}
+.translation-provider-grid > * > .provider-form,
+.translation-provider-grid > * > .provider-test{
+  transition:none!important;
+}
+.translation-provider-grid > .is-expanded,
+.translation-provider-grid > :not(.is-expanded){
+  will-change:auto!important;
+}
+.translation-provider-grid > * > .provider-head,
+.translation-provider-grid > * > .saas-card-head{
+  -webkit-tap-highlight-color:transparent!important;
+}
+@media (prefers-reduced-motion: reduce){
+  .translation-provider-grid > * > .provider-head::after,
+  .translation-provider-grid > * > .saas-card-head::after{
+    transition:none!important;
+  }
 }
