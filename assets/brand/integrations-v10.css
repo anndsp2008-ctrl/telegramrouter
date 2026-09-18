@@ -705,7 +705,7 @@ body:has(.translation-provider-grid) .form-status{
 }
 
 /* Premium Test Connection action */
-.translation-provider-grid .provider-actions button:last-child{
+.translation-provider-grid .provider-actions button.provider-test-action{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
@@ -720,7 +720,7 @@ body:has(.translation-provider-grid) .form-status{
   filter:none!important;
   cursor:pointer!important;
 }
-.translation-provider-grid .provider-actions button:last-child::before{
+.translation-provider-grid .provider-actions button.provider-test-action::before{
   content:""!important;
   display:block!important;
   width:16px!important;
@@ -730,16 +730,16 @@ body:has(.translation-provider-grid) .form-status{
   -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 6h9a4 4 0 0 1 4 4v1M16 3l3 3-3 3M16 18H7a4 4 0 0 1-4-4v-1M8 21l-3-3 3-3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat!important;
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 6h9a4 4 0 0 1 4 4v1M16 3l3 3-3 3M16 18H7a4 4 0 0 1-4-4v-1M8 21l-3-3 3-3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat!important;
 }
-.translation-provider-grid .provider-actions button:last-child:hover{
+.translation-provider-grid .provider-actions button.provider-test-action:hover{
   border-color:rgba(96,165,250,.62)!important;
   background:linear-gradient(180deg,rgba(59,130,246,.30),rgba(37,99,235,.20))!important;
   color:#eff6ff!important;
 }
-.translation-provider-grid .provider-actions button:last-child:focus-visible{
+.translation-provider-grid .provider-actions button.provider-test-action:focus-visible{
   outline:0!important;
   box-shadow:0 0 0 3px rgba(59,130,246,.16)!important;
 }
-.translation-provider-grid .provider-actions button:last-child:disabled{
+.translation-provider-grid .provider-actions button.provider-test-action:disabled{
   cursor:not-allowed!important;
   opacity:.55!important;
 }
@@ -762,4 +762,13 @@ body:has(.translation-provider-grid) .form-status{
     margin-left:13px!important;
     margin-right:13px!important;
   }
+}
+
+
+/* Keep provider-local validation visible; only page-level feedback is suppressed */
+body:has(.translation-provider-grid) .translation-provider-grid .form-status{
+  display:block!important;
+}
+.integrations-global-test-feedback{
+  display:none!important;
 }
