@@ -837,3 +837,56 @@ body:has(.translation-provider-grid) .translation-provider-grid .form-status{
     border-right:0!important;
   }
 }
+
+
+/* Connection test is an active secondary action, never a disabled-looking ghost */
+.translation-provider-grid .provider-actions button[name="action"][value="test_translation_provider"]{
+  opacity:1!important;
+  color:#eaf2ff!important;
+  border:1px solid rgba(96,165,250,.34)!important;
+  background:linear-gradient(180deg,rgba(59,130,246,.16),rgba(37,99,235,.10))!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)!important;
+  cursor:pointer!important;
+  font-weight:780!important;
+}
+.translation-provider-grid .provider-actions button[name="action"][value="test_translation_provider"]:hover{
+  color:#ffffff!important;
+  border-color:rgba(96,165,250,.54)!important;
+  background:linear-gradient(180deg,rgba(59,130,246,.24),rgba(37,99,235,.15))!important;
+}
+.translation-provider-grid .provider-actions button[name="action"][value="test_translation_provider"]:focus-visible{
+  outline:0!important;
+  box-shadow:0 0 0 3px rgba(59,130,246,.14)!important;
+}
+.translation-provider-grid .provider-actions button.is-testing-connection{
+  color:#dbeafe!important;
+  border-color:rgba(96,165,250,.48)!important;
+  background:rgba(37,99,235,.16)!important;
+  cursor:progress!important;
+}
+.translation-provider-grid .provider-actions button.is-saving-provider{
+  cursor:progress!important;
+}
+
+/* Provider-local test result gets visual priority */
+.translation-provider-grid > * > .provider-test{
+  position:relative!important;
+}
+.translation-provider-grid > * > .provider-test.ok{
+  border-color:rgba(34,197,94,.14)!important;
+}
+.translation-provider-grid > * > .provider-test.bad{
+  border-color:rgba(239,68,68,.14)!important;
+}
+
+@media(max-width:1100px){
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form):has(> :nth-child(4)){
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}
+@media(max-width:640px){
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form):has(> :nth-child(4)){
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    margin:0 13px 13px!important;
+  }
+}
