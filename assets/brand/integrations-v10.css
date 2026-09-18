@@ -890,3 +890,34 @@ body:has(.translation-provider-grid) .translation-provider-grid .form-status{
     margin:0 13px 13px!important;
   }
 }
+
+
+/* Async provider test state: visible and active, never ghosted */
+.translation-provider-grid .provider-actions button.is-testing-connection,
+.translation-provider-grid .provider-actions button.is-testing-connection:disabled{
+  opacity:1!important;
+  filter:none!important;
+  cursor:wait!important;
+  color:#eff6ff!important;
+  border-color:color-mix(in srgb,var(--provider-accent) 58%,rgba(148,163,184,.16))!important;
+  background:color-mix(in srgb,var(--provider-accent) 18%,rgba(15,23,42,.78))!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.02) inset!important;
+}
+.translation-provider-grid .provider-actions button.is-testing-connection::before{
+  animation:provider-test-spin .8s linear infinite!important;
+}
+.translation-provider-grid .provider-test.testing{
+  border-color:rgba(96,165,250,.18)!important;
+  background:rgba(37,99,235,.05)!important;
+}
+.translation-provider-grid .provider-test.testing>span{
+  color:#bfdbfe!important;
+}
+@keyframes provider-test-spin{
+  to{transform:rotate(360deg)}
+}
+@media (prefers-reduced-motion: reduce){
+  .translation-provider-grid .provider-actions button.is-testing-connection::before{
+    animation:none!important;
+  }
+}
