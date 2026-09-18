@@ -37,6 +37,31 @@
   try { remembered = sessionStorage.getItem(KEY) || ''; } catch (_) {}
 
   cards.forEach(card => {
+    card.querySelectorAll('.provider-actions button').forEach(button => {
+      const label = (button.textContent || '').trim().toLowerCase();
+      if (label.includes('testar conexão') || label.includes('testar conexao')) {
+        button.classList.add('provider-test-action');
+      }
+    });
+  });
+
+  // Hide only global connection-test feedback. The canonical result lives
+  // inside each provider's .provider-test block.
+  document.querySelectorAll('.form-status,[role="alert"],.alert,.flash-message,.notice').forEach(el => {
+    if (el.closest('.translation-provider-grid')) return;
+    const text = (el.textContent || '').trim().toLowerCase();
+    if (
+      text.includes('conexão realizada com sucesso') ||
+      text.includes('conexao realizada com sucesso') ||
+      text.includes('falha ao testar conexão') ||
+      text.includes('falha ao testar conexao')
+    ) {
+      el.classList.add('integrations-global-test-feedback');
+      el.setAttribute('hidden', '');
+    }
+  });
+
+  cards.forEach(card => {
     const provider = providerOf(card);
     card.dataset.provider = provider;
     card.tabIndex = 0;
