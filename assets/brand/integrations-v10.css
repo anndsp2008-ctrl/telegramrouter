@@ -772,3 +772,68 @@ body:has(.translation-provider-grid) .translation-provider-grid .form-status{
 .integrations-global-test-feedback{
   display:none!important;
 }
+
+
+/* Premium provider actions: Testar conexão must read as an active action */
+.translation-provider-grid .provider-actions button{
+  opacity:1!important;
+  filter:none!important;
+  cursor:pointer!important;
+}
+.translation-provider-grid .provider-actions button[value="test_translation_provider"],
+.translation-provider-grid .provider-actions button[data-action="test_translation_provider"],
+.translation-provider-grid .provider-actions button[name="test_translation_provider"],
+.translation-provider-grid .provider-actions button:last-child{
+  border:1px solid color-mix(in srgb,var(--provider-accent) 48%,rgba(148,163,184,.14))!important;
+  background:color-mix(in srgb,var(--provider-accent) 14%,rgba(15,23,42,.72))!important;
+  color:#f8fafc!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)!important;
+  font-weight:780!important;
+}
+.translation-provider-grid .provider-actions button[value="test_translation_provider"]:hover,
+.translation-provider-grid .provider-actions button[data-action="test_translation_provider"]:hover,
+.translation-provider-grid .provider-actions button[name="test_translation_provider"]:hover,
+.translation-provider-grid .provider-actions button:last-child:hover{
+  border-color:color-mix(in srgb,var(--provider-accent) 68%,rgba(148,163,184,.14))!important;
+  background:color-mix(in srgb,var(--provider-accent) 22%,rgba(15,23,42,.78))!important;
+}
+.translation-provider-grid .provider-actions button[value="test_translation_provider"]:focus-visible,
+.translation-provider-grid .provider-actions button[data-action="test_translation_provider"]:focus-visible,
+.translation-provider-grid .provider-actions button[name="test_translation_provider"]:focus-visible,
+.translation-provider-grid .provider-actions button:last-child:focus-visible{
+  outline:0!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--provider-accent) 14%,transparent)!important;
+}
+.translation-provider-grid .provider-actions button:disabled{
+  opacity:.48!important;
+  cursor:not-allowed!important;
+}
+
+/* Telemetry responsiveness */
+@media(max-width:1100px){
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form){
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*:nth-child(3n){
+    border-right:0!important;
+  }
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*:nth-child(n+4){
+    border-top:1px solid rgba(148,163,184,.07)!important;
+  }
+}
+@media(max-width:640px){
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form){
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    margin:0 13px 13px!important;
+  }
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*{
+    border-right:1px solid rgba(148,163,184,.07)!important;
+    border-top:1px solid rgba(148,163,184,.07)!important;
+  }
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*:nth-child(-n+2){
+    border-top:0!important;
+  }
+  .translation-provider-grid>*.is-expanded>.provider-test ~ :not(.provider-form)>*:nth-child(2n){
+    border-right:0!important;
+  }
+}
