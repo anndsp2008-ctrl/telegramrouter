@@ -2,3 +2,40 @@
 .saas-logo.brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important}
 img.tmr-brand-login{display:block;max-width:92px;width:22vw;height:auto;margin:0 auto 14px}
 @media(max-width:640px){img.tmr-brand-login{max-width:78px}}
+
+/* Global semantic status palette */
+:root{
+  --tmr-status-success-neon:#39ff88;
+  --tmr-status-failure-neon:#ff315a;
+}
+.status-ok,
+.status-success,
+.test-status.ok,
+.test-status.success,
+.connection-status.ok,
+.connection-status.success,
+.form-status.ok,
+.form-status.success,
+[data-status="ok"],
+[data-status="success"]{
+  color:var(--tmr-status-success-neon)!important;
+  text-shadow:0 0 8px rgba(57,255,136,.28)!important;
+}
+.status-error,
+.status-failure,
+.status-failed,
+.test-status.bad,
+.test-status.error,
+.test-status.failure,
+.connection-status.bad,
+.connection-status.error,
+.connection-status.failure,
+.form-status.bad,
+.form-status.error,
+.form-status.failure,
+[data-status="error"],
+[data-status="failure"],
+[data-status="failed"]{
+  color:var(--tmr-status-failure-neon)!important;
+  text-shadow:0 0 8px rgba(255,49,90,.28)!important;
+}
