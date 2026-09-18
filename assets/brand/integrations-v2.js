@@ -62,6 +62,14 @@
     };
   }
 
+  function setTextIfChanged(el, value) {
+    if (el && el.textContent !== value) el.textContent = value;
+  }
+
+  function setClassIfChanged(el, value) {
+    if (el && el.className !== value) el.className = value;
+  }
+
   function updateSummary(card) {
     const provider = card.dataset.provider || getProvider(card);
     const meta = providerMeta(provider);
@@ -76,17 +84,17 @@
     const state = summary.querySelector('.provider-state-v3');
     const testBadge = summary.querySelector('.provider-test-v3');
 
-    if (title) title.textContent = meta.title;
-    if (subtitle) subtitle.textContent = meta.subtitle;
+    setTextIfChanged(title, meta.title);
+    setTextIfChanged(subtitle, meta.subtitle);
 
     if (state) {
-      state.className = 'provider-state-v3 ' + (configured ? 'is-configured' : 'is-empty');
-      state.textContent = configured ? 'Configurado' : 'Não configurado';
+      setClassIfChanged(state, 'provider-state-v3 ' + (configured ? 'is-configured' : 'is-empty'));
+      setTextIfChanged(state, configured ? 'Configurado' : 'Não configurado');
     }
 
     if (testBadge) {
-      testBadge.className = 'provider-test-v3 is-' + test.state;
-      testBadge.textContent = test.text;
+      setClassIfChanged(testBadge, 'provider-test-v3 is-' + test.state);
+      setTextIfChanged(testBadge, test.text);
     }
   }
 
@@ -125,11 +133,7 @@
     if (open) closeOthers(grid, card);
     setOpen(card, open, true);
 
-    if (open) {
-      requestAnimationFrame(() => {
-        card.scrollIntoView({behavior:'smooth', block:'nearest'});
-      });
-    }
+
   }
 
   function makeSummary(provider, bodyId) {
@@ -146,7 +150,7 @@
       '<span class="provider-title-v3"><strong></strong><span></span></span>' +
       '<span class="provider-state-v3 is-empty">Não configurado</span>' +
       '<span class="provider-test-v3 is-neutral">Não testado</span>' +
-      '<span class="provider-chevron-v3" aria-hidden="true">⌄</span>';
+      '<span class="provider-chevron-v3" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6.75 9.25 12 14.5l5.25-5.25"/></svg></span>';
 
     summary.querySelector('.provider-mark-v3').textContent = meta.mark;
     summary.querySelector('.provider-title-v3 strong').textContent = meta.title;
@@ -239,14 +243,40 @@
     });
   }
 
+  function nodeContainsFreshIntegrations(node) {
+    if (!(node instanceof Element)) return false;
+
+    if (node.matches('.translation-provider-grid')) return true;
+    if (node.querySelector?.('.translation-provider-grid')) return true;
+
+    // A provider card inserted directly into the grid by an async refresh.
+    if (
+      node.parentElement?.classList.contains('translation-provider-grid') &&
+      !node.classList.contains('provider-shell-v3')
+    ) return true;
+
+    return false;
+  }
+
   function start() {
     init();
 
     new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => {
-        if (mutation.type !== 'childList') return false;
-        return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-      });
+      let relevant = false;
+
+      for (const mutation of mutations) {
+        if (mutation.type !== 'childList') continue;
+
+        for (const node of mutation.addedNodes) {
+          if (nodeContainsFreshIntegrations(node)) {
+            relevant = true;
+            break;
+          }
+        }
+
+        if (relevant) break;
+      }
+
       if (relevant) scheduleInit();
     }).observe(document.body, {childList:true, subtree:true});
   }
