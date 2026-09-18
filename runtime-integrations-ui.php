@@ -69,8 +69,22 @@ HTML;
     }
 }
 
+// Load the provider accordion only on the integrations workspace.
+$source = (string)file_get_contents($path);
+if (!str_contains($source, '/assets/brand/integrations-v2.js?v=1')) {
+    $source = str_replace(
+        '</body>',
+        '<script src="/assets/brand/integrations-v2.js?v=1" defer></script></body>',
+        $source
+    );
+    if (@file_put_contents($path, $source) === false) {
+        fwrite(STDERR, "INTEGRATIONS_UI_V2_SCRIPT_WRITE_FAILED\n");
+        exit(1);
+    }
+}
+
 $verify = (string)file_get_contents($path);
-if (!str_contains($verify, 'integrations_ui_v2')) {
+if (!str_contains($verify, 'integrations_ui_v2') || !str_contains($verify, '/assets/brand/integrations-v2.js?v=1')) {
     fwrite(STDERR, "INTEGRATIONS_UI_V2_VERIFY_FAILED\n");
     exit(1);
 }
