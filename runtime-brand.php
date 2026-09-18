@@ -65,9 +65,9 @@ if (!is_string($json) || @file_put_contents($manifestPath, $json."\n") === false
     exit(1);
 }
 
-$headBrand = '<link rel="stylesheet" href="/assets/brand/brand.css?v=1">'
+$headBrand = '<link rel="stylesheet" href="/assets/brand/brand.css?v=2">'
     .'<link rel="stylesheet" href="/assets/brand/mobile-shell.css?v=2">'
-    .'<link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=7">'
+    .'<link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8">'
     .'<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3">'
     .'<link rel="manifest" href="/manifest.webmanifest?v=2">'
     .'<meta name="theme-color" content="#0B1220">';
