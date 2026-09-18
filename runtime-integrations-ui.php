@@ -13,44 +13,8 @@ if (!is_file($path)) {
 
 $source = (string)file_get_contents($path);
 
-// Suppress page-level provider-test feedback before first paint. The canonical
-// result remains inside each provider card (.provider-test + telemetry).
-$testFeedbackGuard = <<<'PHP'
-<?php if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (($_POST['action'] ?? '') === 'test_translation_provider')): ?>
-<style id="integrations-test-feedback-guard">
-body:has(.translation-provider-grid) .toast,
-body:has(.translation-provider-grid) .toast-container,
-body:has(.translation-provider-grid) .notification,
-body:has(.translation-provider-grid) .notice,
-body:has(.translation-provider-grid) .flash,
-body:has(.translation-provider-grid) .flash-message,
-body:has(.translation-provider-grid) .alert,
-body:has(.translation-provider-grid) .alert-success,
-body:has(.translation-provider-grid) .alert-danger,
-body:has(.translation-provider-grid) .saas-alert,
-body:has(.translation-provider-grid) [class*="toast"],
-body:has(.translation-provider-grid) [class*="notification"],
-body:has(.translation-provider-grid) [class*="flash"],
-body:has(.translation-provider-grid) [class*="alert"],
-body:has(.translation-provider-grid) [data-toast],
-body:has(.translation-provider-grid) [role="alert"],
-body:has(.translation-provider-grid) [aria-live],
-body:has(.translation-provider-grid) .form-status {
-  display:none!important;
-}
-body:has(.translation-provider-grid) .translation-provider-grid .provider-test {
-  display:grid!important;
-}
-</style>
-<?php endif; ?>
-PHP;
-if (str_contains($source, '</head>')) {
-    $source = str_replace('</head>', $testFeedbackGuard.'</head>', $source, $guardHeadCount);
-    if ($guardHeadCount !== 1) {
-        fwrite(STDERR, "INTEGRATIONS_UI_V10_TEST_GUARD_FAILED\n");
-        exit(1);
-    }
-}
+// Provider test feedback is handled inside each provider card by integrations-v10.js.
+// No broad alert/aria-live suppression is used here, because it can hide large UI containers.
 
 // Remove legacy dedicated layout and any previous integrations behavior bundle.
 $source = preg_replace(
@@ -114,7 +78,7 @@ $source = preg_replace(
 
 $source = str_replace(
     '</body>',
-    '<script src="/assets/brand/integrations-v10.js?v=5" defer></script></body>',
+    '<script src="/assets/brand/integrations-v10.js?v=6" defer></script></body>',
     $source
 );
 
@@ -126,7 +90,7 @@ if (@file_put_contents($path, $source) === false) {
 $verify = (string)file_get_contents($path);
 if (
     !str_contains($verify, 'integrations_ui_v10') ||
-    !str_contains($verify, '/assets/brand/integrations-v10.js?v=5') ||
+    !str_contains($verify, '/assets/brand/integrations-v10.js?v=6') ||
     str_contains($verify, '/assets/integrations-layout.css')
 ) {
     fwrite(STDERR, "INTEGRATIONS_UI_V10_VERIFY_FAILED\n");
