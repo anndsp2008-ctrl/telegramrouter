@@ -13,20 +13,36 @@ if (!is_file($path)) {
 
 $source = (string)file_get_contents($path);
 
-// Temporary sanitized diagnostic for provider-test global feedback. It only logs
-// source fragments around static test-message/action markers; credentials are
-// never printed.
-foreach (['Conexão realizada com sucesso', 'test_translation_provider'] as $diagNeedle) {
-    $offset = 0;
-    $diagCount = 0;
-    while (($pos = strpos($source, $diagNeedle, $offset)) !== false && $diagCount < 8) {
-        $from = max(0, $pos - 260);
-        $fragment = substr($source, $from, 620);
-        $fragment = preg_replace('/\s+/', ' ', $fragment) ?? $fragment;
-        $fragment = preg_replace('/(api[_-]?key|token|secret|password)\s*[=:]\s*[^\s<]+/i', '$1=[REDACTED]', $fragment) ?? $fragment;
-        echo "INTEGRATIONS_TEST_DIAG ".base64_encode($fragment)."\n";
-        $offset = $pos + strlen($diagNeedle);
-        $diagCount++;
+// Suppress page-level provider-test feedback before first paint. The canonical
+// result remains inside each provider card (.provider-test + telemetry).
+$testFeedbackGuard = <<<'PHP'
+<?php if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (($_POST['action'] ?? '') === 'test_translation_provider')): ?>
+<style id="integrations-test-feedback-guard">
+body:has(.translation-provider-grid) .toast,
+body:has(.translation-provider-grid) .toast-container,
+body:has(.translation-provider-grid) .notification,
+body:has(.translation-provider-grid) .notice,
+body:has(.translation-provider-grid) .flash,
+body:has(.translation-provider-grid) .flash-message,
+body:has(.translation-provider-grid) .alert,
+body:has(.translation-provider-grid) .alert-success,
+body:has(.translation-provider-grid) .alert-danger,
+body:has(.translation-provider-grid) .saas-alert,
+body:has(.translation-provider-grid) [role="alert"],
+body:has(.translation-provider-grid) .form-status {
+  display:none!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid .provider-test {
+  display:grid!important;
+}
+</style>
+<?php endif; ?>
+PHP;
+if (str_contains($source, '</head>')) {
+    $source = str_replace('</head>', $testFeedbackGuard.'</head>', $source, $guardHeadCount);
+    if ($guardHeadCount !== 1) {
+        fwrite(STDERR, "INTEGRATIONS_UI_V10_TEST_GUARD_FAILED\n");
+        exit(1);
     }
 }
 
