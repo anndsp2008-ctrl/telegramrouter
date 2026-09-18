@@ -258,12 +258,24 @@
 .provider-chevron-v3{
   display:grid!important;
   place-items:center!important;
-  width:26px!important;
-  height:26px!important;
-  color:rgba(226,232,240,.58)!important;
-  font-size:18px!important;
+  width:28px!important;
+  height:28px!important;
+  color:rgba(226,232,240,.62)!important;
   line-height:1!important;
+  transform-origin:50% 50%!important;
   transition:transform .18s ease,color .18s ease!important;
+  will-change:transform;
+}
+.provider-chevron-v3 svg{
+  display:block!important;
+  width:18px!important;
+  height:18px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:2!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+  vector-effect:non-scaling-stroke;
 }
 .provider-open .provider-chevron-v3{
   transform:rotate(180deg)!important;
@@ -281,11 +293,6 @@
 }
 .provider-open>.provider-body-v3{
   display:block!important;
-  animation:providerOpenV3 .16s ease-out;
-}
-@keyframes providerOpenV3{
-  from{opacity:0;transform:translateY(-4px)}
-  to{opacity:1;transform:translateY(0)}
 }
 
 .provider-body-v3 .provider-form{
