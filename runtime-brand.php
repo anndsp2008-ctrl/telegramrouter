@@ -67,7 +67,7 @@ if (!is_string($json) || @file_put_contents($manifestPath, $json."\n") === false
 
 $headBrand = '<link rel="stylesheet" href="/assets/brand/brand.css?v=1">'
     .'<link rel="stylesheet" href="/assets/brand/mobile-shell.css?v=2">'
-    .'<link rel="stylesheet" href="/assets/brand/integrations-v2.css?v=4">'
+    .'<link rel="stylesheet" href="/assets/brand/integrations-ui-v4.css?v=1">'
     .'<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3">'
     .'<link rel="manifest" href="/manifest.webmanifest?v=2">'
     .'<meta name="theme-color" content="#0B1220">';
@@ -81,7 +81,7 @@ foreach (['login.php','index.php','connect.php','reset.php','install.php'] as $p
     // Remove previous brand-specific head tags so each page has one source of truth.
     $html = preg_replace('~<link\b[^>]*rel=["\'](?:shortcut\s+)?icon["\'][^>]*>~i', '', $html) ?? $html;
     $html = preg_replace('~<link\b[^>]*rel=["\']manifest["\'][^>]*>~i', '', $html) ?? $html;
-    $html = preg_replace('~<link\b[^>]*href=["\']/assets/brand/(?:brand|mobile-shell|integrations-v2)\.css[^"\']*["\'][^>]*>~i', '', $html) ?? $html;
+    $html = preg_replace('~<link\b[^>]*href=["\']/assets/brand/(?:brand|mobile-shell|integrations-v2|integrations-ui-v4)\.css[^"\']*["\'][^>]*>~i', '', $html) ?? $html;
     $html = preg_replace('~<meta\b[^>]*name=["\']theme-color["\'][^>]*>~i', '', $html) ?? $html;
 
     if (str_contains($html, '</head>')) {
