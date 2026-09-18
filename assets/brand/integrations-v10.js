@@ -89,6 +89,19 @@
     card.dataset.provider = provider;
     card.tabIndex = 0;
     card.setAttribute('role', 'button');
+
+    const test = card.querySelector(':scope > .provider-test');
+    if (test) {
+      let sibling = test.nextElementSibling;
+      while (sibling) {
+        if (!sibling.classList.contains('provider-form')) {
+          sibling.classList.add('provider-telemetry-v10');
+          sibling.setAttribute('aria-label', 'Telemetria do último teste');
+        }
+        sibling = sibling.nextElementSibling;
+      }
+    }
+
     setOpen(card, remembered !== '' && remembered === provider, false);
 
     card.addEventListener('click', event => {
