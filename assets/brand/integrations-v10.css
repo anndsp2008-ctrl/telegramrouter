@@ -369,16 +369,16 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   display:none!important;
 }
 
-/* Remove noisy telemetry walls after the provider test row */
-.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test ~ *{
+/* Remove noisy telemetry walls after the provider test row, but never hide the provider form */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test ~ :not(.provider-form){
   display:none!important;
 }
 
-/* Form is the only expanded content */
-.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-form{
+/* Form is hidden only while collapsed and always shown when the card is expanded */
+.translation-provider-grid>*:has(.provider-form input[name="provider"]):not(.is-expanded)>.provider-form{
   display:none!important;
 }
-.translation-provider-grid>*.is-expanded>.provider-form{
+.translation-provider-grid>*:has(.provider-form input[name="provider"]).is-expanded>.provider-form{
   display:grid!important;
   gap:16px!important;
   margin:0!important;
@@ -540,4 +540,22 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
     justify-self:start!important;
     white-space:normal!important;
   }
+}
+
+
+/* Expansion safety override — must remain last */
+.translation-provider-grid > .is-expanded > .provider-form{
+  display:grid!important;
+  visibility:visible!important;
+  opacity:1!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  pointer-events:auto!important;
+}
+.translation-provider-grid > .is-expanded > .provider-form .saas-form-grid,
+.translation-provider-grid > .is-expanded > .provider-form .provider-actions{
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
 }
