@@ -28,7 +28,13 @@ body:has(.translation-provider-grid) .alert,
 body:has(.translation-provider-grid) .alert-success,
 body:has(.translation-provider-grid) .alert-danger,
 body:has(.translation-provider-grid) .saas-alert,
+body:has(.translation-provider-grid) [class*="toast"],
+body:has(.translation-provider-grid) [class*="notification"],
+body:has(.translation-provider-grid) [class*="flash"],
+body:has(.translation-provider-grid) [class*="alert"],
+body:has(.translation-provider-grid) [data-toast],
 body:has(.translation-provider-grid) [role="alert"],
+body:has(.translation-provider-grid) [aria-live],
 body:has(.translation-provider-grid) .form-status {
   display:none!important;
 }
