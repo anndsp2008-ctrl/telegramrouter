@@ -45,21 +45,44 @@
     });
   });
 
-  // Hide only global connection-test feedback. The canonical result lives
-  // inside each provider's .provider-test block.
-  document.querySelectorAll('.form-status,[role="alert"],.alert,.flash-message,.notice').forEach(el => {
-    if (el.closest('.translation-provider-grid')) return;
-    const text = (el.textContent || '').trim().toLowerCase();
-    if (
-      text.includes('conexão realizada com sucesso') ||
-      text.includes('conexao realizada com sucesso') ||
-      text.includes('falha ao testar conexão') ||
-      text.includes('falha ao testar conexao')
-    ) {
-      el.classList.add('integrations-global-test-feedback');
-      el.setAttribute('hidden', '');
-    }
-  });
+  // Remove provider-test feedback rendered outside the provider grid,
+  // regardless of the notification component/class used by the base app.
+  const testFeedbackRx = /(conex[aã]o realizada com sucesso|falha ao testar conex[aã]o)/i;
+  const allOutside = Array.from(document.body.querySelectorAll('*')).filter(el =>
+    !el.closest('.translation-provider-grid') &&
+    testFeedbackRx.test((el.textContent || '').trim())
+  );
+
+  // Work from deepest nodes upward and hide the highest contiguous wrapper
+  // containing only that same feedback text. This removes both banner + toast
+  // without touching the surrounding page layout.
+  allOutside
+    .sort((a,b) => {
+      const depth = el => {
+        let n=0,p=el;
+        while(p && p.parentElement){ n++; p=p.parentElement; }
+        return n;
+      };
+      return depth(b)-depth(a);
+    })
+    .forEach(el => {
+      if (el.closest('.integrations-global-test-feedback')) return;
+
+      let target = el;
+      const normalized = (el.textContent || '').replace(/\s+/g,' ').trim();
+      while (
+        target.parentElement &&
+        target.parentElement !== document.body &&
+        !target.parentElement.closest('.translation-provider-grid') &&
+        (target.parentElement.textContent || '').replace(/\s+/g,' ').trim() === normalized
+      ) {
+        target = target.parentElement;
+      }
+
+      target.classList.add('integrations-global-test-feedback');
+      target.setAttribute('hidden','');
+      target.setAttribute('aria-hidden','true');
+    });
 
   cards.forEach(card => {
     const provider = providerOf(card);
