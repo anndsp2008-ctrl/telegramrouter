@@ -88,7 +88,7 @@ body:has(.translation-provider-grid) .saas-heading p{
   background:#64748b;
 }
 .integrations-overview-v10-status .is-good{
-  color:#bbf7d0!important;
+  color:#39ff88!important;
   border-color:rgba(34,197,94,.14)!important;
   background:rgba(34,197,94,.04)!important;
 }
@@ -360,8 +360,8 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   font-weight:750!important;
   overflow-wrap:anywhere!important;
 }
-.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test.ok>span{color:#86efac!important}
-.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test.bad>span{color:#fca5a5!important}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test.ok>span{color:#39ff88!important}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test.bad>span{color:#ff315a!important}
 .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test>small{
   justify-self:end!important;
   color:rgba(203,213,225,.46)!important;
@@ -487,7 +487,7 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   grid-column:1/-1!important;
   padding-top:8px!important;
   border-top:1px solid rgba(148,163,184,.07)!important;
-  color:#fca5a5!important;
+  color:#ff315a!important;
   font-size:10.5px!important;
   font-style:normal!important;
   line-height:1.45!important;
@@ -920,4 +920,24 @@ body:has(.translation-provider-grid) .translation-provider-grid .form-status{
   .translation-provider-grid .provider-actions button.is-testing-connection::before{
     animation:none!important;
   }
+}
+
+
+/* Global neon success/failure semantics — integrations-specific hard override */
+.translation-provider-grid .provider-test.ok>span,
+.translation-provider-grid .provider-test.ok .status-text{
+  color:#39ff88!important;
+  text-shadow:0 0 8px rgba(57,255,136,.30)!important;
+}
+.translation-provider-grid .provider-test.bad>span,
+.translation-provider-grid .provider-test.bad .status-text,
+.translation-provider-grid .provider-test>em{
+  color:#ff315a!important;
+  text-shadow:0 0 8px rgba(255,49,90,.28)!important;
+}
+.translation-provider-grid .provider-test.ok{
+  border-color:rgba(57,255,136,.20)!important;
+}
+.translation-provider-grid .provider-test.bad{
+  border-color:rgba(255,49,90,.20)!important;
 }
