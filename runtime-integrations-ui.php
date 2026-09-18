@@ -42,7 +42,6 @@ $overview = <<<'HTML'
   </div>
   <div class="integrations-overview-v10-status">
     <span class="<?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0))>0?'is-good':''?>">Chaves <?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0))?>/3</span>
-    <span class="<?=((!empty($azureTest['last_test_ok'])?1:0)+(!empty($geminiTest['last_test_ok'])?1:0)+(!empty($googleCloudTest['last_test_ok'])?1:0))>0?'is-good':''?>">Testes <?=((!empty($azureTest['last_test_ok'])?1:0)+(!empty($geminiTest['last_test_ok'])?1:0)+(!empty($googleCloudTest['last_test_ok'])?1:0))?>/3</span>
     <span class="<?=$connectedPhone!==''?'is-good':''?>">Telegram <?=$connectedPhone!==''?'online':'offline'?></span>
   </div>
 </section>
