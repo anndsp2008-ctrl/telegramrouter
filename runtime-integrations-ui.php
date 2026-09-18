@@ -72,7 +72,7 @@ HTML;
 // Load exactly one copy of the current full-card accordion behavior.
 $source = (string)file_get_contents($path);
 $source = preg_replace(
-    '~<script\\b[^>]*src=["\\']/assets/brand/integrations-v2\\.js(?:\\?v=\\d+)?["\\'][^>]*></script>~i',
+    "~<script\\b[^>]*src=[\"'][^\"']*integrations-v2\\.js[^\"']*[\"'][^>]*></script>~i",
     '',
     $source
 ) ?? $source;
