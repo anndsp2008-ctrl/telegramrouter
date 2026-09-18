@@ -69,18 +69,21 @@ HTML;
     }
 }
 
-// Load the provider accordion only on the integrations workspace.
+// Load exactly one copy of the current full-card accordion behavior.
 $source = (string)file_get_contents($path);
-if (!str_contains($source, '/assets/brand/integrations-v2.js?v=2')) {
-    $source = str_replace(
-        '</body>',
-        '<script src="/assets/brand/integrations-v2.js?v=1" defer></script></body>',
-        $source
-    );
-    if (@file_put_contents($path, $source) === false) {
-        fwrite(STDERR, "INTEGRATIONS_UI_V2_SCRIPT_WRITE_FAILED\n");
-        exit(1);
-    }
+$source = preg_replace(
+    '~<script\\b[^>]*src=["\\']/assets/brand/integrations-v2\\.js(?:\\?v=\\d+)?["\\'][^>]*></script>~i',
+    '',
+    $source
+) ?? $source;
+$source = str_replace(
+    '</body>',
+    '<script src="/assets/brand/integrations-v2.js?v=2" defer></script></body>',
+    $source
+);
+if (@file_put_contents($path, $source) === false) {
+    fwrite(STDERR, "INTEGRATIONS_UI_V2_SCRIPT_WRITE_FAILED\n");
+    exit(1);
 }
 
 $verify = (string)file_get_contents($path);
