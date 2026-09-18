@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title">
+<title>Telegram Router</title>
+<rect width="100" height="100" fill="#2563EB"/>
+<rect x="18" y="18" width="64" height="64" rx="18" fill="#3B82F6"/>
+<path d="M55 27 36 53h13l-6 23 24-31H53l2-18Z" fill="#fff"/>
+<circle cx="65" cy="66" r="2.6" fill="#fff"/>
+</svg>
