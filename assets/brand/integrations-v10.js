@@ -117,62 +117,190 @@
     });
   });
 
-  // Provider forms must bypass live.js completely. Capture on window runs
-  // before document/form listeners, but does not cancel the browser's normal POST.
+  const escapeHtml = value => String(value)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#039;');
+
+  const markTelemetry = card => {
+    const test = card.querySelector(':scope > .provider-test');
+    if (!test) return;
+
+    let sibling = test.nextElementSibling;
+    while (sibling) {
+      if (!sibling.classList.contains('provider-form')) {
+        sibling.classList.add('provider-telemetry-v10');
+        sibling.setAttribute('aria-label', 'Telemetria do último teste');
+      }
+      sibling = sibling.nextElementSibling;
+    }
+  };
+
+  cards.forEach(markTelemetry);
+
+  async function runConnectionTest(form, submitter, card, provider) {
+    if (!submitter || submitter.dataset.testing === '1') return;
+
+    submitter.dataset.testing = '1';
+    const originalLabel = submitter.textContent || 'Testar conexão';
+    submitter.classList.add('is-testing-connection');
+    submitter.setAttribute('aria-busy', 'true');
+    submitter.disabled = true;
+    submitter.textContent = 'Testando conexão…';
+
+    card.classList.add('is-testing-provider');
+    setOpen(card, true, true);
+
+    let testBox = card.querySelector(':scope > .provider-test');
+    const startedAt = performance.now();
+
+    if (testBox) {
+      testBox.classList.remove('ok','bad','neutral');
+      testBox.classList.add('testing');
+      testBox.innerHTML =
+        '<b>Teste de conexão</b>' +
+        '<span>Testando conexão…</span>' +
+        '<small>Aguardando resposta</small>';
+    }
+
+    try {
+      let data;
+      try {
+        data = new FormData(form, submitter);
+      } catch (_) {
+        data = new FormData(form);
+        const name = submitter.getAttribute('name') || 'action';
+        const value = submitter.value || 'test_translation_provider';
+        data.delete(name);
+        data.append(name, value);
+      }
+
+      const submitterName = submitter.getAttribute('name') || 'action';
+      const submitterValue = submitter.value || 'test_translation_provider';
+      if (!data.has(submitterName)) data.append(submitterName, submitterValue);
+
+      const actionUrl = form.getAttribute('action') || window.location.href;
+      const response = await fetch(actionUrl, {
+        method: (form.getAttribute('method') || 'POST').toUpperCase(),
+        body: data,
+        credentials: 'same-origin',
+        cache: 'no-store',
+        redirect: 'follow',
+        headers: { 'Accept': 'text/html' }
+      });
+
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const responseGrid = doc.querySelector('.translation-provider-grid');
+
+      if (!responseGrid) {
+        throw new Error('Resposta do teste sem o módulo de integrações.');
+      }
+
+      const responseCard = Array.from(responseGrid.children).find(item =>
+        (item.querySelector('.provider-form input[name="provider"]')?.value || '') === provider
+      );
+
+      if (!responseCard) {
+        throw new Error('Resposta do provedor não encontrada.');
+      }
+
+      const responseTest = responseCard.querySelector(':scope > .provider-test') ||
+                           responseCard.querySelector('.provider-test');
+
+      if (!responseTest) {
+        throw new Error('Resultado do teste não encontrado.');
+      }
+
+      const responseTelemetry = [];
+      let sibling = responseTest.nextElementSibling;
+      while (sibling) {
+        if (
+          !sibling.classList.contains('provider-form') &&
+          sibling.tagName !== 'SCRIPT' &&
+          sibling.tagName !== 'STYLE'
+        ) {
+          responseTelemetry.push(sibling.cloneNode(true));
+        }
+        sibling = sibling.nextElementSibling;
+      }
+
+      card.querySelectorAll(':scope > .provider-telemetry-v10').forEach(el => el.remove());
+
+      const currentTest = card.querySelector(':scope > .provider-test');
+      const newTest = responseTest.cloneNode(true);
+      if (currentTest) currentTest.replaceWith(newTest);
+      else card.appendChild(newTest);
+
+      responseTelemetry.forEach(el => {
+        el.classList.add('provider-telemetry-v10');
+        el.setAttribute('aria-label', 'Telemetria do último teste');
+      });
+
+      if (responseTelemetry.length) {
+        newTest.after(...responseTelemetry);
+      }
+
+      // Keep result and telemetry inside the tested provider card.
+      setOpen(card, true, true);
+      markTelemetry(card);
+    } catch (error) {
+      const elapsed = Math.max(0, Math.round(performance.now() - startedAt));
+      const when = new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'medium'
+      }).format(new Date());
+
+      testBox = card.querySelector(':scope > .provider-test');
+      if (testBox) {
+        testBox.className = 'provider-test bad';
+        testBox.innerHTML =
+          '<b>Último teste</b>' +
+          '<span>Falha ao testar conexão</span>' +
+          '<small>' + escapeHtml(when) + ' · ' + elapsed + ' ms</small>' +
+          '<em>' + escapeHtml(error?.message || 'Falha inesperada no teste.') + '</em>';
+      }
+      setOpen(card, true, true);
+    } finally {
+      submitter.disabled = false;
+      submitter.dataset.testing = '0';
+      submitter.classList.remove('is-testing-connection');
+      submitter.removeAttribute('aria-busy');
+      submitter.textContent = originalLabel;
+      card.classList.remove('is-testing-provider');
+    }
+  }
+
+  // Test Connection is fully local to the provider card. No page navigation,
+  // no black screen, and no live.js DOM replacement.
   window.addEventListener('submit', event => {
     const form = event.target.closest?.('.translation-provider-grid .provider-form');
     if (!form) return;
 
     const card = form.closest('.translation-provider-grid > *');
-    const provider = card?.dataset.provider || providerOf(card);
+    const provider = card ? (card.dataset.provider || providerOf(card)) : '';
     const submitter = event.submitter;
     const action = submitter?.value || '';
 
-    try {
-      if (provider) sessionStorage.setItem(KEY, provider);
-      sessionStorage.setItem('telegramrouter.integrations.pendingAction', action);
-      sessionStorage.setItem('telegramrouter.integrations.pendingProvider', provider || '');
-    } catch (_) {}
-
-    if (submitter && action === 'test_translation_provider') {
-      submitter.classList.add('is-testing-connection');
-      submitter.setAttribute('aria-busy', 'true');
-      submitter.textContent = 'Testando conexão…';
-    } else if (submitter && action === 'save_translation_provider') {
-      submitter.classList.add('is-saving-provider');
-      submitter.setAttribute('aria-busy', 'true');
-      submitter.textContent = 'Salvando…';
+    if (provider) {
+      try { sessionStorage.setItem(KEY, provider); } catch (_) {}
     }
 
-    // Prevent live.js from intercepting/replacing the page. Do not preventDefault:
-    // the native form submit must continue so the clicked button name/value is sent.
+    if (action === 'test_translation_provider') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      runConnectionTest(form, submitter, card, provider);
+      return;
+    }
+
+    // Saving may use the normal POST, but live.js must not intercept it.
     event.stopPropagation();
   }, true);
 
-  // After a test POST reloads the page, keep the tested provider open and let the
-  // provider-local result be the feedback instead of a duplicate global flash.
-  try {
-    const pendingAction = sessionStorage.getItem('telegramrouter.integrations.pendingAction') || '';
-    const pendingProvider = sessionStorage.getItem('telegramrouter.integrations.pendingProvider') || '';
-
-    if (pendingAction && pendingProvider) {
-      const card = cards.find(item => item.dataset.provider === pendingProvider);
-      if (card) setOpen(card, true, false);
-
-      if (pendingAction === 'test_translation_provider' && card) {
-        const test = card.querySelector(':scope > .provider-test');
-        const hasFreshResult = test && !test.classList.contains('neutral') &&
-          !/Ainda não testado/i.test(test.textContent || '');
-
-        if (hasFreshResult) {
-          document.querySelectorAll('.saas-content > .saas-flash').forEach(flash => {
-            flash.hidden = true;
-          });
-        }
-      }
-
-      sessionStorage.removeItem('telegramrouter.integrations.pendingAction');
-      sessionStorage.removeItem('telegramrouter.integrations.pendingProvider');
-    }
-  } catch (_) {}
 })();
