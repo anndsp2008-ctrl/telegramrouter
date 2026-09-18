@@ -20,7 +20,7 @@ $new = 'fetch(form.getAttribute("action") || window.location.href,';
 // save/test behavior, but disable background GET polling only on integrations.
 $pollMarker = '/* integrations-no-live-poll */';
 $pollPattern = '/const\\s+response\\s*=\\s*await\\s+fetch\\(window\\.location\\.href\\s*,/';
-$pollReplacement = $pollMarker." if (new URLSearchParams(window.location.search).get('page') === 'integrations') return; const response = await fetch(window.location.href,";
+$pollReplacement = $pollMarker." if (document.querySelector('.translation-provider-grid')) return; const response = await fetch(window.location.href,";
 
 if (str_contains($source, $old)) {
     $source = str_replace($old, $new, $source, $count);
