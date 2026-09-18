@@ -87,9 +87,9 @@ if (@file_put_contents($path, $source) === false) {
 }
 
 $verify = (string)file_get_contents($path);
-if (!str_contains($verify, 'integrations_ui_v2') || !str_contains($verify, '/assets/brand/integrations-v2.js?v=3')) {
+if (!str_contains($verify, 'integrations_ui_v2') || !str_contains($verify, '/assets/brand/integrations-ui-v4.js?v=1')) {
     fwrite(STDERR, "INTEGRATIONS_UI_V2_VERIFY_FAILED\n");
     exit(1);
 }
 
-echo "INTEGRATIONS_UI_V2_APPLIED\n";
+echo "INTEGRATIONS_UI_V4_APPLIED\n";
