@@ -66,40 +66,69 @@
         card.querySelector('.saas-card-head') ||
         card.firstElementChild;
 
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'provider-collapse-toggle';
-      button.dataset.providerToggle = provider;
+      let button = card.querySelector(':scope .provider-collapse-toggle');
+      if (!button) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'provider-collapse-toggle';
+        button.dataset.providerToggle = provider;
+
+        if (header) {
+          header.appendChild(button);
+        } else {
+          card.insertBefore(button, card.firstChild);
+        }
+      }
 
       if (form) {
         if (!form.id) form.id = 'provider-form-' + provider.replace(/[^a-z0-9_-]/gi, '-');
         button.setAttribute('aria-controls', form.id);
       }
 
-      if (header) {
-        header.appendChild(button);
-      } else {
-        card.insertBefore(button, card.firstChild);
-      }
-
       const entry = {card, button, provider, name, form};
       entries.push(entry);
 
-      button.addEventListener('click', () => {
-        const willOpen = !card.classList.contains('provider-open');
+      if (!button.dataset.accordionBound) {
+        button.dataset.accordionBound = '1';
+        button.addEventListener('click', () => {
+          const currentGrid = button.closest('.translation-provider-grid');
+          const currentCard = button.closest('.provider-collapsible');
+          if (!currentGrid || !currentCard) return;
 
-        entries.forEach(other => {
-          if (other !== entry) setOpen(other, false, false);
-        });
+          const willOpen = !currentCard.classList.contains('provider-open');
 
-        setOpen(entry, willOpen, true);
-
-        if (willOpen) {
-          requestAnimationFrame(() => {
-            card.scrollIntoView({behavior:'smooth', block:'nearest'});
+          Array.from(currentGrid.querySelectorAll(':scope > .provider-collapsible')).forEach(otherCard => {
+            if (otherCard === currentCard) return;
+            const otherButton = otherCard.querySelector(':scope .provider-collapse-toggle');
+            const otherForm = otherCard.querySelector('.provider-form');
+            const otherProvider = otherCard.dataset.provider || '';
+            if (!otherButton) return;
+            const otherEntry = {
+              card: otherCard,
+              button: otherButton,
+              provider: otherProvider,
+              name: providerName(otherCard, otherProvider),
+              form: otherForm
+            };
+            setOpen(otherEntry, false, false);
           });
-        }
-      });
+
+          const currentEntry = {
+            card: currentCard,
+            button,
+            provider: currentCard.dataset.provider || provider,
+            name: providerName(currentCard, currentCard.dataset.provider || provider),
+            form: currentCard.querySelector('.provider-form')
+          };
+          setOpen(currentEntry, willOpen, true);
+
+          if (willOpen) {
+            requestAnimationFrame(() => {
+              currentCard.scrollIntoView({behavior:'smooth', block:'nearest'});
+            });
+          }
+        });
+      }
     });
 
     // Default: all collapsed. If the user already opened one during this
@@ -113,9 +142,23 @@
     openEntries.slice(1).forEach(entry => setOpen(entry, false, false));
   }
 
+  let observerScheduled = false;
+  const scheduleInit = () => {
+    if (observerScheduled) return;
+    observerScheduled = true;
+    requestAnimationFrame(() => {
+      observerScheduled = false;
+      initIntegrationsAccordion();
+    });
+  };
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initIntegrationsAccordion, {once:true});
+    document.addEventListener('DOMContentLoaded', () => {
+      initIntegrationsAccordion();
+      new MutationObserver(scheduleInit).observe(document.body, {childList:true, subtree:true});
+    }, {once:true});
   } else {
     initIntegrationsAccordion();
+    new MutationObserver(scheduleInit).observe(document.body, {childList:true, subtree:true});
   }
 })();
