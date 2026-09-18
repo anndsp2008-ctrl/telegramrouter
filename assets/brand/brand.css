@@ -1,0 +1,4 @@
+.saas-logo.brand-mark{display:grid!important;place-items:center!important;overflow:hidden!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
+.saas-logo.brand-mark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important}
+img.tmr-brand-login{display:block;max-width:92px;width:22vw;height:auto;margin:0 auto 14px}
+@media(max-width:640px){img.tmr-brand-login{max-width:78px}}
