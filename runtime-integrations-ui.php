@@ -48,7 +48,7 @@ $overview = <<<'HTML'
 </section>
 HTML;
 
-$source = str_replace($marker, $overview."\n".$marker, $insertCount);
+$source = str_replace($marker, $overview."\n".$marker, $source, $insertCount);
 if ($insertCount !== 1) {
     fwrite(STDERR, "INTEGRATIONS_UI_V10_INSERT_FAILED\n");
     exit(1);
