@@ -13,6 +13,23 @@ if (!is_file($path)) {
 
 $source = (string)file_get_contents($path);
 
+// Temporary sanitized diagnostic for provider-test global feedback. It only logs
+// source fragments around static test-message/action markers; credentials are
+// never printed.
+foreach (['Conexão realizada com sucesso', 'test_translation_provider'] as $diagNeedle) {
+    $offset = 0;
+    $diagCount = 0;
+    while (($pos = strpos($source, $diagNeedle, $offset)) !== false && $diagCount < 8) {
+        $from = max(0, $pos - 260);
+        $fragment = substr($source, $from, 620);
+        $fragment = preg_replace('/\s+/', ' ', $fragment) ?? $fragment;
+        $fragment = preg_replace('/(api[_-]?key|token|secret|password)\s*[=:]\s*[^\s<]+/i', '$1=[REDACTED]', $fragment) ?? $fragment;
+        echo "INTEGRATIONS_TEST_DIAG ".base64_encode($fragment)."\n";
+        $offset = $pos + strlen($diagNeedle);
+        $diagCount++;
+    }
+}
+
 // Remove legacy dedicated layout and any previous integrations behavior bundle.
 $source = preg_replace(
     '~<link\b[^>]*href=["\']/assets/integrations-layout\.css[^"\']*["\'][^>]*>~i',
