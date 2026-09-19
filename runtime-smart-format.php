@@ -155,20 +155,34 @@ HTML;
             $card=$formatted['image'];
             if($output==='card' && $card!==null){
                 try {
-                    // SmartFormatting::prepare checked the full caption's UTF-16 size.
-                    // Send every line of the original analysis; no 480-character truncation.
-                    $summary=$newText;
-                    $this->messages->sendMedia(
-                        peer:$peer,
-                        media:['_'=>'inputMediaUploadedPhoto','file'=>$card],
-                        message:$summary,
-                        entities:[]
-                    );
-                    $this->deliveryMethod='ai_vip_card';
+                    // Split only at the Telegram caption boundary; keep the entire analysis.
+                    [$summary,$continuation]=$this->splitCaption($newText,[],1024);
+                    $footer=SmartFormatting::signature();
+                    $continuationPrefix="↪️ Continuação da mensagem:\n\n";
+                    if($continuation!==''){
+                        $units=(int)(strlen(mb_convert_encoding($continuationPrefix.$continuation.$footer,'UTF-16LE','UTF-8'))/2);
+                        if($units>4096){
+                            // Do not send the card unless the complete analysis can follow.
+                            $formatted=null;
+                        }
+                    }
+                    if($formatted!==null){
+                        $this->messages->sendMedia(
+                            peer:$peer,
+                            media:['_'=>'inputMediaUploadedPhoto','file'=>$card],
+                            message:$summary,
+                            entities:[]
+                        );
+                        $this->deliveryMethod='ai_vip_card';
+                        if($continuation!==''){
+                            // The separator comes after the LAST part, never between parts.
+                            $this->sendContinuation($peer,$continuation.$footer,[]);
+                        }
+                        return;
+                    }
                 } finally {
                     @unlink($card);
                 }
-                return;
             }
             if($output==='text' || $deliveryMedia===null){
                 // Telegram's text cap is 4096 UTF-16 units. Do not truncate analysis.
