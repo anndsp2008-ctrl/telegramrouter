@@ -148,10 +148,15 @@ try {
             ['router_rules','translation_provider',"ENUM('azure','gemini','google_cloud','workers_ai') NOT NULL DEFAULT 'azure'"],
             ['translation_attempts','provider',"ENUM('azure','gemini','google_cloud','workers_ai') NOT NULL"]
         ] as [$table,$column,$definition]){
-            $status=$pdo->query("SHOW COLUMNS FROM \`$table\` LIKE ".$pdo->quote($column))->fetch();
-            if(!is_array($status)||!isset($status['Type']))throw new \RuntimeException('WORKERS_AI_DB_COLUMN_'.$table);
-            if(!str_contains(strtolower((string)$status['Type']),"'workers_ai'")){
-                $pdo->exec("ALTER TABLE \`$table\` MODIFY COLUMN \`$column\` $definition");
+            $check=$pdo->prepare('SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?');
+            $check->execute([$table,$column]);
+            $columnType=(string)($check->fetchColumn()?:'');
+            if($columnType==='')throw new \RuntimeException('WORKERS_AI_DB_COLUMN_'.$table);
+            if(!str_contains(strtolower($columnType),"'workers_ai'")){
+                if(!in_array($table,['router_rules','translation_attempts'],true)||
+                   !in_array($column,['translation_provider','provider'],true))
+                    throw new \RuntimeException('WORKERS_AI_DB_IDENTIFIER');
+                $pdo->exec("ALTER TABLE `$table` MODIFY `$column` $definition");
             }
         }
     }
