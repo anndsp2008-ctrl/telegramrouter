@@ -46,6 +46,11 @@ namespace {
     $css=(string)file_get_contents(__DIR__.'/../assets/brand/workers-ai-provider.css');
     if(!str_contains($css,'content:"CF"!important') || !str_contains($css,'--provider-accent:#f48120!important'))
         throw new \RuntimeException('Workers AI provider icon or color absent');
+    $installer=(string)file_get_contents(__DIR__.'/../runtime-workers-ai.php');
+    if(!str_contains($installer,'workers-ai-provider.css?v=2') ||
+       !str_contains($css,'.provider-badge.is-configured')){
+        throw new \RuntimeException('Workers AI provider cache or status styling may be stale');
+    }
     echo "WORKERS_AI_CARD_V10_VISUAL_PARITY_TESTS_PASSED\n";
     echo "WORKERS_AI_CARD_RENDER_TESTS_PASSED\n";
 }
