@@ -12,7 +12,7 @@ try {
     $endpoint='https://generativelanguage.googleapis.com/v1beta/models/'
              .rawurlencode($data['model']).':generateContent';
     $ch=curl_init($endpoint);
-    if($ch===false){echo '{"ok":false}';exit(0);}
+    if($ch===false){echo '{"ok":false,"reason":"CURL_INIT_FAILED"}';exit(0);}
     curl_setopt_array($ch,[
         CURLOPT_POST=>true,
         CURLOPT_POSTFIELDS=>$data['payload'],
@@ -24,15 +24,17 @@ try {
         CURLOPT_MAXREDIRS=>0
     ]);
     $result=curl_exec($ch);
+    $curlErr=(int)curl_errno($ch);
     $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
     curl_close($ch);
     if($http!==200||!is_string($result)||strlen($result)>400000){
-        echo '{"ok":false}';exit(0);
+        $reason=$http===429?'HTTP_429':($http===503?'HTTP_503':($http===401||$http===403?'HTTP_AUTH':($http>=400&&$http<500?'HTTP_CLIENT':($http>=500?'HTTP_SERVER':($curlErr===28?'CURL_TIMEOUT':'NETWORK_ERROR')))));
+        echo json_encode(['ok'=>false,'reason'=>$reason]);exit(0);
     }
     $decoded=json_decode($result,true);
     $body=$decoded['candidates'][0]['content']['parts'][0]['text']??null;
     $parsed=is_string($body)?json_decode($body,true):null;
-    if(!is_array($parsed)){echo '{"ok":false}';exit(0);}
+    if(!is_array($parsed)){echo '{"ok":false,"reason":"JSON_OR_RESPONSE_SCHEMA"}';exit(0);}
     $output=json_encode(['ok'=>true,'data'=>$parsed],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     echo is_string($output)?$output:'{"ok":false}';
 } catch(\Throwable $error) {
