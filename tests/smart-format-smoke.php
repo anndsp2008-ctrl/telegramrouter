@@ -42,6 +42,10 @@ if($profit!=='1.200,00 €')throw new RuntimeException('Incorrect deterministic 
 $liveBet['potential_profit']=$profit;
 if(SmartFormatting::calculatePotentialProfit('2.000,00 €','3.200,00 R$')!=='')
     throw new RuntimeException('Mixed currencies must not produce inferred profit');
+if(SmartFormatting::calculatePotentialProfit('R$ 2.000,00','R$ 3.200,00')!=='R$ 1.200,00')
+    throw new RuntimeException('BRL profit parsing failed');
+if(SmartFormatting::calculatePotentialProfit('2,000.00 USD','3,200.00 USD')!=='1.200,00 USD')
+    throw new RuntimeException('US-formatted amount parsing failed');
 if(SmartFormatting::calculatePotentialProfit('100,00 €','50,00 €')!=='')
     throw new RuntimeException('Negative returns must not produce misleading profit');
 $liveText=SmartFormatting::asText($liveBet,true);
@@ -55,5 +59,12 @@ $liveSize=getimagesize($liveImage);
 if(!is_array($liveSize)||$liveSize['mime']!=='image/png'||$liveSize[0]!==1080)
     throw new RuntimeException('Invalid live slip PNG');
 @unlink($liveImage);
+putenv('VIP_CARD_FORCE_PURE=0');
+$liveGdImage=VipCardRenderer::render($liveBet);
+if($liveGdImage===null)throw new RuntimeException('Live slip GD or fallback render unavailable');
+$liveGdSize=getimagesize($liveGdImage);
+if(!is_array($liveGdSize)||$liveGdSize['mime']!=='image/png'||$liveGdSize[0]!==1080)
+    throw new RuntimeException('Invalid live slip GD/fallback PNG');
+@unlink($liveGdImage);
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
 echo "SMART_FORMAT_TESTS_PASSED\n";
