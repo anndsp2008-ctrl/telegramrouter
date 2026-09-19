@@ -70,6 +70,7 @@ $headBrand = '<link rel="stylesheet" href="/assets/brand/brand.css?v=2">'
     .'<link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8">'
     .'<link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=2">'
     .'<link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1">'
+    .'<link rel="stylesheet" href="/assets/brand/mobile-visual-audit.css?v=1">'
     .'<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3">'
     .'<link rel="manifest" href="/manifest.webmanifest?v=2">'
     .'<meta name="theme-color" content="#0B1220">';
