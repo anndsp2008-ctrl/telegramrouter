@@ -47,5 +47,21 @@ namespace {
     if(!str_contains($css,'content:"CF"!important') || !str_contains($css,'--provider-accent:#f48120!important'))
         throw new \RuntimeException('Workers AI provider icon or color absent');
     echo "WORKERS_AI_CARD_V10_VISUAL_PARITY_TESTS_PASSED\n";
+    // The provider must use the same full-width 4-column grid as Azure/Gemini.
+    // This regression caught the old 80px text column / full-width status pill.
+    $css=file_get_contents(__DIR__.'/../assets/brand/workers-ai-provider.css');
+    if(!is_string($css)||
+       !str_contains($css,'grid-template-columns:46px minmax(0,1fr) max-content 34px!important;')||
+       !str_contains($css,'grid-column:2!important;')||
+       !str_contains($css,'grid-column:3!important;')||
+       !str_contains($css,'width:max-content!important;')||
+       !str_contains($css,'content:"CF"!important;')){
+        throw new \RuntimeException('Workers AI visual parity CSS contract not satisfied');
+    }
+    if(substr_count($output,'<div class="saas-card-head">')!==1||
+       substr_count($output,'class="form-status ')!==1){
+        throw new \RuntimeException('Workers AI header differs from established provider layout');
+    }
+    echo "WORKERS_AI_V10_LAYOUT_TESTS_PASSED\n";
     echo "WORKERS_AI_CARD_RENDER_TESTS_PASSED\n";
 }
