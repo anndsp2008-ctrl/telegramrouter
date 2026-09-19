@@ -39,7 +39,7 @@ namespace {
     // v10 headers use four grid cells: icon (pseudo-element), content,
     // configuration badge, and chevron (pseudo-element). A generic
     // form-status breaks this grid by stretching across the whole row.
-    if(!preg_match('/<div class="provider-head">\\s*<div>.*?<\\/div>\\s*<span class="provider-badge is-configured">Configurado<\\/span>\\s*<\\/div>/s',$output))
+    if(!preg_match('/<div class="provider-head">\\s*<div>.*?<\\/div>\\s*<span class="provider-badge is-configured">\\s*Configurado\\s*<\\/span>\\s*<\\/div>/s',$output))
         throw new \RuntimeException('Workers AI header does not match the v10 provider grid');
     if(str_contains($output,'class="form-status"') || str_contains($output,'class="saas-card-head"'))
         throw new \RuntimeException('Workers AI is using legacy header/badge classes');
