@@ -7,12 +7,17 @@ final class VipCardRenderer
     private const BG='#141b23';
     private const GREEN='#87efc9';
 
-    /** Returns a private PNG file path, or null when the host lacks a usable renderer. */
+    /** Returns a private PNG file path using GD when available, otherwise the zero-dependency renderer. */
     public static function render(array $bet): ?string
     {
-        if (!extension_loaded('gd') || !function_exists('imagettftext')) return null;
+        if(getenv('VIP_CARD_FORCE_PURE')==='1'){
+            return PurePngVipCardRenderer::render($bet);
+        }
+        if (!extension_loaded('gd') || !function_exists('imagettftext')){
+            return PurePngVipCardRenderer::render($bet);
+        }
         $font=self::font(false); $bold=self::font(true);
-        if (!$font || !$bold) return null;
+        if (!$font || !$bold) return PurePngVipCardRenderer::render($bet);
         $w=1080; $pad=46;
         $analysis=trim((string)($bet['analysis']??''));
         $analysisLines=self::lines($analysis,83);

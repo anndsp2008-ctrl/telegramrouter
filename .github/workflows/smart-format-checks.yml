@@ -20,6 +20,7 @@ jobs:
       - name: Lint standalone modules
         run: |
           php -l app/SmartFormatting.php
+          php -l app/PurePngVipCardRenderer.php
           php -l app/VipCardRenderer.php
           php -l runtime-smart-format.php
       - name: Reconstruct sanitized baseline and patch it offline

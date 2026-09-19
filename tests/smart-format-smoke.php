@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+require __DIR__.'/../app/PurePngVipCardRenderer.php';
 require __DIR__.'/../app/VipCardRenderer.php';
 require __DIR__.'/../app/SmartFormatting.php';
 use App\VipCardRenderer;
@@ -12,6 +13,7 @@ foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $req
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+putenv('VIP_CARD_FORCE_PURE=1');
 $image=VipCardRenderer::render($bet);
 if($image===null)throw new RuntimeException('VIP rendering unavailable even with GD and DejaVu fonts');
 $size=getimagesize($image);
