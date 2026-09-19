@@ -226,3 +226,41 @@
     gap:10px!important;
   }
 }
+
+/* Tipografia e proporção dos selects em todas as telas do projeto.
+   Apenas mobile/tablet; mantém o ícone de seta já personalizado. */
+@media (max-width:1024px){
+  body select:not([multiple]),
+  body .saas-content select:not([multiple]),
+  body .routing-form select:not([multiple]),
+  body .provider-form select:not([multiple]),
+  body .translation-provider-grid select:not([multiple]),
+  body select:not([multiple]) option{
+    font-size:13px!important;
+    font-weight:400!important;
+    line-height:1.35!important;
+  }
+  body select:not([multiple]){
+    box-sizing:border-box!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:42px!important;
+    padding:9px 39px 9px 12px!important;
+    background-position:right 12px center!important;
+  }
+}
+@media (max-width:640px){
+  body select:not([multiple]),
+  body .saas-content select:not([multiple]),
+  body .routing-form select:not([multiple]),
+  body .provider-form select:not([multiple]),
+  body .translation-provider-grid select:not([multiple]),
+  body select:not([multiple]) option{
+    font-size:12.5px!important;
+  }
+  body select:not([multiple]){
+    min-height:40px!important;
+    padding:8px 37px 8px 11px!important;
+    background-position:right 11px center!important;
+  }
+}
