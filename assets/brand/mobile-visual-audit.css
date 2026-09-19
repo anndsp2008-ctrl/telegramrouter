@@ -264,3 +264,108 @@
     background-position:right 11px center!important;
   }
 }
+
+/* Fluxo Origem → Gatilho → Destino: linha do tempo compacta para celular/tablet.
+   Utiliza o HTML existente; mantém a versão desktop e o processamento intactos. */
+@media (max-width:1024px){
+  .saas-content .routing-flow{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    align-items:start!important;
+    justify-content:stretch!important;
+    gap:0!important;
+    min-width:0!important;
+    width:100%!important;
+    padding:14px 16px!important;
+    box-sizing:border-box!important;
+  }
+  .saas-content .routing-flow>div{
+    position:relative!important;
+    display:grid!important;
+    grid-template-columns:34px minmax(0,1fr)!important;
+    grid-template-rows:auto auto!important;
+    align-content:center!important;
+    align-items:center!important;
+    column-gap:11px!important;
+    row-gap:3px!important;
+    min-width:0!important;
+    width:100%!important;
+    min-height:58px!important;
+    height:auto!important;
+    margin:0!important;
+    padding:9px 0!important;
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    text-align:left!important;
+  }
+  .saas-content .routing-flow>div:not(:last-child)::after{
+    content:""!important;
+    position:absolute!important;
+    left:16px!important;
+    top:calc(50% + 18px)!important;
+    bottom:-9px!important;
+    width:1px!important;
+    background:rgba(121,233,190,.22)!important;
+    transform:none!important;
+    pointer-events:none!important;
+  }
+  .saas-content .routing-flow>div>.flow-number{
+    grid-column:1!important;
+    grid-row:1 / 3!important;
+    display:grid!important;
+    place-items:center!important;
+    align-self:center!important;
+    flex:none!important;
+    width:33px!important;
+    min-width:33px!important;
+    height:33px!important;
+    min-height:33px!important;
+    margin:0!important;
+    padding:0!important;
+    border-radius:10px!important;
+    background:#152a29!important;
+    color:#79e9be!important;
+    font-size:12px!important;
+    font-weight:700!important;
+    line-height:1!important;
+  }
+  .saas-content .routing-flow>div>b{
+    grid-column:2!important;
+    grid-row:1!important;
+    display:block!important;
+    width:auto!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    font-size:14px!important;
+    line-height:1.25!important;
+    font-weight:700!important;
+    color:#eaf2fa!important;
+    overflow-wrap:anywhere!important;
+  }
+  .saas-content .routing-flow>div>small{
+    grid-column:2!important;
+    grid-row:2!important;
+    display:block!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    font-size:12px!important;
+    line-height:1.4!important;
+    font-weight:400!important;
+    color:#93a8bc!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    text-align:left!important;
+  }
+  .saas-content .routing-flow>.flow-arrow{
+    display:none!important;
+  }
+}
+@media (max-width:400px){
+  .saas-content .routing-flow{padding:11px 13px!important}
+  .saas-content .routing-flow>div{column-gap:9px!important;min-height:55px!important}
+}
