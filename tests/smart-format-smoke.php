@@ -112,6 +112,40 @@ foreach(['1','0'] as $usePure){
     }
     foreach([$first,$second,$third] as $tmp)@unlink($tmp);
 }
+// The new seals and separators must not affect the full original analysis,
+// betting details, or the fallback's ability to produce a valid PNG.
+foreach(['1','0'] as $usePure){
+    putenv('VIP_CARD_FORCE_PURE='.$usePure);
+    $sportExample=$cardFixture;
+    $sportExample['sport']='Futebol';
+    $sportExample['analysis']='A análise do autor deve permanecer inteira, sem resumos ou alteração de frases.';
+    $baseline=VipCardRenderer::render($sportExample);
+    if($baseline===null)throw new RuntimeException('VIP sport seal baseline failed');
+    $size=getimagesize($baseline);
+    if(!is_array($size)||$size[0]!==1080||$size['mime']!=='image/png')
+        throw new RuntimeException('Invalid VIP seal PNG');
+    $sportExample['sport']='Basquete';
+    $otherSport=VipCardRenderer::render($sportExample);
+    if($otherSport===null||hash_file('sha256',$baseline)===hash_file('sha256',$otherSport))
+        throw new RuntimeException('Sport badge did not follow the identified sport');
+    $sportExample['sport']='Futebol';
+    $sportExample['bookmaker']='ANOTHER_BOOKMAKER';
+    $sportExample['time']='00h00';
+    $sportExample['potential_profit']='123.456,00 €';
+    $withoutReceipt=VipCardRenderer::render($sportExample);
+    if($withoutReceipt===null||hash_file('sha256',$baseline)!==hash_file('sha256',$withoutReceipt))
+        throw new RuntimeException('VIP seal leaked source-tip time or money');
+    foreach([$baseline,$otherSport,$withoutReceipt] as $imagePath)@unlink($imagePath);
+}
+putenv('VIP_CARD_FORCE_PURE=0');
+if(extension_loaded('gd') && function_exists('imagettftext')){
+    $fonts=['/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/TTF/DejaVuSans.ttf'];
+    if(!array_filter($fonts,'is_file'))throw new RuntimeException('GD font missing in CI');
+}
+echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
 echo "SMART_FORMAT_TESTS_PASSED\n";
