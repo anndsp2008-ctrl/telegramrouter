@@ -7,93 +7,125 @@ final class VipCardRenderer
     private const BG='#141b23';
     private const GREEN='#87efc9';
 
-    /** Returns a private PNG file path using GD when available, otherwise the zero-dependency renderer. */
+    /** Card-only presentation. The original message and extracted fields stay unchanged. */
     public static function render(array $bet): ?string
     {
-        if(getenv('VIP_CARD_FORCE_PURE')==='1'){
-            return PurePngVipCardRenderer::render($bet);
-        }
-        if (!extension_loaded('gd') || !function_exists('imagettftext')){
+        if(getenv('VIP_CARD_FORCE_PURE')==='1' || !extension_loaded('gd') || !function_exists('imagettftext')){
             return PurePngVipCardRenderer::render($bet);
         }
         $font=self::font(false); $bold=self::font(true);
-        if (!$font || !$bold) return PurePngVipCardRenderer::render($bet);
-        $w=1080; $pad=46;
-        $slip=($bet['status']??'')==='AO VIVO' && !empty($bet['stake_amount']) && !empty($bet['potential_return']);
+        if(!$font || !$bold)return PurePngVipCardRenderer::render($bet);
+
         $analysis=trim((string)($bet['analysis']??''));
-        $analysisLines=self::lines($analysis,83);
+        $displayAnalysis=$analysis!==''?$analysis:'Análise não fornecida no conteúdo original.';
+        $analysisLines=self::wrapAnalysis($displayAnalysis,$font,19,930);
         if($analysisLines===null)return null; // Never truncate the author's analysis.
-        $analysisHeight=$slip && $analysis==='' ? 0 : max(100,count($analysisLines)*30+48);
-        $h=min(4000,($slip?1120:1010)+$analysisHeight);
+
+        $w=1080; $analysisY=523;
+        $analysisHeight=max(114,75+count($analysisLines)*30);
+        $dividerY=$analysisY+$analysisHeight+28;
+        $h=$dividerY+105;
+        if($h>4000)return null;
         $im=imagecreatetruecolor($w,$h);
-        if (!$im) return null;
-        imagealphablending($im,true); imagesavealpha($im,true);
-        $color=static fn(string $hex): int => imagecolorallocate($im,hexdec(substr($hex,1,2)),hexdec(substr($hex,3,2)),hexdec(substr($hex,5,2)));
-        $bg=$color(self::BG); $white=$color('#f2f7fb'); $muted=$color('#9ab0c2');
-        $green=$color(self::GREEN); $panel=$color('#1b302f'); $analysisBg=$color('#222f3e');$line=$color('#405261');
+        if(!$im)return null;
+        imagealphablending($im,true);imagesavealpha($im,true);
+        $color=static fn(string $hex): int=>imagecolorallocate($im,hexdec(substr($hex,1,2)),hexdec(substr($hex,3,2)),hexdec(substr($hex,5,2)));
+        $bg=$color('#161d24');$white=$color('#f3f6fa');$muted=$color('#a8bdcd');
+        $green=$color('#87efc9');$panel=$color('#1b3230');$analysisBg=$color('#1d2935');
+        $line=$color('#3c4d5b');
         imagefilledrectangle($im,0,0,$w,$h,$bg);
-        self::roundRect($im,30,27,$w-30,$h-27,28,$color('#1b2632'));
-        self::roundRect($im,36,33,$w-36,$h-33,25,$bg);
-        self::roundRect($im,58,57,216,98,19,$panel);
-        self::txt($im,73,86,'FUTEBOL',17,$green,$bold);
-        self::roundRect($im,827,57,1022,98,19,$color($slip?'#3b2922':'#1a293a'));
-        self::txt($im,841,86,$slip?'AO VIVO':'APOSTA VIP',16,$color($slip?'#ff9b5c':'#93c5fd'),$bold);
-        $title=trim((string)($bet['match']??'')) ?: 'Aposta esportiva';
-        self::txt($im,58,159,self::fit($title,36),31,$white,$bold);
+        self::roundRect($im,22,18,1058,$h-18,25,$line);
+        self::roundRect($im,24,20,1056,$h-20,23,$bg);
+
+        // Header and typography match the approved compact dark card.
+        self::roundRect($im,53,44,179,79,17,$panel);
+        self::txt($im,64,69,'FUTEBOL',15,$green,$bold);
+        self::txt($im,864,70,'APOSTA DO DIA',15,$muted,$font);
+
+        $title=trim((string)($bet['match']??''));
         $league=trim((string)($bet['league']??''));
-        if($league!=='')self::txt($im,58,209,self::fit($league,65),19,$muted,$font);
-        imageline($im,58,247,1021,247,$line);
-        self::txt($im,58,293,'MERCADO',16,$muted,$font);
-        self::txt($im,58,329,self::fit((string)($bet['market']??''),61),23,$white,$bold);
-        self::txt($im,58,381,'SELEÇÃO',16,$muted,$font);
-        self::txt($im,58,422,self::fit((string)($bet['selection']??''),59),28,$green,$bold);
-        self::roundRect($im,58,455,527,584,17,$panel);
-        self::roundRect($im,540,455,1022,584,17,$panel);
-        self::txt($im,78,491,'ODD',17,$muted,$font);
-        self::txt($im,78,552,trim((string)($bet['odd']??'')) ?: '—',43,$green,$bold);
-        self::txt($im,562,491,$slip?'STAKE':'HORÁRIO',17,$muted,$font);
-        self::txt($im,562,552,trim((string)($bet[$slip?'stake':'time']??'')) ?: '—',43,$green,$bold);
-        $y=633;
-        if($slip){
-            if(!empty($bet['time'])){
-                self::txt($im,58,$y,'HORÁRIO INFORMADO',15,$muted,$font);
-                self::txt($im,58,$y+36,self::fit((string)$bet['time'],32),24,$white,$bold);
+        $market=trim((string)($bet['market']??''));
+        $selection=trim((string)($bet['selection']??''));
+        foreach([[$title,$bold,33,18,950],[$league,$font,19,14,950],
+            [$market,$bold,23,16,950],[$selection,$bold,24,16,950]] as [$value,$face,$preferred,$min,$width]){
+            if($value!=='' && self::fitSize($value,$face,$preferred,$min,$width)===null){
+                imagedestroy($im);return null;
             }
-            imageline($im,58,713,1021,713,$line);
-            self::txt($im,58,754,'COMPROVANTE DA APOSTA',16,$muted,$font);
-            $proofY=796;
-            foreach(['stake_amount'=>'Valor apostado','potential_return'=>'Retorno potencial','potential_profit'=>'Lucro potencial'] as $key=>$label){
-                if(empty($bet[$key]))continue;
-                self::txt($im,58,$proofY,$label,18,$white,$font);
-                self::txt($im,710,$proofY,self::fit((string)$bet[$key],22),20,$key==='potential_return'?$green:$white,$bold);
-                $proofY+=48;
-            }
-            $sectionY=980;
-        } else {
-            foreach (['day'=>'DIA DA PARTIDA','stake'=>'STAKE','bookmaker'=>'CASA DE APOSTAS','stake_amount'=>'VALOR APOSTADO','potential_return'=>'RETORNO POTENCIAL'] as $key=>$label) {
-                $value=trim((string)($bet[$key]??'')); if($value==='')continue;
-                self::txt($im,58,$y,$label,15,$muted,$font);
-                self::txt($im,58,$y+33,self::fit($value,80),21,$white,$bold);
-                $y+=69;
-                if($y>765)break;
-            }
-            $sectionY=max(790,$y+30);
         }
-        $required=$sectionY+$analysisHeight+102;
-        if($required>$h){imagedestroy($im);return null;}
-        if($analysisHeight>0){
-            self::roundRect($im,58,$sectionY,1022,$sectionY+$analysisHeight,15,$analysisBg);
-            self::txt($im,78,$sectionY+32,'ANÁLISE ORIGINAL',15,$muted,$font);
-            $cursor=$sectionY+66;
-            foreach($analysisLines as $part){self::txt($im,78,$cursor,$part,19,$white,$font);$cursor+=30;}
+        self::txt($im,53,142,$title, self::fitSize($title,$bold,33,18,950)??33,$white,$bold);
+        if($league!=='')self::txt($im,53,185,$league,self::fitSize($league,$font,19,14,950)??19,$muted,$font);
+        imageline($im,53,218,1027,218,$line);
+
+        self::txt($im,53,261,'MERCADO',16,$muted,$font);
+        self::txt($im,53,295,$market,self::fitSize($market,$bold,23,16,950)??23,$white,$bold);
+        self::txt($im,53,344,'SELEÇÃO',16,$muted,$font);
+        self::txt($im,53,382,$selection,self::fitSize($selection,$bold,24,16,950)??24,$white,$bold);
+
+        self::roundRect($im,53,407,532,505,15,$panel);
+        self::roundRect($im,547,407,1027,505,15,$panel);
+        self::txt($im,71,437,'ODD',16,$muted,$font);
+        self::txt($im,565,437,'STAKE',16,$muted,$font);
+        $odd=trim((string)($bet['odd']??''))?:'—';
+        $stake=trim((string)($bet['stake']??''))?:'—';
+        $oddSize=self::fitSize($odd,$bold,42,22,435);
+        $stakeSize=self::fitSize($stake,$bold,42,22,435);
+        if($oddSize===null||$stakeSize===null){imagedestroy($im);return null;}
+        self::txt($im,71,490,$odd,$oddSize,$green,$bold);
+        self::txt($im,565,490,$stake,$stakeSize,$green,$bold);
+
+        self::roundRect($im,53,$analysisY,1027,$analysisY+$analysisHeight,17,$analysisBg);
+        self::txt($im,72,$analysisY+35,'ANÁLISE ORIGINAL',16,$muted,$font);
+        $cursor=$analysisY+72;
+        foreach($analysisLines as $part){
+            self::txt($im,72,$cursor,$part,19,$white,$font);
+            $cursor+=30;
         }
-        imageline($im,58,$sectionY+$analysisHeight+32,1022,$sectionY+$analysisHeight+32,$line);
-        self::txt($im,300,$sectionY+$analysisHeight+84,'⚡ TelegramRouter • Aposta encaminhada',16,$green,$font);
+        imageline($im,53,$dividerY,1027,$dividerY,$line);
+        // Draw the lightning emblem separately to avoid unsupported emoji font glyphs.
+        imagefilledpolygon($im,[380,$dividerY+38,392,$dividerY+38,387,$dividerY+49,
+            398,$dividerY+49,378,$dividerY+75,385,$dividerY+56,375,$dividerY+56],7,$color('#ffce4f'));
+        self::txt($im,406,$dividerY+62,'TelegramRouter • Aposta encaminhada',16,$green,$font);
+
         $path=sys_get_temp_dir().'/tmr-vip-'.bin2hex(random_bytes(12)).'.png';
         $ok=imagepng($im,$path,7);imagedestroy($im);
-        if(!$ok || !is_file($path)){@unlink($path);return null;}
+        if(!$ok||!is_file($path)){@unlink($path);return null;}
         @chmod($path,0600);
         return $path;
+    }
+    /** Fit non-analysis labels without silently cutting betting information. */
+    private static function fitSize(string $text,string $font,int $preferred,int $min,int $maxWidth): ?int
+    {
+        if($text==='')return $preferred;
+        for($size=$preferred;$size>=$min;$size--){
+            $bounds=imagettfbbox($size,0,$font,$text);
+            if(is_array($bounds)&&abs($bounds[2]-$bounds[0])<=$maxWidth)return $size;
+        }
+        return null;
+    }
+    /** @return list<string>|null */
+    private static function wrapAnalysis(string $text,string $font,int $size,int $maxWidth): ?array
+    {
+        $lines=[];
+        foreach(preg_split('/\\R/u',$text)?:[] as $paragraph){
+            $words=preg_split('/\\s+/u',trim($paragraph))?:[];
+            $line='';
+            foreach($words as $word){
+                if($word==='')continue;
+                $candidate=$line===''?$word:$line.' '.$word;
+                $bounds=imagettfbbox($size,0,$font,$candidate);
+                if(!is_array($bounds))return null;
+                if(abs($bounds[2]-$bounds[0])>$maxWidth){
+                    if($line==='')return null;
+                    $lines[]=$line;$line=$word;
+                    $single=imagettfbbox($size,0,$font,$line);
+                    if(!is_array($single)||abs($single[2]-$single[0])>$maxWidth)return null;
+                }else{$line=$candidate;}
+                if(count($lines)>100)return null;
+            }
+            if($line!=='')$lines[]=$line;
+            else if($paragraph==='')$lines[]='';
+        }
+        return count($lines)<=100?$lines:null;
     }
     private static function font(bool $bold): ?string
     {

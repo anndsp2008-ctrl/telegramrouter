@@ -64,7 +64,11 @@ final class SmartFormatting
         $bet['potential_profit']=self::calculatePotentialProfit($bet['stake_amount'],$bet['potential_return']);
         if($bet['selection']===''||$bet['market']===''||$bet['match']===''){self::diag('REQUIRED_FIELDS_INCOMPLETE');return null;}
         if($bet['analysis']==='' && self::containsAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
-        $text=self::asText($bet,$translate);
+        // Keep the underlying extraction untouched. Only card-mode presentation
+        // suppresses tip-send time, bookmaker and receipt amounts. Text and
+        // original-image caption modes continue to behave exactly as before.
+        $presentedBet=$mode==='card'?self::cardView($bet):$bet;
+        $text=self::asText($presentedBet,$translate);
         $image=null;
         if($mode==='card') {
             // A long analysis can continue after the visual card. Keep all original details.
@@ -72,7 +76,7 @@ final class SmartFormatting
             $totalUnits=(int)(strlen(mb_convert_encoding($text,'UTF-16LE','UTF-8'))/2);
             $continuationOverhead=(int)(strlen(mb_convert_encoding("↪️ Continuação da mensagem:\n\n".self::signature(),'UTF-16LE','UTF-8'))/2);
             if($totalUnits>1024+4096-$continuationOverhead){self::diag('CARD_TEXT_EXCEEDS_SINGLE_CONTINUATION');return null;}
-            $image=VipCardRenderer::render($bet);
+            $image=VipCardRenderer::render($presentedBet);
             if($image===null){self::diag('CARD_RENDER_FAILED');return null;} // Preserve original on rendering failure.
         }
         return ['caption'=>$text,'image'=>$image,'mode'=>$mode];
@@ -155,6 +159,14 @@ final class SmartFormatting
             return null;
         }
         return $response['data'];
+    }
+    /** Card-mode only. Never alter the extracted source or the original analysis. */
+    public static function cardView(array $bet): array
+    {
+        foreach(['time','day','bookmaker','stake_amount','potential_return','potential_profit','status'] as $key){
+            unset($bet[$key]);
+        }
+        return $bet;
     }
     public static function asText(array $bet,bool $translated): string
     {

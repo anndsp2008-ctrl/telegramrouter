@@ -70,106 +70,58 @@ final class PurePngVipCardRenderer
         '"'=>['01010','01010','00000','00000','00000','00000','00000'],
     ];
 
+    /** Compact card presentation, including the preserved author analysis. */
     public static function render(array $bet): ?string
     {
         if(!function_exists('gzcompress'))return null;
-        $slip=($bet['status']??'')==='AO VIVO' && !empty($bet['stake_amount']) && !empty($bet['potential_return']);
         $analysis=trim((string)($bet['analysis']??''));
-        $analysisLines=self::wrap($analysis,72,42);
-        if($analysis!=='' && $analysisLines===null)return null;
+        $displayAnalysis=$analysis!==''?$analysis:'Análise não fornecida no conteúdo original.';
+        $analysisLines=self::wrap($displayAnalysis,76,75);
+        if($analysisLines===null)return null; // No visual truncation of original analysis.
+        $analysisY=525;
+        $analysisHeight=max(116,74+count($analysisLines)*27);
+        $dividerY=$analysisY+$analysisHeight+28;
+        $height=$dividerY+103;
+        if($height>3500)return null;
 
-        $extra=[];
-        foreach([
-            'day'=>'DIA DA PARTIDA',
-            'stake'=>'STAKE',
-            'bookmaker'=>'CASA DE APOSTAS',
-            'stake_amount'=>'VALOR APOSTADO',
-            'potential_return'=>'RETORNO POTENCIAL',
-        ] as $key=>$label){
-            $value=trim((string)($bet[$key]??''));
-            if($value!=='')$extra[]=[$label,$value];
-        }
-        $extra=array_slice($extra,0,5);
+        $c=new self(1080,$height,'#161d24');
+        $c->roundedRect(18,18,1044,$height-36,22,'#3c4d5b');
+        $c->roundedRect(21,21,1038,$height-42,20,'#161d24');
 
-        $analysisCount=max(2,count($analysisLines??[]));
-        $analysisHeight=62+($analysisCount*22)+24;
-        $extraRows=(int)ceil(count($extra)/2);
-        if($slip && $analysis==='')$analysisHeight=0;
-        $height=$slip?970+$analysisHeight:760+($extraRows*74)+$analysisHeight+105;
-        if($height>1900)return null;
-
-        $c=new self(1080,$height,'#111821');
-        $c->roundedRect(18,18,1044,$height-36,22,'#1d2a37');
-        $c->roundedRect(24,24,1032,$height-48,19,'#111821');
-
-        // Header tags.
-        $c->roundedRect(48,48,178,38,16,'#153a2f');
-        $c->text(64,59,'FUTEBOL',2,'#63e6be');
-        $c->roundedRect(822,48,210,38,16,$slip?'#3b2922':'#172b43');
-        $c->text(842,59,$slip?'AO VIVO':'APOSTA VIP',2,$slip?'#ff9b5c':'#76b7ff');
+        // Render only the fields approved for the card. No source-tip time,
+        // bookmaker, currency amount, return, profit or receipt sections.
+        $c->roundedRect(52,43,158,38,17,'#1b3230');
+        $c->text(67,52,'FUTEBOL',2,'#87efc9');
+        $c->text(843,55,'APOSTA DO DIA',2,'#a8bdcd');
 
         $match=trim((string)($bet['match']??''))?:'APOSTA ESPORTIVA';
-        $c->textFit(48,119,$match,4,'#f4f8fc',35);
+        $c->textFit(53,131,$match,4,'#f3f6fa',40);
         $league=trim((string)($bet['league']??''));
-        if($league!=='')$c->textFit(48,174,$league,2,'#a6bbcc',70);
-        $c->rect(48,218,984,2,'#304252');
+        if($league!=='')$c->textFit(53,187,$league,2,'#a8bdcd',75);
+        $c->rect(53,219,974,2,'#3c4d5b');
 
-        $c->text(48,253,'MERCADO',2,'#8fa7ba');
-        $c->textFit(48,286,(string)($bet['market']??''),3,'#f4f8fc',53);
-        $c->text(48,338,'SELECAO',2,'#8fa7ba');
-        $c->textFit(48,371,(string)($bet['selection']??''),3,'#63e6be',53);
+        $c->text(53,260,'MERCADO',2,'#a8bdcd');
+        $c->textFit(53,295,(string)($bet['market']??''),3,'#f3f6fa',53);
+        $c->text(53,341,'SELECAO',2,'#a8bdcd');
+        $c->textFit(53,377,(string)($bet['selection']??''),3,'#f3f6fa',53);
 
-        $c->roundedRect(48,421,472,116,14,'#183431');
-        $c->roundedRect(560,421,472,116,14,'#183431');
-        $c->text(66,443,'ODD',2,'#8fa7ba');
-        $c->textFit(66,479,trim((string)($bet['odd']??''))?:'-',5,'#63e6be',15);
-        $c->text(578,443,$slip?'STAKE':'HORARIO',2,'#8fa7ba');
-        $c->textFit(578,479,trim((string)($bet[$slip?'stake':'time']??''))?:'-',5,'#63e6be',15);
+        $c->roundedRect(53,407,476,98,15,'#1b3230');
+        $c->roundedRect(547,407,480,98,15,'#1b3230');
+        $c->text(71,429,'ODD',2,'#a8bdcd');
+        $c->text(565,429,'STAKE',2,'#a8bdcd');
+        $c->textFit(71,456,trim((string)($bet['odd']??''))?:'-',5,'#87efc9',14);
+        $c->textFit(565,456,trim((string)($bet['stake']??''))?:'-',5,'#87efc9',14);
 
-        $y=570;
-        if($slip){
-            if(!empty($bet['time'])){
-                $c->text(48,$y,'HORARIO INFORMADO',2,'#8fa7ba');
-                $c->textFit(48,$y+32,(string)$bet['time'],3,'#f4f8fc',25);
-            }
-            $c->rect(48,644,984,2,'#304252');
-            $c->text(48,674,'COMPROVANTE DA APOSTA',2,'#8fa7ba');
-            $proofY=720;
-            foreach(['stake_amount'=>'VALOR APOSTADO','potential_return'=>'RETORNO POTENCIAL','potential_profit'=>'LUCRO POTENCIAL'] as $key=>$label){
-                if(empty($bet[$key]))continue;
-                $c->text(48,$proofY,$label,2,'#f4f8fc');
-                $c->textFit(710,$proofY,(string)$bet[$key],2,$key==='potential_return'?'#63e6be':'#f4f8fc',24);
-                $proofY+=43;
-            }
-            $analysisY=857;
-        } else {
-            for($i=0;$i<count($extra);$i+=2){
-                foreach([0,1] as $col){
-                    $idx=$i+$col;if(!isset($extra[$idx]))continue;
-                    [$label,$value]=$extra[$idx];
-                    $x=$col===0?48:560;
-                    $c->text($x,$y,$label,2,'#8fa7ba');
-                    $c->textFit($x,$y+30,$value,2,'#f4f8fc',38);
-                }
-                $y+=74;
-            }
-            $analysisY=$y+10;
+        $c->roundedRect(53,$analysisY,974,$analysisHeight,17,'#1d2935');
+        $c->text(71,$analysisY+24,'ANALISE ORIGINAL',2,'#a8bdcd');
+        $cursor=$analysisY+61;
+        foreach($analysisLines as $line){
+            $c->text(71,$cursor,$line,2,'#f3f6fa');
+            $cursor+=27;
         }
-        if($analysisHeight>0){
-            $c->roundedRect(48,$analysisY,984,$analysisHeight,14,'#202f3f');
-            $c->text(66,$analysisY+18,'ANALISE ORIGINAL',2,'#8fa7ba');
-            $cursor=$analysisY+51;
-            $lines=$analysisLines?:['ANALISE NAO FORNECIDA NO CONTEUDO ORIGINAL.'];
-            foreach($lines as $line){
-                $c->text(66,$cursor,$line,2,'#f4f8fc');
-                $cursor+=22;
-            }
-        }
-
-        $lineY=$analysisY+$analysisHeight+30;
-        $c->rect(48,$lineY,984,2,'#304252');
-        $c->lightning(302,$lineY+36,'#63e6be');
-        $c->text(326,$lineY+31,'TELEGRAMROUTER - APOSTA ENCAMINHADA',2,'#63e6be');
+        $c->rect(53,$dividerY,974,2,'#3c4d5b');
+        $c->lightning(338,$dividerY+31,'#ffce4f');
+        $c->text(366,$dividerY+38,'TELEGRAMROUTER - APOSTA ENCAMINHADA',2,'#87efc9');
 
         $path=sys_get_temp_dir().'/tmr-vip-pure-'.bin2hex(random_bytes(12)).'.png';
         return $c->save($path)?$path:null;
