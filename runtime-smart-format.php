@@ -57,6 +57,11 @@ HTML;
         $section.'<input type="hidden" name="translation_source_language" value="auto">',
         'FORM_SECTION'
     );
+    $index=$replaceOne($index,'</head>',
+        '<link rel="stylesheet" href="/assets/brand/smart-format.css?v=1"></head>',
+        'STYLESHEET'
+    );
+
 
     $router=$replaceOne($router,
         "\$this->messages->sendMessage(peer:(string)\$rule['destination_chat'],message:\$text,entities:\$sendEntities);",
