@@ -29,7 +29,7 @@ if($image===null)throw new RuntimeException('VIP rendering unavailable even with
 $size=getimagesize($image);
 if(!is_array($size)||$size['mime']!=='image/png'||$size[0]!==1080)throw new RuntimeException('Invalid VIP PNG');
 @unlink($image);
-// New optional mixed text+receipt scenario: no fabricated currency or date.
+// New opt-in text+receipt scenario: correct arithmetic without fabricated date.
 $liveBet=[
  'sport'=>'FUTEBOL','status'=>'AO VIVO','match'=>'Athletic Bilbao × Alavés',
  'league'=>'ES Espanha • Primeira Divisão','market'=>'Resultado da partida',
@@ -40,8 +40,7 @@ $liveBet=[
 $profit=SmartFormatting::calculatePotentialProfit($liveBet['stake_amount'],$liveBet['potential_return']);
 if($profit!=='1.200,00 €')throw new RuntimeException('Incorrect deterministic slip profit');
 $liveBet['potential_profit']=$profit;
-if(SmartFormatting::calculatePotentialProfit('2.000,00 €','3.200,00 R
-)!=='')
+if(SmartFormatting::calculatePotentialProfit('2.000,00 €','3.200,00 R$')!=='')
     throw new RuntimeException('Mixed currencies must not produce inferred profit');
 if(SmartFormatting::calculatePotentialProfit('100,00 €','50,00 €')!=='')
     throw new RuntimeException('Negative returns must not produce misleading profit');
