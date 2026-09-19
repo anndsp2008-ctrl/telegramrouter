@@ -13,6 +13,11 @@ $indexPath=__DIR__.'/index.php';
 $routerPath=__DIR__.'/app/TelegramRouter.php';
 $index=@file_get_contents($indexPath);
 $router=@file_get_contents($routerPath);
+$style='<link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">';
+if(is_string($index) && !str_contains($index,'smart-format.css')){
+    if(substr_count($index,'</head>')!==1){fwrite(STDERR,"SMART_FORMAT_HEAD_MISMATCH\n");exit(1);}
+    $index=str_replace('</head>',$style.'</head>',$index);
+}
 if(!is_string($index)||!is_string($router)){fwrite(STDERR,"SMART_FORMAT_SOURCE_MISSING\n");exit(1);}
 if(str_contains($router,'TMR_SMART_FORMAT_V1') && str_contains($index,'tmr-smart-format-choice')){
     echo "SMART_FORMAT_ALREADY_APPLIED\n";exit(0);
@@ -95,14 +100,19 @@ HTML;
         try {
             if($setting['enabled']){
                 if($analysisMedia!==null){
-                    $sourceImage=sys_get_temp_dir().'/tmr-smart-input-'.bin2hex(random_bytes(10)).'.jpg';
+                    $tempDir=sys_get_temp_dir().'/tmr-smart-'.bin2hex(random_bytes(10));
                     try {
-                        $this->downloadToFile($analysisMedia,$sourceImage);
-                        if(!is_file($sourceImage) || filesize($sourceImage)>4*1024*1024){
-                            @unlink($sourceImage);$sourceImage=null;
+                        if(!@mkdir($tempDir,0700,true) && !is_dir($tempDir))throw new \RuntimeException('SMART_MEDIA_TEMP_FAILED');
+                        if(is_object($analysisMedia) && method_exists($analysisMedia,'downloadToDir')){
+                            $sourceImage=$analysisMedia->downloadToDir($tempDir);
+                        } else {
+                            $sourceImage=$this->downloadToDir($analysisMedia,$tempDir);
+                        }
+                        if(!is_string($sourceImage) || !is_file($sourceImage) || filesize($sourceImage)>4*1024*1024){
+                            $sourceImage=null;
                         }
                     } catch(\Throwable $e){
-                        @unlink($sourceImage);$sourceImage=null;
+                        $sourceImage=null;
                     }
                 }
                 $formatted=SmartFormatting::prepare($text,$rule,$sourceImage,$setting['output_mode']);
@@ -112,6 +122,10 @@ HTML;
             $formatted=null;
         } finally {
             if($sourceImage!==null)@unlink($sourceImage);
+            if(isset($tempDir) && is_dir($tempDir)){
+                foreach(glob($tempDir.'/*')?:[] as $tmpFile)@unlink($tmpFile);
+                @rmdir($tempDir);
+            }
         }
         if($formatted!==null){
             $newText=$formatted['caption'];
