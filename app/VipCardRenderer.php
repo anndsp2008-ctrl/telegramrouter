@@ -37,10 +37,19 @@ final class VipCardRenderer
         self::roundRect($im,22,18,1058,$h-18,25,$line);
         self::roundRect($im,24,20,1056,$h-20,23,$bg);
 
-        // Header and typography match the approved compact dark card.
-        self::roundRect($im,53,44,179,79,17,$panel);
-        self::txt($im,64,69,'FUTEBOL',15,$green,$bold);
-        self::txt($im,864,70,'APOSTA DO DIA',15,$muted,$font);
+        // Two premium header seals: an icon matching the detected sport and
+        // a golden VIP crown. Only the card presentation is changed.
+        [$sport,$sportId]=self::sportInfo((string)($bet['sport']??''));
+        $sportLabelSize=self::fitSize($sport,$bold,15,12,210)??12;
+        $sportWidth=min(295,max(145,86+(int)abs((imagettfbbox($sportLabelSize,0,$bold,$sport)[2]??0))));
+        self::roundRect($im,53,43,53+$sportWidth,84,20,$panel);
+        self::drawSportIcon($im,76,63,$sportId,$white,$bg,$color('#ffac55'),$color('#d2fb6e'));
+        self::txt($im,98,70,$sport,$sportLabelSize,$green,$bold);
+        $gold=$color('#ffc94e');$vipBackground=$color('#29251c');
+        self::roundRect($im,817,42,1027,85,20,$gold);
+        self::roundRect($im,819,44,1025,83,18,$vipBackground);
+        self::drawCrown($im,835,54,$gold);
+        self::txt($im,869,71,'APOSTA VIP',16,$gold,$bold);
 
         $title=trim((string)($bet['match']??''));
         $league=trim((string)($bet['league']??''));
@@ -58,6 +67,8 @@ final class VipCardRenderer
 
         self::txt($im,53,261,'MERCADO',16,$muted,$font);
         self::txt($im,53,295,$market,self::fitSize($market,$bold,23,16,950)??23,$white,$bold);
+        // Section separators match the reference without crowding the text.
+        imageline($im,53,317,1027,317,$line);
         self::txt($im,53,344,'SELEÇÃO',16,$muted,$font);
         self::txt($im,53,382,$selection,self::fitSize($selection,$bold,24,16,950)??24,$white,$bold);
 
@@ -81,16 +92,78 @@ final class VipCardRenderer
             $cursor+=30;
         }
         imageline($im,53,$dividerY,1027,$dividerY,$line);
-        // Draw the lightning emblem separately to avoid unsupported emoji font glyphs.
-        imagefilledpolygon($im,[380,$dividerY+38,392,$dividerY+38,387,$dividerY+49,
-            398,$dividerY+49,378,$dividerY+75,385,$dividerY+56,375,$dividerY+56],7,$color('#ffce4f'));
-        self::txt($im,406,$dividerY+62,'TelegramRouter • Aposta encaminhada',16,$green,$font);
+        // Align the full footer group to the card, independently of the font.
+        $footer='TelegramRouter • Aposta encaminhada';
+        $footerBox=imagettfbbox(16,0,$font,$footer);
+        $footerWidth=is_array($footerBox)?abs($footerBox[2]-$footerBox[0]):365;
+        $footerX=(int)(($w-$footerWidth-34)/2);
+        imagefilledpolygon($im,[$footerX,$dividerY+37,$footerX+17,$dividerY+37,
+            $footerX+10,$dividerY+50,$footerX+22,$dividerY+50,
+            $footerX-3,$dividerY+74,$footerX+4,$dividerY+56,
+            $footerX-4,$dividerY+56],7,$color('#ffce4f'));
+        self::txt($im,$footerX+32,$dividerY+62,$footer,16,$green,$font);
 
         $path=sys_get_temp_dir().'/tmr-vip-'.bin2hex(random_bytes(12)).'.png';
         $ok=imagepng($im,$path,7);imagedestroy($im);
         if(!$ok||!is_file($path)){@unlink($path);return null;}
         @chmod($path,0600);
         return $path;
+    }
+    /** Only known sports get specific icons. Unknown sports are clearly generic. */
+    private static function sportInfo(string $raw): array
+    {
+        $sport=mb_strtolower(trim($raw),'UTF-8');
+        if($sport===''||preg_match('/futebol|football|soccer/u',$sport))return ['FUTEBOL','football'];
+        if(preg_match('/basquete|basketball|nba/u',$sport))return ['BASQUETE','basketball'];
+        if(preg_match('/tênis|tenis|tennis/u',$sport))return ['TÊNIS','tennis'];
+        if(preg_match('/vôlei|volei|volleyball/u',$sport))return ['VÔLEI','volleyball'];
+        if(preg_match('/hóquei|hoquei|hockey/u',$sport))return ['HÓQUEI','hockey'];
+        if(preg_match('/beisebol|baseball/u',$sport))return ['BEISEBOL','baseball'];
+        return ['ESPORTE','generic'];
+    }
+    private static function drawSportIcon(\GdImage $im,int $x,int $y,string $sport,int $white,int $dark,int $orange,int $yellow): void
+    {
+        if($sport==='generic'){
+            imageellipse($im,$x,$y,22,22,$white);
+            imageline($im,$x-5,$y,$x+5,$y,$white);
+            imageline($im,$x,$y-5,$x,$y+5,$white);
+            return;
+        }
+        $ball=$sport==='basketball'?$orange:($sport==='tennis'?$yellow:$white);
+        imagefilledellipse($im,$x,$y,22,22,$ball);
+        if($sport==='football'){
+            imagefilledpolygon($im,[$x,$y-5,$x+6,$y-2,$x+5,$y+4,$x,$y+7,
+                $x-5,$y+4,$x-6,$y-2],6,$dark);
+            foreach([[0,-11],[10,-3],[7,9],[-7,9],[-10,-3]] as [$dx,$dy]){
+                imagefilledellipse($im,$x+$dx,$y+$dy,5,5,$dark);
+            }
+        }elseif($sport==='basketball'){
+            imageline($im,$x-11,$y,$x+11,$y,$dark);
+            imageline($im,$x,$y-11,$x,$y+11,$dark);
+            imagearc($im,$x-6,$y,14,22,265,95,$dark);
+            imagearc($im,$x+6,$y,14,22,85,275,$dark);
+        }elseif($sport==='tennis'){
+            imagearc($im,$x-7,$y,17,26,275,85,$white);
+            imagearc($im,$x+7,$y,17,26,95,265,$white);
+        }elseif($sport==='volleyball'){
+            imagearc($im,$x,$y,18,18,20,155,$dark);
+            imagearc($im,$x,$y,18,18,145,280,$dark);
+            imagearc($im,$x,$y,18,18,265,400,$dark);
+        }elseif($sport==='baseball'){
+            imagearc($im,$x-7,$y,15,25,280,80,$orange);
+            imagearc($im,$x+7,$y,15,25,100,260,$orange);
+        }elseif($sport==='hockey'){
+            imagefilledellipse($im,$x,$y,22,12,$dark);
+            imageellipse($im,$x,$y,22,12,$white);
+        }
+    }
+    private static function drawCrown(\GdImage $im,int $x,int $y,int $gold): void
+    {
+        imagefilledpolygon($im,[$x,$y+6,$x+7,$y+11,$x+12,$y+1,
+            $x+17,$y+11,$x+25,$y+6,$x+21,$y+22,$x+4,$y+22],7,$gold);
+        imagefilledrectangle($im,$x+4,$y+24,$x+21,$y+26,$gold);
+        foreach([[$x,$y+5],[$x+12,$y],[$x+25,$y+5]] as [$cx,$cy])
+            imagefilledellipse($im,$cx,$cy,4,4,$gold);
     }
     /** Fit non-analysis labels without silently cutting betting information. */
     private static function fitSize(string $text,string $font,int $preferred,int $min,int $maxWidth): ?int
@@ -129,14 +202,17 @@ final class VipCardRenderer
     }
     private static function font(bool $bold): ?string
     {
+        // Liberation Sans is closer to the approved modern sans-serif reference.
         foreach($bold?[
+            '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-            '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
-            '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf'
+            '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf'
         ]:[
+            '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-            '/usr/share/fonts/TTF/DejaVuSans.ttf',
-            '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf'
+            '/usr/share/fonts/TTF/DejaVuSans.ttf'
         ] as $candidate)if(is_file($candidate))return $candidate;
         return null;
     }
