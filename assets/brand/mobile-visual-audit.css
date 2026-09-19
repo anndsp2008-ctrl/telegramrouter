@@ -755,7 +755,7 @@
     border-radius:999px!important;
     background:#152a29!important;
     color:#79e9be!important;
-    font:500 11px/1.25 inherit!important;
+    font-family:inherit!important;
     font-size:11px!important;
     font-weight:500!important;
     line-height:1.25!important;
