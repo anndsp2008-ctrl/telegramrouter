@@ -13,6 +13,16 @@ foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $req
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+// Regression: the author's complete long analysis must never be reduced to 480 chars.
+$longBet=$bet;
+$longBet['analysis']=str_repeat('Análise completa do autor, mantida na mensagem sem cortes. ',32).'FIM_DA_ANALISE_ORIGINAL';
+$longText=SmartFormatting::asText($longBet,true);
+if(!str_contains($longText,'FIM_DA_ANALISE_ORIGINAL')||mb_strlen($longText,'UTF-8')<=480){
+  throw new RuntimeException('Long original analysis was truncated');
+}
+if((int)(strlen(mb_convert_encoding($longText,'UTF-16LE','UTF-8'))/2)<=1024){
+  throw new RuntimeException('Long caption fixture is not over Telegram media limit');
+}
 putenv('VIP_CARD_FORCE_PURE=1');
 $image=VipCardRenderer::render($bet);
 if($image===null)throw new RuntimeException('VIP rendering unavailable even with GD and DejaVu fonts');
