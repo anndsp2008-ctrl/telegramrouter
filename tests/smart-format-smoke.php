@@ -67,7 +67,8 @@ if(!is_array($liveGdSize)||$liveGdSize['mime']!=='image/png'||$liveGdSize[0]!==1
     throw new RuntimeException('Invalid live slip GD/fallback PNG');
 @unlink($liveGdImage);
 // Approved APOSTA DO DIA template is card-only: retain analysis and exclude
-// bookmaker, stake amounts, returns, profits, status and source-tip time.
+// bookmaker, stake amounts, returns, profits and source-tip time.
+// Preserve explicit live status only to drive its visual badge.
 // Non-card text/legend mode continues to expose the original extracted fields.
 $cardFixture=$liveBet;
 $cardFixture['analysis']='Análise original integral da tip, sem alterar o argumento do autor.';
@@ -79,7 +80,7 @@ foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1,60','6/10
          'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
     if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
 }
-foreach(['WINAMAX','2.000,00 €','3.200,00 €','1.200,00 €','16h15','Sábado','AO VIVO'] as $forbidden){
+foreach(['WINAMAX','2.000,00 €','3.200,00 €','1.200,00 €','16h15','Sábado'] as $forbidden){
     if(str_contains($cardText,$forbidden))throw new RuntimeException('Forbidden receipt detail in card text: '.$forbidden);
 }
 if(($cardFixture['bookmaker']??'')!=='WINAMAX'||($cardFixture['analysis']??'')!==$cardView['analysis']){
@@ -97,7 +98,7 @@ foreach(['1','0'] as $usePure){
         throw new RuntimeException('Approved card dimensions or MIME invalid');
     }
     $noReceipt=$cardFixture;
-    foreach(['status','time','day','bookmaker','stake_amount','potential_return','potential_profit'] as $field){
+    foreach(['time','day','bookmaker','stake_amount','potential_return','potential_profit'] as $field){
         $noReceipt[$field]='RECEIPT_DATA_NEVER_ON_CARD';
     }
     $second=VipCardRenderer::render($noReceipt);
@@ -190,6 +191,43 @@ if(extension_loaded('gd')&&function_exists('imagettftext')){
     @unlink($pixelSample);@unlink($trueTypeSample);
     echo "SMART_FORMAT_TRUE_TYPE_NOT_BITMAP_TESTS_PASSED\\n";
 }
+// Live indicator belongs exclusively to explicitly live betting tips and is
+// independently visible from the VIP seal. Sport must be specific when sourced.
+$identifiedSport=SmartFormatting::cardView([
+    'sport'=>'','match'=>'Athletic Bilbao × Alavés',
+    'league'=>'España Primera división','status'=>'AO VIVO'
+]);
+if(($identifiedSport['sport']??'')!=='Futebol'||($identifiedSport['status']??'')!=='AO VIVO'){
+    throw new RuntimeException('League-backed sport or live status lost in card view');
+}
+$unknownSport=SmartFormatting::cardView(['sport'=>'','league'=>'Liga desconhecida']);
+if(($unknownSport['sport']??'')!=='')throw new RuntimeException('Sport invented from unknown league');
+$knownSport=SmartFormatting::cardView(['sport'=>'Basquete','league'=>'La Liga']);
+if(($knownSport['sport']??'')!=='Basquete')throw new RuntimeException('Explicit sport incorrectly overwritten');
+foreach(['1','0'] as $rendererMode){
+    putenv('VIP_CARD_FORCE_PURE='.$rendererMode);
+    $base=$cardFixture;
+    $base['sport']='Futebol';
+    $base['status']='';
+    $standard=VipCardRenderer::render($base);
+    $base['status']='AO VIVO';
+    $live=VipCardRenderer::render($base);
+    $base['status']='EN CURSO'; // Can mean ticket open, not that match is underway.
+    $openTicket=VipCardRenderer::render($base);
+    if($standard===null||$live===null||$openTicket===null)
+        throw new RuntimeException('VIP or live badge failed to render');
+    if(hash_file('sha256',$standard)===hash_file('sha256',$live))
+        throw new RuntimeException('AO VIVO did not generate its own visual badge');
+    if(hash_file('sha256',$standard)!==hash_file('sha256',$openTicket))
+        throw new RuntimeException('Open ticket incorrectly got AO VIVO badge');
+    $base['status']='AO VIVO';
+    $base['bookmaker']='OTHER';$base['time']='00h00';$base['stake_amount']='999.99';
+    $withoutReceipt=VipCardRenderer::render($base);
+    if($withoutReceipt===null||hash_file('sha256',$live)!==hash_file('sha256',$withoutReceipt))
+        throw new RuntimeException('Source tip metadata leaked into the live card');
+    foreach([$standard,$live,$openTicket,$withoutReceipt] as $generated)@unlink($generated);
+}
+echo "SMART_FORMAT_LIVE_SPORT_BADGES_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
