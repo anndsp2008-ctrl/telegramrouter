@@ -7,8 +7,27 @@ final class VipCardRenderer
     private const BG='#141b23';
     private const GREEN='#87efc9';
 
-    /** Card-only presentation. The original message and extracted fields stay unchanged. */
+    /** Render using the premium font when possible; a GD-specific failure
+     * never turns an otherwise valid bet back into a raw forwarded message.
+     * The emergency renderer retains all analysis in the Telegram caption.
+     */
     public static function render(array $bet): ?string
+    {
+        if(getenv('VIP_CARD_FORCE_PURE')==='1' || !extension_loaded('gd') || !function_exists('imagettftext')){
+            return PurePngVipCardRenderer::render($bet);
+        }
+        try {
+            $path=self::renderWithGd($bet);
+            if($path!==null)return $path;
+            error_log('TMR_VIP_CARD_GD_UNAVAILABLE');
+        } catch(\Throwable $e){
+            // Do not log source tips, payloads, file paths or personal data.
+            error_log('TMR_VIP_CARD_GD_ERROR '.preg_replace('/[^A-Za-z0-9_]/','_',get_class($e)).' line='.$e->getLine());
+        }
+        return PurePngVipCardRenderer::render($bet);
+    }
+    /** Card-only presentation. The original message and extracted fields stay unchanged. */
+    private static function renderWithGd(array $bet): ?string
     {
         if(getenv('VIP_CARD_FORCE_PURE')==='1' || !extension_loaded('gd') || !function_exists('imagettftext')){
             return PurePngVipCardRenderer::render($bet);
