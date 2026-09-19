@@ -68,6 +68,20 @@ final class SmartFormatting
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
         $presentedBet=$mode==='card'?self::cardView($bet):$bet;
+        if($mode==='card'){
+            // Privacy-safe diagnostics: never log message content, competition,
+            // extracted text, dates, channel handles or bookmaker details.
+            $sportBefore=mb_strtolower(trim((string)($bet['sport']??'')),'UTF-8');
+            error_log('TMR_SMART_CARD_BADGES '.json_encode([
+                'sport_input_generic'=>in_array($sportBefore,['','esporte','esportes','sport','sports',
+                    'desconhecido','unknown','não identificado','nao identificado','n/a','-'],true),
+                'sport_resolved'=>!in_array(mb_strtolower(trim((string)($presentedBet['sport']??'')),'UTF-8'),
+                    ['','esporte','esportes','sport','sports','desconhecido','unknown','n/a','-'],true),
+                'competition_present'=>trim((string)($bet['league']??''))!=='',
+                'status_present'=>trim((string)($bet['status']??''))!=='',
+                'live_badge'=>($presentedBet['status']??'')==='AO VIVO'
+            ]));
+        }
         $text=self::asText($presentedBet,$translate);
         $image=null;
         if($mode==='card') {
