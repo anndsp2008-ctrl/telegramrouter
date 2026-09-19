@@ -123,7 +123,7 @@ final class VipCardRenderer
         self::txt($im,$footerX+32,$dividerY+62,$footer,16,$green,$font);
 
         $path=sys_get_temp_dir().'/tmr-vip-'.bin2hex(random_bytes(12)).'.png';
-        // GD images are PHP objects: explicit imagedestroy() raises a deprecation
+        // GD images are PHP objects: the old explicit destructor raises a deprecation
         // on PHP 8.5, which MadelineProto promotes into an exception. Let the
         // object go out of scope after writing the antialiased TrueType card.
         $ok=imagepng($im,$path,7);unset($im);
