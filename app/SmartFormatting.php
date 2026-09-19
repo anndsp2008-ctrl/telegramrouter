@@ -191,7 +191,7 @@ final class SmartFormatting
     /** @return array{cents:int,currency:string}|null */
     private static function moneyParts(string $raw): ?array
     {
-        $raw=trim(str_replace("\\xc2\\xa0",' ',$raw));
+        $raw=trim(str_replace("\xC2\xA0",' ',$raw));
         if(!preg_match('/^(R\\$|€|£|\\$|[A-Z]{3})?\\s*([0-9][0-9., ]*)\\s*(R\\$|€|£|\\$|[A-Z]{3})?$/uD',$raw,$m))return null;
         $currency=($m[1]??'')?:($m[3]??'');
         if($currency===''||(!empty($m[1])&&!empty($m[3])&&$m[1]!==$m[3]))return null;
