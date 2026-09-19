@@ -4,8 +4,10 @@
  * Runs only AFTER the existing translation, routing, branding and footer patches.
  * No old routing code is removed: disabled rules use their previous send calls.
  */
-require_once __DIR__.'/bootstrap.php';
-\App\SmartFormatting::migrate();
+if(getenv('SMART_FORMAT_TEST_ONLY')!=='1'){
+    require_once __DIR__.'/bootstrap.php';
+    \App\SmartFormatting::migrate();
+}
 
 $indexPath=__DIR__.'/index.php';
 $routerPath=__DIR__.'/app/TelegramRouter.php';
