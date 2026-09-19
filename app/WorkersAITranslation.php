@@ -41,28 +41,28 @@ final class WorkersAITranslation
         $token=self::token($overrides);
         $model=self::model($overrides);
         if($account===''||$token===''){
-            return self::failed(0,null,$target,$fallback,'Configure o token e o ID da conta do Workers AI.');
+            throw self::failed(0,null,$target,$fallback,'Configure o token e o ID da conta do Workers AI.');
         }
         if(!preg_match('/^[a-f0-9]{32}$/Di',$account)||!self::validModel($model)){
-            return self::failed(0,null,$target,$fallback,'ID da conta ou nome do modelo Workers AI inválido.');
+            throw self::failed(0,null,$target,$fallback,'ID da conta ou nome do modelo Workers AI inválido.');
         }
         $target=trim($target);
         if(!preg_match('/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/D',$target)){
-            return self::failed(0,null,$target,$fallback,'Idioma de destino inválido.');
+            throw self::failed(0,null,$target,$fallback,'Idioma de destino inválido.');
         }
         $worker=dirname(__DIR__).'/scripts/workers-ai-request.php';
         if(!is_file($worker)||!function_exists('proc_open')){
-            return self::failed(0,null,$target,$fallback,'Transporte Workers AI indisponível.');
+            throw self::failed(0,null,$target,$fallback,'Transporte Workers AI indisponível.');
         }
         $input=json_encode([
             'account'=>$account,'token'=>$token,'model'=>$model,
             'text'=>$text,'target'=>$target
         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
-        if(!is_string($input))return self::failed(0,null,$target,$fallback,'Não foi possível preparar a tradução.');
+        if(!is_string($input))throw self::failed(0,null,$target,$fallback,'Não foi possível preparar a tradução.');
         $spec=[0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']];
         $start=hrtime(true);
         $process=@proc_open(['php',$worker],$spec,$pipes,dirname(__DIR__));
-        if(!is_resource($process))return self::failed(0,null,$target,$fallback,'Processo Workers AI indisponível.');
+        if(!is_resource($process))throw self::failed(0,null,$target,$fallback,'Processo Workers AI indisponível.');
         $output='';$exit=-1;
         try{
             $offset=0;$size=strlen($input);
@@ -88,22 +88,23 @@ final class WorkersAITranslation
             $code=is_array($result)?(string)($result['reason']??'UNAVAILABLE'):'UNAVAILABLE';
             $allowed=['AUTH','PERMISSION','RATE_LIMIT','HTTP_ERROR','INVALID_RESPONSE','NETWORK','TIMEOUT','INPUT_ERROR','UNAVAILABLE'];
             if(!in_array($code,$allowed,true))$code='UNAVAILABLE';
-            return self::failed($latency,$http,$target,$fallback,'Workers AI: '.$code.'.');
+            throw self::failed($latency,$http,$target,$fallback,'Workers AI: '.$code.'.');
         }
         $answer=trim((string)($result['text']??''));
-        if($answer==='')return self::failed($latency,$http,$target,$fallback,'Workers AI: resposta vazia.');
+        if($answer==='')throw self::failed($latency,$http,$target,$fallback,'Workers AI: resposta vazia.');
         return [
             'provider'=>'workers_ai','success'=>true,'text'=>$answer,
             'latency_ms'=>$latency,'http_code'=>$http,'source_language'=>null,
             'target_language'=>$target,'error_text'=>null,'fallback_used'=>$fallback
         ];
     }
-    private static function failed(int $ms,?int $http,string $target,bool $fallback,string $message): array
+    private static function failed(int $ms,?int $http,string $target,bool $fallback,string $message): TranslationFailureException
     {
-        return [
+        $attempt=[
             'provider'=>'workers_ai','success'=>false,'text'=>'',
             'latency_ms'=>$ms,'http_code'=>$http,'source_language'=>null,
             'target_language'=>$target,'error_text'=>$message,'fallback_used'=>$fallback
         ];
+        return new TranslationFailureException($message,[$attempt]);
     }
 }
