@@ -57,6 +57,20 @@ jobs:
               for i in sorted(keep):
                   if len(lines[i])<2600:
                       print(f'{name}:{i+1} {lines[i]}')
+          for name in ('database/schema.sql','app/Repository.php','index.php'):
+              p=base/name
+              if not p.exists(): continue
+              lines=p.read_text().splitlines()
+              if name=='database/schema.sql':
+                  for i,line in enumerate(lines):
+                      if any(t in line for t in ('translation_provider','translation_attempts','translation_provider_tests')):
+                          print('SCHEMA',i+1,line[:400])
+              elif name=='app/Repository.php':
+                  for i in range(135,min(len(lines),245)):
+                      print('REPO_EXTRA',i+1,lines[i][:480])
+              else:
+                  for i in range(160,min(len(lines),203)):
+                      print('INDEX_EXTRA',i+1,lines[i][:3000])
           PY
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
