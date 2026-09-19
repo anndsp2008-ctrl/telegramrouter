@@ -83,7 +83,7 @@ final class VipCardRenderer
         imageline($im,53,$dividerY,1027,$dividerY,$line);
         // Draw the lightning emblem separately to avoid unsupported emoji font glyphs.
         imagefilledpolygon($im,[380,$dividerY+38,392,$dividerY+38,387,$dividerY+49,
-            398,$dividerY+49,378,$dividerY+75,385,$dividerY+56,375,$dividerY+56],8,$color('#ffce4f'));
+            398,$dividerY+49,378,$dividerY+75,385,$dividerY+56,375,$dividerY+56],7,$color('#ffce4f'));
         self::txt($im,406,$dividerY+62,'TelegramRouter • Aposta encaminhada',16,$green,$font);
 
         $path=sys_get_temp_dir().'/tmr-vip-'.bin2hex(random_bytes(12)).'.png';
