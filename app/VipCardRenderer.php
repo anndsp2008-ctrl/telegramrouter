@@ -130,7 +130,8 @@ final class VipCardRenderer
             return;
         }
         // PHP 8.4 deprecates the polygon vertex-count argument; using its
-        // modern three-argument signature avoids MadelineProto warning exceptions.\n        $ball=$sport==='basketball'?$orange:($sport==='tennis'?$yellow:$white);
+        // modern three-argument signature avoids MadelineProto warning exceptions.
+        $ball=$sport==='basketball'?$orange:($sport==='tennis'?$yellow:$white);
         imagefilledellipse($im,$x,$y,22,22,$ball);
         if($sport==='football'){
             imagefilledpolygon($im,[$x,$y-5,$x+6,$y-2,$x+5,$y+4,$x,$y+7,
