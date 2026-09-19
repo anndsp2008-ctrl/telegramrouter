@@ -128,9 +128,19 @@ HTML;
                     }
                 }
                 $formatted=SmartFormatting::prepare($text,$rule,$sourceImage,$setting['output_mode']);
+                if($formatted===null) error_log('TMR_SMART_FORMAT_UNAVAILABLE '.json_encode([
+                    'rule_id'=>(int)($rule['id']??0),
+                    'mode'=>(string)($setting['output_mode']??'unknown'),
+                    'has_image'=>$sourceImage!==null
+                ]));
             }
         } catch(\Throwable $error){
-            error_log('TMR_SMART_FORMAT_FALLBACK '.get_class($error));
+            error_log('TMR_SMART_FORMAT_FALLBACK '.json_encode([
+                'rule_id'=>(int)($rule['id']??0),
+                'mode'=>(string)($setting['output_mode']??'unknown'),
+                'exception'=>get_class($error),
+                'location'=>basename($error->getFile()).':'.$error->getLine()
+            ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
             $formatted=null;
         } finally {
             if($sourceImage!==null)@unlink($sourceImage);
