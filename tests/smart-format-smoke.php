@@ -145,6 +145,30 @@ if(extension_loaded('gd') && function_exists('imagettftext')){
         '/usr/share/fonts/TTF/DejaVuSans.ttf'];
     if(!array_filter($fonts,'is_file'))throw new RuntimeException('GD font missing in CI');
 }
+// Regression: MadelineProto converts PHP GD deprecations/warnings into exceptions.
+// Exercise the real TrueType renderer with an equally strict handler.
+if(extension_loaded('gd') && function_exists('imagettftext')){
+    putenv('VIP_CARD_FORCE_PURE=0');
+    set_error_handler(static function(int $severity,string $message): never {
+        throw new ErrorException($message,0,$severity);
+    });
+    try {
+        foreach(['Futebol','Basquete','Tênis','Vôlei','Hóquei','Beisebol'] as $sport){
+            $sportExample=$cardFixture;
+            $sportExample['sport']=$sport;
+            $sportExample['analysis']='Análise original preservada: '.$sport;
+            $strictImage=VipCardRenderer::render($sportExample);
+            if($strictImage===null)throw new RuntimeException('GD strict render failed: '.$sport);
+            $strictMeta=getimagesize($strictImage);
+            if(!is_array($strictMeta)||($strictMeta['mime']??'')!=='image/png')
+                throw new RuntimeException('GD strict render returned invalid PNG: '.$sport);
+            @unlink($strictImage);
+        }
+    } finally {
+        restore_error_handler();
+    }
+    echo "SMART_FORMAT_GD_STRICT_HANDLER_TESTS_PASSED\\n";
+}
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";

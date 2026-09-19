@@ -100,7 +100,7 @@ final class VipCardRenderer
         imagefilledpolygon($im,[$footerX,$dividerY+37,$footerX+17,$dividerY+37,
             $footerX+10,$dividerY+50,$footerX+22,$dividerY+50,
             $footerX-3,$dividerY+74,$footerX+4,$dividerY+56,
-            $footerX-4,$dividerY+56],7,$color('#ffce4f'));
+            $footerX-4,$dividerY+56],$color('#ffce4f'));
         self::txt($im,$footerX+32,$dividerY+62,$footer,16,$green,$font);
 
         $path=sys_get_temp_dir().'/tmr-vip-'.bin2hex(random_bytes(12)).'.png';
@@ -129,11 +129,13 @@ final class VipCardRenderer
             imageline($im,$x,$y-5,$x,$y+5,$white);
             return;
         }
+        // PHP 8.4 deprecates the polygon vertex-count argument; using its
+        // modern three-argument signature avoids MadelineProto warning exceptions.
         $ball=$sport==='basketball'?$orange:($sport==='tennis'?$yellow:$white);
         imagefilledellipse($im,$x,$y,22,22,$ball);
         if($sport==='football'){
             imagefilledpolygon($im,[$x,$y-5,$x+6,$y-2,$x+5,$y+4,$x,$y+7,
-                $x-5,$y+4,$x-6,$y-2],6,$dark);
+                $x-5,$y+4,$x-6,$y-2],$dark);
             foreach([[0,-11],[10,-3],[7,9],[-7,9],[-10,-3]] as [$dx,$dy]){
                 imagefilledellipse($im,$x+$dx,$y+$dy,5,5,$dark);
             }
@@ -160,7 +162,7 @@ final class VipCardRenderer
     private static function drawCrown(\GdImage $im,int $x,int $y,int $gold): void
     {
         imagefilledpolygon($im,[$x,$y+6,$x+7,$y+11,$x+12,$y+1,
-            $x+17,$y+11,$x+25,$y+6,$x+21,$y+22,$x+4,$y+22],7,$gold);
+            $x+17,$y+11,$x+25,$y+6,$x+21,$y+22,$x+4,$y+22],$gold);
         imagefilledrectangle($im,$x+4,$y+24,$x+21,$y+26,$gold);
         foreach([[$x,$y+5],[$x+12,$y],[$x+25,$y+5]] as [$cx,$cy])
             imagefilledellipse($im,$cx,$cy,4,4,$gold);
