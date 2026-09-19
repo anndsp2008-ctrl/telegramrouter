@@ -77,7 +77,7 @@ final class VipCardRenderer
         foreach([[$title,$bold,33,18,950],[$league,$font,19,14,950],
             [$market,$bold,23,16,950],[$selection,$bold,24,16,950]] as [$value,$face,$preferred,$min,$width]){
             if($value!=='' && self::fitSize($value,$face,$preferred,$min,$width)===null){
-                imagedestroy($im);return null;
+                unset($im);return null;
             }
         }
         self::txt($im,53,142,$title, self::fitSize($title,$bold,33,18,950)??33,$white,$bold);
@@ -99,7 +99,7 @@ final class VipCardRenderer
         $stake=trim((string)($bet['stake']??''))?:'—';
         $oddSize=self::fitSize($odd,$bold,42,22,435);
         $stakeSize=self::fitSize($stake,$bold,42,22,435);
-        if($oddSize===null||$stakeSize===null){imagedestroy($im);return null;}
+        if($oddSize===null||$stakeSize===null){unset($im);return null;}
         self::txt($im,71,490,$odd,$oddSize,$green,$bold);
         self::txt($im,565,490,$stake,$stakeSize,$green,$bold);
 
@@ -123,7 +123,10 @@ final class VipCardRenderer
         self::txt($im,$footerX+32,$dividerY+62,$footer,16,$green,$font);
 
         $path=sys_get_temp_dir().'/tmr-vip-'.bin2hex(random_bytes(12)).'.png';
-        $ok=imagepng($im,$path,7);imagedestroy($im);
+        // GD images are PHP objects: explicit imagedestroy() raises a deprecation
+        // on PHP 8.5, which MadelineProto promotes into an exception. Let the
+        // object go out of scope after writing the antialiased TrueType card.
+        $ok=imagepng($im,$path,7);unset($im);
         if(!$ok||!is_file($path)){@unlink($path);return null;}
         @chmod($path,0600);
         return $path;
