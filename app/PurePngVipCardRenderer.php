@@ -90,9 +90,34 @@ final class PurePngVipCardRenderer
 
         // Render only the fields approved for the card. No source-tip time,
         // bookmaker, currency amount, return, profit or receipt sections.
-        $c->roundedRect(52,43,158,38,17,'#1b3230');
-        $c->text(67,52,'FUTEBOL',2,'#87efc9');
-        $c->text(843,55,'APOSTA DO DIA',2,'#a8bdcd');
+        $sport=self::sportLabel((string)($bet['sport']??''));
+        $c->roundedRect(52,43,210,42,18,'#1b3230');
+        // Small vector sport icon, rather than a missing Unicode glyph.
+        $c->roundedRect(66,55,17,17,8,$sport==='BASQUETE'?'#ffac55':'#f3f6fa');
+        if($sport==='FUTEBOL'){
+            $c->roundedRect(73,61,5,5,2,'#161d24');
+            $c->rect(69,56,2,3,'#161d24');
+            $c->rect(80,66,2,3,'#161d24');
+        }elseif($sport==='BASQUETE'){
+            $c->rect(74,55,2,17,'#161d24');
+            $c->rect(66,63,17,2,'#161d24');
+        }elseif($sport==='TENIS'){
+            $c->rect(70,55,2,17,'#161d24');
+            $c->rect(78,55,2,17,'#161d24');
+        }else{
+            $c->rect(72,62,5,3,'#161d24');
+        }
+        $c->textFit(92,56,$sport,2,'#87efc9',16);
+        // Gold VIP seal with a crown, drawn as simple vector primitives.
+        $c->roundedRect(820,43,211,42,19,'#ffc94e');
+        $c->roundedRect(822,45,207,38,17,'#29251c');
+        $c->rect(836,56,22,4,'#ffc94e');
+        $c->rect(839,53,16,4,'#ffc94e');
+        $c->rect(836,52,4,4,'#ffc94e');
+        $c->rect(845,47,4,9,'#ffc94e');
+        $c->rect(854,52,4,4,'#ffc94e');
+        $c->rect(837,62,20,3,'#ffc94e');
+        $c->text(866,56,'APOSTA VIP',2,'#ffc94e');
 
         $match=trim((string)($bet['match']??''))?:'APOSTA ESPORTIVA';
         $c->textFit(53,131,$match,4,'#f3f6fa',40);
@@ -102,6 +127,7 @@ final class PurePngVipCardRenderer
 
         $c->text(53,260,'MERCADO',2,'#a8bdcd');
         $c->textFit(53,295,(string)($bet['market']??''),3,'#f3f6fa',53);
+        $c->rect(53,317,974,2,'#3c4d5b');
         $c->text(53,341,'SELECAO',2,'#a8bdcd');
         $c->textFit(53,377,(string)($bet['selection']??''),3,'#f3f6fa',53);
 
@@ -125,6 +151,18 @@ final class PurePngVipCardRenderer
 
         $path=sys_get_temp_dir().'/tmr-vip-pure-'.bin2hex(random_bytes(12)).'.png';
         return $c->save($path)?$path:null;
+    }
+
+    private static function sportLabel(string $raw): string
+    {
+        $raw=mb_strtolower(trim($raw),'UTF-8');
+        if($raw===''||preg_match('/futebol|football|soccer/u',$raw))return 'FUTEBOL';
+        if(preg_match('/basquete|basketball|nba/u',$raw))return 'BASQUETE';
+        if(preg_match('/tênis|tenis|tennis/u',$raw))return 'TENIS';
+        if(preg_match('/vôlei|volei|volleyball/u',$raw))return 'VOLEI';
+        if(preg_match('/hóquei|hoquei|hockey/u',$raw))return 'HOQUEI';
+        if(preg_match('/beisebol|baseball/u',$raw))return 'BEISEBOL';
+        return 'ESPORTE';
     }
 
     private function __construct(int $width,int $height,string $background)
