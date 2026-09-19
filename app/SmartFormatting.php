@@ -107,24 +107,43 @@ final class SmartFormatting
             'generationConfig'=>['temperature'=>0,'responseMimeType'=>'application/json','maxOutputTokens'=>2500]
         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if($payload===false)return null;
-        $ch=curl_init($endpoint);
-        curl_setopt_array($ch,[
-            CURLOPT_POST=>true,
-            CURLOPT_POSTFIELDS=>$payload,
-            CURLOPT_RETURNTRANSFER=>true,
-            CURLOPT_HTTPHEADER=>['Content-Type: application/json','x-goog-api-key: '.$key],
-            CURLOPT_CONNECTTIMEOUT=>4,
-            CURLOPT_TIMEOUT=>20,
-            CURLOPT_FOLLOWLOCATION=>false,
-            CURLOPT_MAXREDIRS=>0
-        ]);
-        $result=curl_exec($ch);$http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
-        if($http!==200||!is_string($result)||strlen($result)>400000)return null;
-        $response=json_decode($result,true);
-        $body=$response['candidates'][0]['content']['parts'][0]['text']??null;
-        if(!is_string($body))return null;
-        $json=json_decode($body,true);
-        return is_array($json)?$json:null;
+        // MadelineProto forwards events from inside its event loop. A blocking
+        // curl_exec in that context can throw before any Gemini response arrives.
+        // Run the same Gemini request in an isolated CLI process, passing
+        // credentials via stdin (never command arguments or logs).
+        if(!function_exists('proc_open'))return null;
+        $transport=dirname(__DIR__).'/scripts/smart-gemini-isolated.php';
+        if(!is_file($transport))return null;
+        $input=json_encode(['model'=>$model,'key'=>$key,'payload'=>$payload],
+            JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        if(!is_string($input))return null;
+        $spec=[0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']];
+        $process=@proc_open(['php',$transport],$spec,$pipes,dirname(__DIR__));
+        if(!is_resource($process))return null;
+        $output='';
+        try {
+            $offset=0;$length=strlen($input);
+            while($offset<$length){
+                $written=fwrite($pipes[0],substr($input,$offset,65536));
+                if($written===false||$written===0)break;
+                $offset+=$written;
+            }
+            fclose($pipes[0]);unset($pipes[0]);
+            if($offset===$length){
+                // Child's HTTP timeout is 20s, and it outputs at most 400KB
+                // of Gemini content. Never echo API payloads to the worker log.
+                $read=stream_get_contents($pipes[1],450000);
+                if(is_string($read))$output=$read;
+            }
+            fclose($pipes[1]);unset($pipes[1]);
+        } finally {
+            foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);
+            $exit=proc_close($process);
+        }
+        if($exit!==0||$output==='')return null;
+        $response=json_decode($output,true);
+        return !empty($response['ok'])&&isset($response['data'])&&is_array($response['data'])
+            ?$response['data']:null;
     }
     public static function asText(array $bet,bool $translated): string
     {
