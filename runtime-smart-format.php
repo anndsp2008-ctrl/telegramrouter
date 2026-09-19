@@ -184,7 +184,7 @@ HTML;
                     @unlink($card);
                 }
             }
-            if($output==='text' || $deliveryMedia===null){
+            if($formatted!==null && ($output==='text' || $deliveryMedia===null)){
                 // Telegram's text cap is 4096 UTF-16 units. Do not truncate analysis.
                 $complete=$newText.SmartFormatting::signature();
                 $units=(int)(strlen(mb_convert_encoding($complete,'UTF-16LE','UTF-8'))/2);
