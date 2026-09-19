@@ -1,4 +1,9 @@
 <?php declare(strict_types=1);
+// PHP 'use' declarations from index.php do not propagate into included files.
+// Resolve each app class explicitly so this fourth provider renders correctly.
+use App\Repository;
+use App\TranslationService;
+use App\Auth;
 // Included only in the authenticated integrations page.
 $workersAIKey=\App\WorkersAITranslation::token();
 $workersAIAccount=\App\WorkersAITranslation::account();
