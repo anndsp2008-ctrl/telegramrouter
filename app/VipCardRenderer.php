@@ -151,7 +151,7 @@ final class VipCardRenderer
     private static function sportInfo(string $raw): array
     {
         $sport=mb_strtolower(trim($raw),'UTF-8');
-        if(preg_match('/futebol|football|soccer/u',$sport))return ['FUTEBOL','football'];
+        if(preg_match('/futebol|fútbol|futbol|football|soccer/u',$sport))return ['FUTEBOL','football'];
         if(preg_match('/basquete|basketball|nba/u',$sport))return ['BASQUETE','basketball'];
         if(preg_match('/tênis|tenis|tennis/u',$sport))return ['TÊNIS','tennis'];
         if(preg_match('/vôlei|volei|volleyball/u',$sport))return ['VÔLEI','volleyball'];

@@ -68,6 +68,20 @@ final class SmartFormatting
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
         $presentedBet=$mode==='card'?self::cardView($bet):$bet;
+        if($mode==='card'){
+            // Privacy-safe diagnostics: never log message content, competition,
+            // extracted text, dates, channel handles or bookmaker details.
+            $sportBefore=mb_strtolower(trim((string)($bet['sport']??'')),'UTF-8');
+            error_log('TMR_SMART_CARD_BADGES '.json_encode([
+                'sport_input_generic'=>in_array($sportBefore,['','esporte','esportes','sport','sports',
+                    'desconhecido','unknown','não identificado','nao identificado','n/a','-'],true),
+                'sport_resolved'=>!in_array(mb_strtolower(trim((string)($presentedBet['sport']??'')),'UTF-8'),
+                    ['','esporte','esportes','sport','sports','desconhecido','unknown','n/a','-'],true),
+                'competition_present'=>trim((string)($bet['league']??''))!=='',
+                'status_present'=>trim((string)($bet['status']??''))!=='',
+                'live_badge'=>($presentedBet['status']??'')==='AO VIVO'
+            ]));
+        }
         $text=self::asText($presentedBet,$translate);
         $image=null;
         if($mode==='card') {
@@ -96,7 +110,9 @@ final class SmartFormatting
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
             "Diferencie stake sugerida do valor real do bilhete e aposta ao vivo de pré-jogo. ".
-            "Status AO VIVO somente se a partida estiver explicitamente acontecendo; bilhete En curso sozinho pode significar aposta em aberto. ".
+            "Retorne status exatamente AO VIVO quando o TEXTO OU IMAGEM indicar explicitamente PARTIDA em andamento, live/in-play, ao vivo, en vivo, en directo ou jogo em curso. ".
+            "Nao use AO VIVO apenas porque o bilhete esta aberto (ex.: En curso na area de aposta pode ser somente ticket nao liquidado). ".
+            "Se partida ao vivo nao estiver comprovada, mantenha o status descritivo ou vazio, sem adivinhar. ".
             "Identifique o esporte específico quando explícito ou inequívoco pelo confronto e campeonato (ex.: La Liga = futebol). Não use o valor genérico esporte se houver evidência clara. ".
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
@@ -169,7 +185,12 @@ final class SmartFormatting
         }
         // Sport can be absent from a valid tip. Only infer it from a clearly
         // football-specific competition, never from a generic match/odds.
-        if(trim((string)($bet['sport']??''))===''){
+        // Gemini sometimes fills the generic word "Esporte" instead of a
+        // specific sport. Treat it as missing, but preserve any named sport.
+        $rawSport=mb_strtolower(trim((string)($bet['sport']??'')),'UTF-8');
+        $genericSport=in_array($rawSport,['','esporte','esportes','sport','sports',
+            'desconhecido','unknown','não identificado','nao identificado','n/a','-'],true);
+        if($genericSport){
             $league=mb_strtolower(trim((string)($bet['league']??'')),'UTF-8');
             if(preg_match('/\\b(la liga|laliga|uefa|champions league|europa league|libertadores|copa do brasil|premier league|bundesliga)\\b/u',$league)){
                 $bet['sport']='Futebol';
@@ -177,7 +198,19 @@ final class SmartFormatting
                      && preg_match('/\\b(primera divisi[oó]n|primeira divis[aã]o|first division)\\b/u',$league)){
                 $bet['sport']='Futebol';
             }
+            // Never force football if the competition does not identify it.
+            // The renderer will keep a neutral generic badge in that case.
         }
+        // Canonicalize supported explicit "match live" phrases only in card
+        // mode. Raw extraction, caption mode and original source are untouched.
+        $status=mb_strtolower(trim((string)($bet['status']??'')),'UTF-8');
+        $explicitLive=in_array($status,[
+            'ao vivo','live','livebet','in play','in-play','em jogo',
+            'partida em andamento','jogo em andamento','em andamento',
+            'en vivo','en directo','partido en curso','match live',
+            'match in progress','en direct'
+        ],true);
+        if($explicitLive)$bet['status']='AO VIVO';
         return $bet;
     }
     public static function asText(array $bet,bool $translated): string

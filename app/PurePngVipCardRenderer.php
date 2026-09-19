@@ -164,7 +164,7 @@ final class PurePngVipCardRenderer
     private static function sportLabel(string $raw): string
     {
         $raw=mb_strtolower(trim($raw),'UTF-8');
-        if(preg_match('/futebol|football|soccer/u',$raw))return 'FUTEBOL';
+        if(preg_match('/futebol|fútbol|futbol|football|soccer/u',$raw))return 'FUTEBOL';
         if(preg_match('/basquete|basketball|nba/u',$raw))return 'BASQUETE';
         if(preg_match('/tênis|tenis|tennis/u',$raw))return 'TENIS';
         if(preg_match('/vôlei|volei|volleyball/u',$raw))return 'VOLEI';
