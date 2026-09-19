@@ -64,6 +64,10 @@ final class SmartFormatting
         $text=self::asText($bet,$translate);
         $image=null;
         if($mode==='card') {
+            // Keep the complete formatted analysis in the card caption; never silently shorten it.
+            // If it exceeds Telegram's media-caption limit, keep the original delivery unchanged.
+            $captionUnits=(int)(strlen(mb_convert_encoding($text,'UTF-16LE','UTF-8'))/2);
+            if($captionUnits>1024)return null;
             $image=VipCardRenderer::render($bet);
             if($image===null)return null; // No renderer: preserve original routing instead of a partial card.
         }
