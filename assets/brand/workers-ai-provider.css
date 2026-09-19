@@ -1,6 +1,5 @@
-/* Workers AI uses exactly the same v10 provider stack, header grid, badge,
-   form collapse and test-strip components as Azure, Gemini and Google Cloud.
-   Only its provider-specific accent and icon differ. */
+/* The fourth provider uses the same v10 header and form-status pill
+   as Google Cloud, Azure and Gemini. Only its icon and accent differ. */
 .translation-provider-grid > .workers-ai-provider-card:has(.provider-form input[name="provider"][value="workers_ai"]){
   --provider-accent:#f48120!important;
 }
@@ -8,16 +7,28 @@
   content:"CF"!important;
 }
 
-/* Mirror the existing providers' configured-state pill, without changing
-   layout or any other provider. v10 owns the grid, accordion and typography. */
-.translation-provider-grid > .workers-ai-provider-card .provider-badge.is-configured{
-  color:#8ff0c9!important;
-  background:rgba(38,166,118,.08)!important;
-  border-color:rgba(53,196,145,.20)!important;
+/* The shared form-status can grow when reused inside a provider-head grid.
+   Restrict its size/position, but inherit ALL of the existing providers'
+   typography, colors, border, padding and ::before treatment. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status{
+  grid-column:3!important;
+  grid-row:1!important;
+  justify-self:end!important;
+  align-self:center!important;
+  display:inline-flex!important;
+  width:max-content!important;
+  min-width:0!important;
+  max-width:100%!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+  white-space:nowrap!important;
 }
-.translation-provider-grid > .workers-ai-provider-card .provider-badge.is-configured::before{
-  background:#35d69b!important;
-}
-.translation-provider-grid > .workers-ai-provider-card .provider-badge.is-empty::before{
-  background:#64748b!important;
+@media(max-width:640px){
+  /* v10 reserves three columns on compact screens. Keep the chevron in
+     column 3, with the badge below the descriptive text (not over it). */
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status{
+    grid-column:2!important;
+    grid-row:2!important;
+    justify-self:start!important;
+  }
 }

@@ -117,7 +117,7 @@ try {
         "<?php require __DIR__.'/app/workers-ai-card.php'; ?>\n</div>\n<script>document.addEventListener('DOMContentLoaded',()=>{const p=document.getElementById('translation-primary')",
         'PROVIDER_CARD');
     $replace($new['index'],'</head>',
-        '<link rel="stylesheet" href="/assets/brand/workers-ai-provider.css?v=2"></head>',
+        '<link rel="stylesheet" href="/assets/brand/workers-ai-provider.css?v=3"></head>',
         'PROVIDER_CSS');
 
     // Strict syntax checks on private candidates before any persistent mutation.

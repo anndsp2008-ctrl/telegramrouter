@@ -39,16 +39,18 @@ namespace {
     // v10 headers use four grid cells: icon (pseudo-element), content,
     // configuration badge, and chevron (pseudo-element). A generic
     // form-status breaks this grid by stretching across the whole row.
-    if(!preg_match('/<div class="provider-head">\\s*<div>.*?<\\/div>\\s*<span class="provider-badge is-configured">\\s*Configurado\\s*<\\/span>\\s*<\\/div>/s',$output))
+    if(!preg_match('/<div class="provider-head">\\s*<div>.*?<\\/div>\\s*<span class="form-status is-configured">\\s*Configurado\\s*<\\/span>\\s*<\\/div>/s',$output))
         throw new \RuntimeException('Workers AI header does not match the v10 provider grid');
-    if(str_contains($output,'class="form-status"') || str_contains($output,'class="saas-card-head"'))
-        throw new \RuntimeException('Workers AI is using legacy header/badge classes');
+    if(str_contains($output,'class="provider-badge"') || str_contains($output,'class="saas-card-head"'))
+        throw new \RuntimeException('Workers AI is not using the standard form-status badge');
     $css=(string)file_get_contents(__DIR__.'/../assets/brand/workers-ai-provider.css');
     if(!str_contains($css,'content:"CF"!important') || !str_contains($css,'--provider-accent:#f48120!important'))
         throw new \RuntimeException('Workers AI provider icon or color absent');
     $installer=(string)file_get_contents(__DIR__.'/../runtime-workers-ai.php');
-    if(!str_contains($installer,'workers-ai-provider.css?v=2') ||
-       !str_contains($css,'.provider-badge.is-configured')){
+    if(!str_contains($installer,'workers-ai-provider.css?v=3') ||
+       !str_contains($css,'> .form-status') ||
+       str_contains($css,'.provider-badge.is-configured') ||
+       str_contains($css,'.provider-badge.is-configured::before')){
         throw new \RuntimeException('Workers AI provider cache or status styling may be stale');
     }
     echo "WORKERS_AI_CARD_V10_VISUAL_PARITY_TESTS_PASSED\n";
