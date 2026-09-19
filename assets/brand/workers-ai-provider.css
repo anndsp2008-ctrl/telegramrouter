@@ -3,7 +3,7 @@
  * Scope every override to the fourth card so Azure, Gemini, Google Cloud and
  * routing/media/card rendering remain unchanged.
  */
-.translation-provider-grid > .workers-ai-provider-card:has(input[name="provider"][value="workers_ai"]){
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card:has(input[name="provider"][value="workers_ai"]){
   --provider-accent:#f48120;
   width:100%!important;
   min-width:0!important;
@@ -13,7 +13,7 @@
 
 /* Generic saas-card-head/form-status styles must NOT give the badge flex:1 or
    squeeze the provider copy into a narrow column. Pin the four grid tracks. */
-.translation-provider-grid > .workers-ai-provider-card > .saas-card-head{
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head{
   display:grid!important;
   grid-template-columns:46px minmax(0,1fr) max-content 34px!important;
   grid-template-rows:auto!important;
@@ -26,7 +26,7 @@
   padding:15px 17px 15px 19px!important;
   min-height:82px!important;
 }
-.translation-provider-grid > .workers-ai-provider-card > .saas-card-head::before{
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::before{
   content:"CF"!important;
   grid-column:1!important;
   grid-row:1!important;
@@ -41,7 +41,7 @@
   font-size:10px!important;
   font-weight:900!important;
 }
-.translation-provider-grid > .workers-ai-provider-card > .saas-card-head > div:first-child{
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head > div:first-child{
   grid-column:2!important;
   grid-row:1!important;
   display:block!important;
@@ -53,13 +53,13 @@
   flex:initial!important;
   overflow-wrap:normal!important;
 }
-.translation-provider-grid > .workers-ai-provider-card > .saas-card-head > div:first-child > *{
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head > div:first-child > *{
   max-width:100%!important;
 }
-.translation-provider-grid > .workers-ai-provider-card > .saas-card-head .saas-kicker{
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head .saas-kicker{
   color:#f4a259!important;
 }
-.translation-provider-grid > .workers-ai-provider-card > .saas-card-head > .form-status{
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head > .form-status{
   grid-column:3!important;
   grid-row:1!important;
   display:inline-flex!important;
@@ -75,26 +75,26 @@
   white-space:nowrap!important;
   border-radius:999px!important;
 }
-.translation-provider-grid > .workers-ai-provider-card > .saas-card-head::after{
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::after{
   grid-column:4!important;
   grid-row:1!important;
   justify-self:end!important;
   margin:0!important;
 }
 @media(max-width:640px){
-  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head{
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head{
     grid-template-columns:40px minmax(0,1fr) 30px!important;
     column-gap:11px!important;
     padding:13px 12px 13px 15px!important;
     min-height:72px!important;
   }
-  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::before{
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::before{
     width:38px!important;height:38px!important;
   }
-  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head > .form-status{
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head > .form-status{
     display:none!important;
   }
-  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::after{
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::after{
     grid-column:3!important;
   }
 }
