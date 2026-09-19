@@ -94,12 +94,8 @@ try {
         "\$workersAIAccount=\\App\\WorkersAITranslation::account();\n".
         "\$primaryProvider=Repository::translationPrimaryProvider();",
         'INTEGRATION_VARS');
-    $summaryOld="+(!empty(\$googleCloudKey)?1:0))";
-    if(substr_count($new['index'],$summaryOld)!==2)throw new \RuntimeException('WORKERS_AI_KEY_SUMMARY_ANCHOR');
-    $new['index']=str_replace($summaryOld,
-        "+(!empty(\$googleCloudKey)?1:0)+(!empty(\$workersAIKey)&&!empty(\$workersAIAccount)?1:0))",
-        $new['index']);
-    $replace($new['index'],'?>/3</span>','?>/4</span>','KEY_TOTAL');
+    // integrations v10 rebuilds the summary below, including Workers AI.
+    // Do not patch the obsolete summary markup from the production snapshot.
 
     $matchCount=0;
     $new['index']=preg_replace_callback(
