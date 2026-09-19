@@ -1,0 +1,10 @@
+/* Extra Workers AI card: use existing integrations v10 layout and controls. */
+.translation-provider-grid>*:has(input[name="provider"][value="workers_ai"]){
+  --provider-accent:#f48120;
+}
+.translation-provider-grid>*:has(input[name="provider"][value="workers_ai"]) .saas-kicker{
+  color:#f4a259!important;
+}
+.translation-provider-grid>*:has(input[name="provider"][value="workers_ai"]) .provider-head::before{
+  background:#f48120;
+}
