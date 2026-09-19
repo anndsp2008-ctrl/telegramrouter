@@ -1,10 +1,9 @@
-/* Extra Workers AI card: use existing integrations v10 layout and controls. */
-.translation-provider-grid>*:has(input[name="provider"][value="workers_ai"]){
-  --provider-accent:#f48120;
+/* Workers AI uses exactly the same v10 provider stack, header grid, badge,
+   form collapse and test-strip components as Azure, Gemini and Google Cloud.
+   Only its provider-specific accent and icon differ. */
+.translation-provider-grid > .workers-ai-provider-card:has(.provider-form input[name="provider"][value="workers_ai"]){
+  --provider-accent:#f48120!important;
 }
-.translation-provider-grid>*:has(input[name="provider"][value="workers_ai"]) .saas-kicker{
-  color:#f4a259!important;
-}
-.translation-provider-grid>*:has(input[name="provider"][value="workers_ai"]) .provider-head::before{
-  background:#f48120;
+.translation-provider-grid > .workers-ai-provider-card > .provider-head::before{
+  content:"CF"!important;
 }
