@@ -14,7 +14,7 @@ if (!str_contains($source,'class="tmr-app-header-brand"')) {
     if (substr_count($source,$start)!==1){fwrite(STDERR,"TMR_APP_HEADER_ANCHOR_MISSING\n");exit(1);}
     $source=str_replace($start,'<header class="saas-topbar">'.$brand.'<div class="saas-user">',$source);
 }
-$stylesheet='<link rel="stylesheet" href="/assets/brand/mobile-app-header.css?v=1">';
+$stylesheet='<link rel="stylesheet" href="/assets/brand/mobile-app-header.css?v=2">';
 if (!str_contains($source,'mobile-app-header.css')) {
     if(substr_count($source,'</head>')!==1){fwrite(STDERR,"TMR_APP_HEADER_HEAD_MISSING\n");exit(1);}
     $source=str_replace('</head>',$stylesheet.'</head>',$source);
