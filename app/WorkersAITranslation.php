@@ -8,7 +8,7 @@ namespace App;
  */
 final class WorkersAITranslation
 {
-    public const DEFAULT_MODEL='@cf/meta/llama-3.1-8b-instruct';
+    public const DEFAULT_MODEL='@cf/meta/llama-3.1-8b-instruct-fp8';
 
     public static function token(array $overrides=[]): string
     {
