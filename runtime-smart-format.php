@@ -101,7 +101,12 @@ HTML;
         mixed $analysisMedia=null
     ): void
     {
-        $setting=SmartFormatting::settings((int)($rule['id']??0));
+        // The optional feature must never prevent delivery if its settings are unavailable.
+        try {
+            $setting=SmartFormatting::settings((int)($rule['id']??0));
+        } catch(\Throwable $ignored) {
+            $setting=['enabled'=>false,'output_mode'=>'card'];
+        }
         $formatted=null;
         $sourceImage=null;
         try {
@@ -140,7 +145,9 @@ HTML;
             $card=$formatted['image'];
             if($output==='card' && $card!==null){
                 try {
-                    $summary='⚽ APOSTA VIP'."\n".mb_substr($newText,0,480,'UTF-8');
+                    // SmartFormatting::prepare checked the full caption's UTF-16 size.
+                    // Send every line of the original analysis; no 480-character truncation.
+                    $summary=$newText;
                     $this->messages->sendMedia(
                         peer:$peer,
                         media:['_'=>'inputMediaUploadedPhoto','file'=>$card],
