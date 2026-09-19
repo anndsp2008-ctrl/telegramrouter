@@ -200,6 +200,30 @@ $identifiedSport=SmartFormatting::cardView([
 if(($identifiedSport['sport']??'')!=='Futebol'||($identifiedSport['status']??'')!=='AO VIVO'){
     throw new RuntimeException('League-backed sport or live status lost in card view');
 }
+// Actual user receipt: the AI returned the generic string "ESPORTE"
+// alongside a football-specific Spanish competition.
+$genericSport=SmartFormatting::cardView([
+    'sport'=>'ESPORTE','match'=>'Athletic Bilbao - Alavés',
+    'league'=>'España Primera división','status'=>'en vivo',
+    'analysis'=>'Análise original preservada integralmente.'
+]);
+if(($genericSport['sport']??'')!=='Futebol'||($genericSport['status']??'')!=='AO VIVO')
+    throw new RuntimeException('Generic sport or en vivo was not normalized on approved card');
+foreach(['esportes','sports','unknown'] as $placeholder){
+    $inferred=SmartFormatting::cardView(['sport'=>$placeholder,'league'=>'La Liga']);
+    if(($inferred['sport']??'')!=='Futebol')
+        throw new RuntimeException('Generic sport placeholder was not replaced: '.$placeholder);
+}
+foreach(['live','in-play','em andamento','partido en curso','en directo'] as $status){
+    $normal=SmartFormatting::cardView(['sport'=>'Futebol','status'=>$status]);
+    if(($normal['status']??'')!=='AO VIVO')
+        throw new RuntimeException('Explicit live match status not normalized: '.$status);
+}
+foreach(['En curso','bilhete em aberto','pré-jogo',''] as $notLive){
+    $normal=SmartFormatting::cardView(['sport'=>'Futebol','status'=>$notLive]);
+    if(($normal['status']??'')==='AO VIVO')
+        throw new RuntimeException('Ticket status incorrectly inferred as live');
+}
 $unknownSport=SmartFormatting::cardView(['sport'=>'','league'=>'Liga desconhecida']);
 if(($unknownSport['sport']??'')!=='')throw new RuntimeException('Sport invented from unknown league');
 $knownSport=SmartFormatting::cardView(['sport'=>'Basquete','league'=>'La Liga']);
