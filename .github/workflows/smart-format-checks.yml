@@ -5,6 +5,12 @@ on:
       - 'app/SmartFormatting.php'
       - 'app/VipCardRenderer.php'
       - 'runtime-smart-format.php'
+      - 'runtime-workers-ai.php'
+      - 'runtime-integrations-ui.php'
+      - 'app/WorkersAITranslation.php'
+      - 'app/workers-ai-card.php'
+      - 'scripts/workers-ai-request.php'
+      - 'assets/brand/workers-ai-provider.css'
       - 'tests/smart-format-smoke.php'
       - '.github/workflows/smart-format-checks.yml'
   workflow_dispatch:
@@ -23,57 +29,42 @@ jobs:
           php -l app/PurePngVipCardRenderer.php
           php -l app/VipCardRenderer.php
           php -l runtime-smart-format.php
+          php -l runtime-workers-ai.php
+          php -l runtime-integrations-ui.php
+          php -l app/WorkersAITranslation.php
+          php -l app/workers-ai-card.php
+          php -l scripts/workers-ai-request.php
       - name: Reconstruct sanitized baseline and patch it offline
         run: |
           mkdir -p /tmp/tmr-smart-fixture
           cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
           cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          cp runtime-workers-ai.php /tmp/tmr-smart-fixture/runtime-workers-ai.php
+          cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
+          cp app/workers-ai-card.php /tmp/tmr-smart-fixture/app/workers-ai-card.php
+          cp scripts/workers-ai-request.php /tmp/tmr-smart-fixture/scripts/workers-ai-request.php
+          mkdir -p /tmp/tmr-smart-fixture/assets/brand
+          cp assets/brand/workers-ai-provider.css /tmp/tmr-smart-fixture/assets/brand/workers-ai-provider.css
+          WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_INSTALLED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
           php -l /tmp/tmr-smart-fixture/index.php
+          php -l /tmp/tmr-smart-fixture/app/Repository.php
+          php -l /tmp/tmr-smart-fixture/app/TranslationService.php
           php -l /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_ALREADY_APPLIED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php | grep SMART_FORMAT_ALREADY_APPLIED
       - name: Assert isolated single-pass routing patch
         run: |
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationRule' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-      - name: Inspect sanitized integration and translation anchors (temporary)
+      - name: Assert Workers AI additive provider wiring
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          base=Path('/tmp/tmr-smart-fixture')
-          for name in ('index.php','app/Repository.php','app/TranslationService.php'):
-              p=base/name
-              if not p.exists(): continue
-              lines=p.read_text().splitlines()
-              keys=('save_translation','save_integration','test_translation','provider','integration(',
-                    'translation_enabled','translate(','resolveProviders','saveIntegration',
-                    'translation-provider-grid','translation-provider','azureKey','geminiKey','googleCloudKey')
-              indices=[i for i,line in enumerate(lines) if any(k in line for k in keys)]
-              keep=set()
-              for i in indices:
-                  keep.update(range(max(0,i-3),min(len(lines),i+10)))
-              print('FILE',name,'TOTAL',len(lines),'HITS',len(indices))
-              for i in sorted(keep):
-                  if len(lines[i])<2600:
-                      print(f'{name}:{i+1} {lines[i]}')
-          schema=(base/'database/schema.sql').read_text().splitlines()
-          for i in list(range(6,15))+list(range(60,93)):
-              print('DB_COLUMNS',i+1,schema[i][:500])
-          for name in ('database/schema.sql','app/Repository.php','index.php'):
-              p=base/name
-              if not p.exists(): continue
-              lines=p.read_text().splitlines()
-              if name=='database/schema.sql':
-                  for i,line in enumerate(lines):
-                      if any(t in line for t in ('translation_provider','translation_attempts','translation_provider_tests')):
-                          print('SCHEMA',i+1,line[:400])
-              elif name=='app/Repository.php':
-                  for i in range(135,min(len(lines),245)):
-                      print('REPO_EXTRA',i+1,lines[i][:480])
-              else:
-                  for i in range(160,min(len(lines),203)):
-                      print('INDEX_EXTRA',i+1,lines[i][:3000])
-          PY
+          grep -Fq "value=\"workers_ai\"" /tmp/tmr-smart-fixture/index.php
+          grep -Fq "WorkersAITranslation::attempt" /tmp/tmr-smart-fixture/app/TranslationService.php
+          grep -Fq "'workers_ai'" /tmp/tmr-smart-fixture/app/Repository.php
+          grep -Fq "workers-ai-card.php" /tmp/tmr-smart-fixture/index.php
+          grep -Fq "WORKERS_AI_PROVIDER_READY" runtime-workers-ai.php
+          ! grep -R -F "cfut_" app scripts runtime-workers-ai.php assets tests .github || exit 1
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
