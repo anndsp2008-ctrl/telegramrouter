@@ -65,10 +65,11 @@ final class SmartFormatting
         $text=self::asText($bet,$translate);
         $image=null;
         if($mode==='card') {
-            // Keep the complete formatted analysis in the card caption; never silently shorten it.
-            // If it exceeds Telegram's media-caption limit, keep the original delivery unchanged.
-            $captionUnits=(int)(strlen(mb_convert_encoding($text,'UTF-16LE','UTF-8'))/2);
-            if($captionUnits>1024){self::diag('MEDIA_CAPTION_OVER_LIMIT');return null;}
+            // A long analysis can continue after the visual card. Keep all original details.
+            // Reject only if the full text cannot fit ONE caption plus ONE continuation.
+            $totalUnits=(int)(strlen(mb_convert_encoding($text,'UTF-16LE','UTF-8'))/2);
+            $continuationOverhead=(int)(strlen(mb_convert_encoding("↪️ Continuação da mensagem:\n\n".self::signature(),'UTF-16LE','UTF-8'))/2);
+            if($totalUnits>1024+4096-$continuationOverhead){self::diag('CARD_TEXT_EXCEEDS_SINGLE_CONTINUATION');return null;}
             $image=VipCardRenderer::render($bet);
             if($image===null){self::diag('CARD_RENDER_FAILED');return null;} // Preserve original on rendering failure.
         }
