@@ -44,6 +44,26 @@ final class SmartFormatting
         )->execute([$ruleId,$enabled,$mode]);
     }
     /**
+     * With AI card + translation enabled, the extraction request itself renders
+     * the translated card and caption. Do not call the legacy translator first,
+     * otherwise Gemini is charged twice and HTTP 429 can replace the card with
+     * the original image. Other rule types keep their existing translation path.
+     */
+    public static function cardHandlesTranslation(array $rule,array $setting): bool
+    {
+        return !empty($rule['translation_enabled']) && !empty($setting['enabled'])
+            && ($setting['output_mode']??'')==='card';
+    }
+    public static function shouldTranslateInsideCard(array $rule): bool
+    {
+        if(empty($rule['translation_enabled']))return false;
+        try {
+            return self::cardHandlesTranslation($rule,self::settings((int)($rule['id']??0)));
+        } catch(\Throwable $error) {
+            return false; // Preserve legacy translation when settings are unavailable.
+        }
+    }
+    /**
      * $localImage must be a temporary file downloaded from the received Telegram message.
      * @return array{caption:string,image:?string,mode:string}|null
      */
@@ -54,7 +74,7 @@ final class SmartFormatting
         if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
-        $inputLanguage=$translate?'Use o idioma '.$target.' em TODO o texto, inclusive a análise.':'Use o idioma da mensagem original. Não traduza.';
+        $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
         $json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
         if(!$json){self::diag('GEMINI_RESPONSE_UNAVAILABLE');return null;}
