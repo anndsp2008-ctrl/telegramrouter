@@ -75,6 +75,17 @@ HTML;
     );
 
 
+    // The source text is cleaned first. Only opt-in card rules with translation
+    // bypass the legacy translator: the card AI translates once, and the old
+    // translator is invoked ONLY if card generation fails before any send.
+    $router=$replaceOne($router,
+        "\$translation=Transform::translateDetailed(\$cleaned['text'],\$rule,[",
+        "\$cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard(\$rule);\n".
+        "                \$translationRule=\$rule;\n".
+        "                if(\$cardOwnsTranslation)\$translationRule['translation_enabled']=false;\n".
+        "                \$translation=Transform::translateDetailed(\$cleaned['text'],\$translationRule,[",
+        'SINGLE_PASS_CARD_TRANSLATION'
+    );
     $router=$replaceOne($router,
         "\$this->messages->sendMessage(peer:(string)\$rule['destination_chat'],message:\$text,entities:\$sendEntities);",
         "\$this->sendSmartOrOriginal((string)\$rule['destination_chat'],null,\$text,\$sendEntities,\$rule,\$message->media??null);",
@@ -205,6 +216,18 @@ HTML;
                     return;
                 }
             }
+        }
+        // When the opt-in translated card failed before sending, restore the
+        // legacy translation once and then perform the original legacy delivery.
+        // This also respects translation_fallback_original / failure settings.
+        if(SmartFormatting::cardHandlesTranslation($rule,$setting)){
+            $translationFallback=Transform::translateDetailed($text,$rule,[
+                'rule_id'=>(int)($rule['id']??0),
+                'context'=>'message'
+            ]);
+            $text=(string)$translationFallback['text'];
+            if(!empty($translationFallback['translated']))$entities=[];
+            error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK');
         }
         // Bit-for-bit existing behavior for all disabled rules and AI failures.
         if($deliveryMedia===null){

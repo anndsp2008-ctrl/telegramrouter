@@ -252,6 +252,28 @@ foreach(['1','0'] as $rendererMode){
     foreach([$standard,$live,$openTicket,$withoutReceipt] as $generated)@unlink($generated);
 }
 echo "SMART_FORMAT_LIVE_SPORT_BADGES_TESTS_PASSED\n";
+// Regression: enabling both intelligent card and legacy translation performs
+// one AI formatting+translation pass, not two Gemini translation calls.
+$translatedRule=['id'=>16,'translation_enabled'=>1,'translation_target_language'=>'pt-BR'];
+$activeCard=['enabled'=>true,'output_mode'=>'card'];
+if(!SmartFormatting::cardHandlesTranslation($translatedRule,$activeCard))
+    throw new RuntimeException('Card did not take ownership of translation');
+foreach([
+    [['enabled'=>false,'output_mode'=>'card'],$translatedRule],
+    [['enabled'=>true,'output_mode'=>'caption'],$translatedRule],
+    [['enabled'=>true,'output_mode'=>'text'],$translatedRule],
+    [$activeCard,['translation_enabled'=>0]]
+] as [$setting,$rule]){
+    if(SmartFormatting::cardHandlesTranslation($rule,$setting))
+        throw new RuntimeException('Translation was intercepted for non-card rule');
+}
+$runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
+if(!is_string($runtimeSource)
+   ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
+   ||!str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
+   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK'))
+    throw new RuntimeException('Single-pass and legacy fallback routing hooks missing');
+echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
