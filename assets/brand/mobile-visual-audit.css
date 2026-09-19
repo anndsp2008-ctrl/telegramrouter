@@ -369,3 +369,154 @@
   .saas-content .routing-flow{padding:11px 13px!important}
   .saas-content .routing-flow>div{column-gap:9px!important;min-height:55px!important}
 }
+
+/* Formulário de regras: remover vazios entre os campos de origem, destino e gatilho.
+   Escopo: somente celulares/tablets; não afeta outros módulos ou a lógica do formulário. */
+@media (max-width:1024px){
+  .saas-content .routing-form{
+    min-width:0!important;
+  }
+  .saas-content .routing-form>.saas-card-head{
+    align-items:flex-start!important;
+    gap:10px!important;
+    margin-bottom:0!important;
+    padding-bottom:12px!important;
+  }
+  .saas-content .routing-form>.saas-card-head>div{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    justify-content:flex-start!important;
+    gap:4px!important;
+    min-width:0!important;
+  }
+  .saas-content .routing-form>.saas-card-head :is(.saas-kicker,h2,p){
+    margin:0!important;
+    padding:0!important;
+    min-height:0!important;
+  }
+  .saas-content .routing-form>.saas-card-head p{
+    font-size:12px!important;
+    line-height:1.45!important;
+  }
+  .saas-content .routing-form>.saas-card-head .form-status{
+    margin:0!important;
+    min-height:30px!important;
+    align-self:flex-start!important;
+  }
+  .saas-content .routing-form>form{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    gap:0!important;
+    min-width:0!important;
+    min-height:0!important;
+  }
+  .saas-content .routing-form .form-section-title{
+    display:flex!important;
+    align-items:center!important;
+    min-width:0!important;
+    min-height:0!important;
+    height:auto!important;
+    margin:14px 0 10px!important;
+    padding:0!important;
+    font-size:12px!important;
+    line-height:1.4!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  .saas-content .routing-form .saas-form-grid{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:min-content!important;
+    align-items:start!important;
+    align-content:start!important;
+    gap:12px 14px!important;
+    height:auto!important;
+    min-height:0!important;
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  .saas-content .routing-form .saas-form-grid>label{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    align-self:start!important;
+    gap:4px!important;
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    height:auto!important;
+    margin:0!important;
+    padding:0!important;
+    font-size:12px!important;
+    line-height:1.4!important;
+    overflow-wrap:anywhere!important;
+  }
+  .saas-content .routing-form .saas-form-grid>label>.field-help{
+    display:block!important;
+    min-height:0!important;
+    height:auto!important;
+    margin:0 0 3px!important;
+    padding:0!important;
+    font-size:11px!important;
+    line-height:1.4!important;
+  }
+  .saas-content .routing-form .saas-form-grid>label>input:not([type="checkbox"]),
+  .saas-content .routing-form .saas-form-grid>label>select,
+  .saas-content .routing-form .saas-form-grid>label>textarea{
+    flex:none!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-height:42px!important;
+    height:auto!important;
+    margin:2px 0 0!important;
+  }
+  .saas-content .routing-form .saas-form-grid>label.activation-field{
+    gap:4px!important;
+  }
+  .saas-content .routing-form .saas-form-grid .activation-toggle{
+    display:inline-flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    align-self:flex-start!important;
+    gap:9px!important;
+    width:auto!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:36px!important;
+    height:auto!important;
+    margin:2px 0 0!important;
+    padding:4px 0!important;
+    line-height:1.4!important;
+  }
+  .saas-content .routing-form .saas-form-grid .activation-toggle input[type="checkbox"]{
+    flex:0 0 15px!important;
+    width:15px!important;
+    min-width:15px!important;
+    height:15px!important;
+    min-height:15px!important;
+    margin:0!important;
+    padding:0!important;
+  }
+}
+@media (max-width:640px){
+  .saas-content .routing-form>.saas-card-head{
+    gap:9px!important;
+    padding-bottom:10px!important;
+  }
+  .saas-content .routing-form .saas-form-grid{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:13px!important;
+  }
+  .saas-content .routing-form .form-section-title{
+    margin:15px 0 9px!important;
+  }
+}
