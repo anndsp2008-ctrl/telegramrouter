@@ -57,6 +57,9 @@ jobs:
               for i in sorted(keep):
                   if len(lines[i])<2600:
                       print(f'{name}:{i+1} {lines[i]}')
+          schema=(base/'database/schema.sql').read_text().splitlines()
+          for i in list(range(6,15))+list(range(60,93)):
+              print('DB_COLUMNS',i+1,schema[i][:500])
           for name in ('database/schema.sql','app/Repository.php','index.php'):
               p=base/name
               if not p.exists(): continue
