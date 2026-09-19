@@ -49,8 +49,19 @@ jobs:
               keep=set()
               for i in picks:
                   keep.update(range(max(0,i-5),min(len(lines),i+9)))
-              for i in sorted(keep):
+              for i in sorted(keep.union(range(87,117))):
                   if i<800: print(f'ROUTER {i+1}: {lines[i]}')
+          q=Path('/tmp/tmr-smart-fixture/app/TranslationService.php')
+          if q.exists():
+              lines=q.read_text().splitlines()
+              picks=[i for i,line in enumerate(lines) if any(x in line for x in
+                  ['function translate(', 'translation_output', 'original_preserved',
+                   'return [', 'translation_mode'])]
+              keep=set()
+              for i in picks:
+                  keep.update(range(max(0,i-3),min(len(lines),i+9)))
+              for i in sorted(keep):
+                  if i<800: print(f'SERVICE {i+1}: {lines[i]}')
           PY
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
