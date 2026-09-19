@@ -30,7 +30,7 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
       </label>
       <label class="field-wide">Modelo<span class="field-help">Modelo de geração de texto para tradução.</span>
         <input name="workers_ai_model" value="<?=sh($workersAIModel)?>"
-          autocomplete="off" placeholder="@cf/meta/llama-3.1-8b-instruct">
+          autocomplete="off" placeholder="@cf/meta/llama-3.1-8b-instruct-fp8">
       </label>
     </div>
     <div class="provider-actions">
