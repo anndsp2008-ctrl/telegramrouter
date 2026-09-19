@@ -159,7 +159,6 @@ try {
                 $pdo->exec("ALTER TABLE `$table` MODIFY `$column` $definition");
             }
         }
-        }
     }
     foreach($paths as $key=>$dest){
         if(!@rename($dest.'.workers-candidate',$dest))
