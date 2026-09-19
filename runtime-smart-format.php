@@ -193,10 +193,17 @@ HTML;
                     $this->deliveryMethod='ai_formatted_text';
                     return;
                 }
-            } elseif($output==='caption') {
-                $this->sendMediaWithSafeCaption($peer,$deliveryMedia,$newText,[]);
-                $this->deliveryMethod='ai_formatted_caption';
-                return;
+            } elseif($output==='caption' && $deliveryMedia!==null) {
+                // A formatted caption is one Telegram media message, never a split
+                // continuation. If it cannot fit with the existing signature,
+                // preserve the untouched legacy delivery instead of truncating.
+                $full=$newText.SmartFormatting::signature();
+                $units=(int)(strlen(mb_convert_encoding($full,'UTF-16LE','UTF-8'))/2);
+                if($units<=1024){
+                    $this->sendMediaWithSafeCaption($peer,$deliveryMedia,$newText,[]);
+                    $this->deliveryMethod='ai_formatted_caption';
+                    return;
+                }
             }
         }
         // Bit-for-bit existing behavior for all disabled rules and AI failures.

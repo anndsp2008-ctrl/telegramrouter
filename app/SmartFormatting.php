@@ -60,6 +60,8 @@ final class SmartFormatting
         if(!$json){self::diag('GEMINI_RESPONSE_UNAVAILABLE');return null;}
         $bet=[];
         foreach($fields as $field)$bet[$field]=trim((string)($json[$field]??''));
+        // Compute profit deterministically from explicit, matching currencies.
+        $bet['potential_profit']=self::calculatePotentialProfit($bet['stake_amount'],$bet['potential_return']);
         if($bet['selection']===''||$bet['market']===''||$bet['match']===''){self::diag('REQUIRED_FIELDS_INCOMPLETE');return null;}
         if($bet['analysis']==='' && self::containsAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
         $text=self::asText($bet,$translate);
@@ -90,6 +92,8 @@ final class SmartFormatting
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
             "Diferencie stake sugerida do valor real do bilhete e aposta ao vivo de pré-jogo. ".
+            "Status AO VIVO somente se a partida estiver explicitamente acontecendo; bilhete En curso sozinho pode significar aposta em aberto. ".
+            "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
             "O campo analysis deve preservar integralmente o conteúdo analítico relevante do autor, ".
             "sem resumir fatos, sem publicidade, links ou dados inventados. ".
@@ -157,6 +161,7 @@ final class SmartFormatting
         $label=static fn(string $pt,string $en): string=>$translated?$pt:$en;
         $lines=['⚽ '.($bet['match']??'')];
         if(!empty($bet['league']))$lines[]='🏆 '.$bet['league'];
+        if(($bet['status']??'')==='AO VIVO')$lines[]='🔴 AO VIVO';
         $lines[]='';
         $lines[]='🎯 '.$label('Mercado','Market').': '.($bet['market']??'');
         $lines[]='✅ '.$label('Seleção','Selection').': '.($bet['selection']??'');
@@ -164,11 +169,43 @@ final class SmartFormatting
           'day'=>['📅','Dia','Day'],'stake'=>['📍','Stake','Stake'],
           'bookmaker'=>['🏦','Casa de apostas','Bookmaker'],
           'stake_amount'=>['💶','Valor apostado','Amount staked'],
-          'potential_return'=>['💰','Retorno potencial','Potential return']] as $field=>$labels){
+          'potential_return'=>['💰','Retorno potencial','Potential return'],
+          'potential_profit'=>['💵','Lucro potencial','Potential profit']] as $field=>$labels){
             if(!empty($bet[$field]))$lines[]=$labels[0].' '.$label($labels[1],$labels[2]).': '.$bet[$field];
         }
         if(!empty($bet['analysis'])){$lines[]='';$lines[]='📝 '.$label('Análise original','Original analysis').':';$lines[]=$bet['analysis'];}
         return implode("\n",$lines);
+    }
+    /**
+     * No implicit currency conversion; amounts are parsed to integer cents.
+     * Missing or contradictory money values leave the profit field absent.
+     */
+    public static function calculatePotentialProfit(string $stake,string $return): string
+    {
+        $a=self::moneyParts($stake);$b=self::moneyParts($return);
+        if($a===null||$b===null||$a['currency']!==$b['currency']||$a['cents']<=0||$b['cents']<$a['cents'])return '';
+        $cents=$b['cents']-$a['cents'];
+        $amount=number_format(intdiv($cents,100),0,',','.').','.str_pad((string)($cents%100),2,'0',STR_PAD_LEFT);
+        return $a['currency']==='R$'?'R$ '.$amount:$amount.' '.$a['currency'];
+    }
+    /** @return array{cents:int,currency:string}|null */
+    private static function moneyParts(string $raw): ?array
+    {
+        $raw=trim(str_replace("\xC2\xA0",' ',$raw));
+        if(!preg_match('/^(R\\$|€|£|\\$|[A-Z]{3})?\\s*([0-9][0-9., ]*)\\s*(R\\$|€|£|\\$|[A-Z]{3})?$/uD',$raw,$m))return null;
+        $currency=($m[1]??'')?:($m[3]??'');
+        if($currency===''||(!empty($m[1])&&!empty($m[3])&&$m[1]!==$m[3]))return null;
+        $value=str_replace(' ','',$m[2]);
+        if(!preg_match('/^([0-9][0-9.,]*?)(?:([,.])([0-9]{1,2}))?$/D',$value,$parts))return null;
+        $whole=$parts[1];$fraction=$parts[3]??'';
+        $group=($parts[2]??'')===','?'.':',';
+        if(str_contains($whole,',')||str_contains($whole,'.')){
+            if(!preg_match('/^[0-9]{1,3}(?:'.preg_quote($group,'/').'[0-9]{3})+$/D',$whole))return null;
+            $whole=str_replace($group,'',$whole);
+        }
+        if(!ctype_digit($whole)||strlen($whole)>14)return null;
+        $cents=(int)$whole*100+(int)str_pad($fraction,2,'0');
+        return ['cents'=>$cents,'currency'=>$currency];
     }
     public static function signature(): string
     {
