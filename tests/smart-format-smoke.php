@@ -169,6 +169,27 @@ if(extension_loaded('gd') && function_exists('imagettftext')){
     }
     echo "SMART_FORMAT_GD_STRICT_HANDLER_TESTS_PASSED\\n";
 }
+// Production regression: the worker uses PHP 8.5 and MadelineProto converts
+// imagedestroy() deprecations to exceptions. A silent GD->bitmap fallback makes
+// the card appear pixelated even though the image is delivered successfully.
+$gdRendererSource=file_get_contents(__DIR__.'/../app/VipCardRenderer.php');
+if(!is_string($gdRendererSource)||preg_match('/\\bimagedestroy\\s*\\(/',$gdRendererSource)){
+    throw new RuntimeException('Deprecated imagedestroy will disable TrueType in PHP 8.5');
+}
+if(extension_loaded('gd')&&function_exists('imagettftext')){
+    $typefaceBet=$cardFixture;
+    $typefaceBet['sport']='Futebol';
+    putenv('VIP_CARD_FORCE_PURE=1');
+    $pixelSample=VipCardRenderer::render($typefaceBet);
+    putenv('VIP_CARD_FORCE_PURE=0');
+    $trueTypeSample=VipCardRenderer::render($typefaceBet);
+    if($pixelSample===null||$trueTypeSample===null||
+       hash_file('sha256',$pixelSample)===hash_file('sha256',$trueTypeSample)){
+        throw new RuntimeException('Premium TrueType renderer unexpectedly fell back to pixel font');
+    }
+    @unlink($pixelSample);@unlink($trueTypeSample);
+    echo "SMART_FORMAT_TRUE_TYPE_NOT_BITMAP_TESTS_PASSED\\n";
+}
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
