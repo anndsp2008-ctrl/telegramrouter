@@ -64,6 +64,16 @@ final class VipCardRenderer
         self::roundRect($im,53,43,53+$sportWidth,84,20,$panel);
         self::drawSportIcon($im,76,63,$sportId,$white,$bg,$color('#ffac55'),$color('#d2fb6e'));
         self::txt($im,98,70,$sport,$sportLabelSize,$green,$bold);
+        // Draw LIVE alongside the existing VIP seal only for an explicitly
+        // identified live match; an unsettled ticket alone is not evidence.
+        $isLive=self::isLiveStatus((string)($bet['status']??''));
+        if($isLive){
+            $live=$color('#ff9255');$liveBg=$color('#39261e');
+            self::roundRect($im,668,42,807,85,20,$live);
+            self::roundRect($im,670,44,805,83,18,$liveBg);
+            imagefilledellipse($im,687,63,10,10,$live);
+            self::txt($im,704,70,'AO VIVO',14,$live,$bold);
+        }
         $gold=$color('#ffc94e');$vipBackground=$color('#29251c');
         self::roundRect($im,817,42,1027,85,20,$gold);
         self::roundRect($im,819,44,1025,83,18,$vipBackground);
@@ -131,11 +141,17 @@ final class VipCardRenderer
         @chmod($path,0600);
         return $path;
     }
+    /** Return a live seal only when the source explicitly marks the match live. */
+    private static function isLiveStatus(string $raw): bool
+    {
+        $status=mb_strtoupper(trim($raw),'UTF-8');
+        return in_array($status,['AO VIVO','LIVE','EN VIVO','IN PLAY','IN-PLAY'],true);
+    }
     /** Only known sports get specific icons. Unknown sports are clearly generic. */
     private static function sportInfo(string $raw): array
     {
         $sport=mb_strtolower(trim($raw),'UTF-8');
-        if($sport===''||preg_match('/futebol|football|soccer/u',$sport))return ['FUTEBOL','football'];
+        if(preg_match('/futebol|football|soccer/u',$sport))return ['FUTEBOL','football'];
         if(preg_match('/basquete|basketball|nba/u',$sport))return ['BASQUETE','basketball'];
         if(preg_match('/tênis|tenis|tennis/u',$sport))return ['TÊNIS','tennis'];
         if(preg_match('/vôlei|volei|volleyball/u',$sport))return ['VÔLEI','volleyball'];
