@@ -729,3 +729,44 @@
     grid-template-columns:minmax(0,1fr)!important;
   }
 }
+
+/* Tablet: selo de configuração compacto, sem ocupar a linha toda ou ser cortado. */
+@media (min-width:641px) and (max-width:1024px){
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) :is(.provider-head,.saas-card-head) .provider-badge{
+    box-sizing:border-box!important;
+    grid-column:1 / -1!important;
+    grid-row:2!important;
+    justify-self:start!important;
+    align-self:center!important;
+    display:inline-flex!important;
+    flex:0 0 auto!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:6px!important;
+    width:fit-content!important;
+    min-width:0!important;
+    max-width:100%!important;
+    height:auto!important;
+    min-height:29px!important;
+    margin:0!important;
+    padding:6px 11px!important;
+    border:1px solid #284840!important;
+    border-radius:999px!important;
+    background:#152a29!important;
+    color:#79e9be!important;
+    font:500 11px/1.25 inherit!important;
+    font-size:11px!important;
+    font-weight:500!important;
+    line-height:1.25!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) :is(.provider-head,.saas-card-head) .provider-badge::before{
+    flex:0 0 6px!important;
+    width:6px!important;
+    height:6px!important;
+  }
+}
