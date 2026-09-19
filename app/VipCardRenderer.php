@@ -121,7 +121,7 @@ final class VipCardRenderer
         if(preg_match('/beisebol|baseball/u',$sport))return ['BEISEBOL','baseball'];
         return ['ESPORTE','generic'];
     }
-    private static function drawSportIcon(\\GdImage $im,int $x,int $y,string $sport,int $white,int $dark,int $orange,int $yellow): void
+    private static function drawSportIcon(\GdImage $im,int $x,int $y,string $sport,int $white,int $dark,int $orange,int $yellow): void
     {
         if($sport==='generic'){
             imageellipse($im,$x,$y,22,22,$white);
@@ -157,7 +157,7 @@ final class VipCardRenderer
             imageellipse($im,$x,$y,22,12,$white);
         }
     }
-    private static function drawCrown(\\GdImage $im,int $x,int $y,int $gold): void
+    private static function drawCrown(\GdImage $im,int $x,int $y,int $gold): void
     {
         imagefilledpolygon($im,[$x,$y+6,$x+7,$y+11,$x+12,$y+1,
             $x+17,$y+11,$x+25,$y+6,$x+21,$y+22,$x+4,$y+22],7,$gold);
