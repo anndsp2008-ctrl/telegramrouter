@@ -28,7 +28,26 @@ jobs:
           extensions: mbstring, gd, curl, fileinfo
           coverage: none
       - name: PHP runtime information
-        run: php -v && php -r 'echo "GD ", extension_loaded("gd") ? "yes" : "no", PHP_EOL;'
+        run: |
+          php -v
+          php -m | grep -E '^gd$|^mbstring      - name: Lint standalone modules
+        run: |
+          php -l app/SmartFormatting.php
+          php -l app/PurePngVipCardRenderer.php
+          php -l app/VipCardRenderer.php
+          php -l runtime-smart-format.php
+      - name: Reconstruct sanitized baseline and patch it offline
+        run: |
+          mkdir -p /tmp/tmr-smart-fixture
+          cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
+          cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          php -l /tmp/tmr-smart-fixture/index.php
+          php -l /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php | grep SMART_FORMAT_ALREADY_APPLIED
+      - name: Run isolated card and text smoke checks
+        run: php tests/smart-format-smoke.php
+
       - name: Lint standalone modules
         run: |
           php -l app/SmartFormatting.php
