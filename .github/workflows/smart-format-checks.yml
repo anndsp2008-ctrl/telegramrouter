@@ -37,5 +37,26 @@ jobs:
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationRule' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+      - name: Inspect sanitized integration and translation anchors (temporary)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          base=Path('/tmp/tmr-smart-fixture')
+          for name in ('index.php','app/Repository.php','app/TranslationService.php'):
+              p=base/name
+              if not p.exists(): continue
+              lines=p.read_text().splitlines()
+              keys=('save_translation','save_integration','test_translation','provider','integration(',
+                    'translation_enabled','translate(','resolveProviders','saveIntegration',
+                    'translation-provider-grid','translation-provider','azureKey','geminiKey','googleCloudKey')
+              indices=[i for i,line in enumerate(lines) if any(k in line for k in keys)]
+              keep=set()
+              for i in indices:
+                  keep.update(range(max(0,i-3),min(len(lines),i+10)))
+              print('FILE',name,'TOTAL',len(lines),'HITS',len(indices))
+              for i in sorted(keep):
+                  if len(lines[i])<2600:
+                      print(f'{name}:{i+1} {lines[i]}')
+          PY
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
