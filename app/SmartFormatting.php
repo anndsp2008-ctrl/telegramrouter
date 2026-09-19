@@ -97,6 +97,7 @@ final class SmartFormatting
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
             "Diferencie stake sugerida do valor real do bilhete e aposta ao vivo de pré-jogo. ".
             "Status AO VIVO somente se a partida estiver explicitamente acontecendo; bilhete En curso sozinho pode significar aposta em aberto. ".
+            "Identifique o esporte específico quando explícito ou inequívoco pelo confronto e campeonato (ex.: La Liga = futebol). Não use o valor genérico esporte se houver evidência clara. ".
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
             "O campo analysis deve preservar integralmente o conteúdo analítico relevante do autor, ".
@@ -163,8 +164,19 @@ final class SmartFormatting
     /** Card-mode only. Never alter the extracted source or the original analysis. */
     public static function cardView(array $bet): array
     {
-        foreach(['time','day','bookmaker','stake_amount','potential_return','potential_profit','status'] as $key){
+        foreach(['time','day','bookmaker','stake_amount','potential_return','potential_profit'] as $key){
             unset($bet[$key]);
+        }
+        // Sport can be absent from a valid tip. Only infer it from a clearly
+        // football-specific competition, never from a generic match/odds.
+        if(trim((string)($bet['sport']??''))===''){
+            $league=mb_strtolower(trim((string)($bet['league']??'')),'UTF-8');
+            if(preg_match('/\\b(la liga|laliga|uefa|champions league|europa league|libertadores|copa do brasil|premier league|bundesliga)\\b/u',$league)){
+                $bet['sport']='Futebol';
+            } elseif(preg_match('/\\b(espa(nha|ña)|spain|espana|espanha)\\b/u',$league)
+                     && preg_match('/\\b(primera divisi[oó]n|primeira divis[aã]o|first division)\\b/u',$league)){
+                $bet['sport']='Futebol';
+            }
         }
         return $bet;
     }
