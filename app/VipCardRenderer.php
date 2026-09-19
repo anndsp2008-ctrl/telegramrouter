@@ -19,11 +19,12 @@ final class VipCardRenderer
         $font=self::font(false); $bold=self::font(true);
         if (!$font || !$bold) return PurePngVipCardRenderer::render($bet);
         $w=1080; $pad=46;
+        $slip=($bet['status']??'')==='AO VIVO' && !empty($bet['stake_amount']) && !empty($bet['potential_return']);
         $analysis=trim((string)($bet['analysis']??''));
         $analysisLines=self::lines($analysis,83);
         if($analysisLines===null)return null; // Never truncate the author's analysis.
-        $analysisHeight=max(100,count($analysisLines)*30+48);
-        $h=min(4000,1010+$analysisHeight);
+        $analysisHeight=$slip && $analysis==='' ? 0 : max(100,count($analysisLines)*30+48);
+        $h=min(4000,($slip?1120:1010)+$analysisHeight);
         $im=imagecreatetruecolor($w,$h);
         if (!$im) return null;
         imagealphablending($im,true); imagesavealpha($im,true);
@@ -35,8 +36,8 @@ final class VipCardRenderer
         self::roundRect($im,36,33,$w-36,$h-33,25,$bg);
         self::roundRect($im,58,57,216,98,19,$panel);
         self::txt($im,73,86,'FUTEBOL',17,$green,$bold);
-        self::roundRect($im,827,57,1022,98,19,$color('#1a293a'));
-        self::txt($im,841,86,'APOSTA VIP',16,$color('#93c5fd'),$bold);
+        self::roundRect($im,827,57,1022,98,19,$color($slip?'#3b2922':'#1a293a'));
+        self::txt($im,841,86,$slip?'AO VIVO':'APOSTA VIP',16,$color($slip?'#ff9b5c':'#93c5fd'),$bold);
         $title=trim((string)($bet['match']??'')) ?: 'Aposta esportiva';
         self::txt($im,58,159,self::fit($title,36),31,$white,$bold);
         $league=trim((string)($bet['league']??''));
@@ -50,23 +51,42 @@ final class VipCardRenderer
         self::roundRect($im,540,455,1022,584,17,$panel);
         self::txt($im,78,491,'ODD',17,$muted,$font);
         self::txt($im,78,552,trim((string)($bet['odd']??'')) ?: '—',43,$green,$bold);
-        self::txt($im,562,491,'HORÁRIO',17,$muted,$font);
-        self::txt($im,562,552,trim((string)($bet['time']??'')) ?: '—',43,$green,$bold);
+        self::txt($im,562,491,$slip?'STAKE':'HORÁRIO',17,$muted,$font);
+        self::txt($im,562,552,trim((string)($bet[$slip?'stake':'time']??'')) ?: '—',43,$green,$bold);
         $y=633;
-        foreach (['day'=>'DIA DA PARTIDA','stake'=>'STAKE','bookmaker'=>'CASA DE APOSTAS','stake_amount'=>'VALOR APOSTADO','potential_return'=>'RETORNO POTENCIAL'] as $key=>$label) {
-            $value=trim((string)($bet[$key]??'')); if($value==='')continue;
-            self::txt($im,58,$y,$label,15,$muted,$font);
-            self::txt($im,58,$y+33,self::fit($value,80),21,$white,$bold);
-            $y+=69;
-            if($y>765)break;
+        if($slip){
+            if(!empty($bet['time'])){
+                self::txt($im,58,$y,'HORÁRIO INFORMADO',15,$muted,$font);
+                self::txt($im,58,$y+36,self::fit((string)$bet['time'],32),24,$white,$bold);
+            }
+            imageline($im,58,713,1021,713,$line);
+            self::txt($im,58,754,'COMPROVANTE DA APOSTA',16,$muted,$font);
+            $proofY=796;
+            foreach(['stake_amount'=>'Valor apostado','potential_return'=>'Retorno potencial','potential_profit'=>'Lucro potencial'] as $key=>$label){
+                if(empty($bet[$key]))continue;
+                self::txt($im,58,$proofY,$label,18,$white,$font);
+                self::txt($im,710,$proofY,self::fit((string)$bet[$key],22),20,$key==='potential_return'?$green:$white,$bold);
+                $proofY+=48;
+            }
+            $sectionY=980;
+        } else {
+            foreach (['day'=>'DIA DA PARTIDA','stake'=>'STAKE','bookmaker'=>'CASA DE APOSTAS','stake_amount'=>'VALOR APOSTADO','potential_return'=>'RETORNO POTENCIAL'] as $key=>$label) {
+                $value=trim((string)($bet[$key]??'')); if($value==='')continue;
+                self::txt($im,58,$y,$label,15,$muted,$font);
+                self::txt($im,58,$y+33,self::fit($value,80),21,$white,$bold);
+                $y+=69;
+                if($y>765)break;
+            }
+            $sectionY=max(790,$y+30);
         }
-        $sectionY=max(790,$y+30);
         $required=$sectionY+$analysisHeight+102;
         if($required>$h){imagedestroy($im);return null;}
-        self::roundRect($im,58,$sectionY,1022,$sectionY+$analysisHeight,15,$analysisBg);
-        self::txt($im,78,$sectionY+32,'ANÁLISE ORIGINAL',15,$muted,$font);
-        $cursor=$sectionY+66;
-        foreach($analysisLines as $part){self::txt($im,78,$cursor,$part,19,$white,$font);$cursor+=30;}
+        if($analysisHeight>0){
+            self::roundRect($im,58,$sectionY,1022,$sectionY+$analysisHeight,15,$analysisBg);
+            self::txt($im,78,$sectionY+32,'ANÁLISE ORIGINAL',15,$muted,$font);
+            $cursor=$sectionY+66;
+            foreach($analysisLines as $part){self::txt($im,78,$cursor,$part,19,$white,$font);$cursor+=30;}
+        }
         imageline($im,58,$sectionY+$analysisHeight+32,1022,$sectionY+$analysisHeight+32,$line);
         self::txt($im,300,$sectionY+$analysisHeight+84,'⚡ TelegramRouter • Aposta encaminhada',16,$green,$font);
         $path=sys_get_temp_dir().'/tmr-vip-'.bin2hex(random_bytes(12)).'.png';
