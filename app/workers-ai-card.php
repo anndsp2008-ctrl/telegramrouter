@@ -16,7 +16,7 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
   <div class="provider-head">
     <div><span class="saas-kicker">CLOUDFLARE AI</span><h2>Workers AI</h2>
       <p>Tradução de textos por IA com detecção automática de idioma e modelo configurável.</p></div>
-    <span class="provider-badge <?=$workersAIConfigured?'is-configured':'is-empty'?>">
+    <span class="form-status <?=$workersAIConfigured?'is-configured':'is-empty'?>">
       <?=$workersAIConfigured?'Configurado':'Não configurado'?></span>
   </div>
   <form method="post" class="provider-form">
