@@ -64,7 +64,7 @@ jobs:
           grep -Fq "WorkersAITranslation::attempt" /tmp/tmr-smart-fixture/app/TranslationService.php
           grep -Fq "'workers_ai'" /tmp/tmr-smart-fixture/app/Repository.php
           grep -Fq "workers-ai-card.php" /tmp/tmr-smart-fixture/index.php
-          grep -Fq "WORKERS_AI_PROVIDER_READY" runtime-workers-ai.php
+          grep -Fq "WORKERS_AI_INSTALLED" runtime-workers-ai.php
           ! grep -R -F "cfut_" app scripts runtime-workers-ai.php assets tests .github || exit 1
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
