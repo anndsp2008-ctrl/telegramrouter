@@ -60,7 +60,7 @@ final class SmartFormatting
         if(!$json){self::diag('GEMINI_RESPONSE_UNAVAILABLE');return null;}
         $bet=[];
         foreach($fields as $field)$bet[$field]=trim((string)($json[$field]??''));
-        // Financial arithmetic is deterministic; never trust an LLM's claimed profit.
+        // Compute profit deterministically from explicit, matching currencies.
         $bet['potential_profit']=self::calculatePotentialProfit($bet['stake_amount'],$bet['potential_return']);
         if($bet['selection']===''||$bet['market']===''||$bet['match']===''){self::diag('REQUIRED_FIELDS_INCOMPLETE');return null;}
         if($bet['analysis']==='' && self::containsAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
@@ -161,7 +161,7 @@ final class SmartFormatting
         $label=static fn(string $pt,string $en): string=>$translated?$pt:$en;
         $lines=['⚽ '.($bet['match']??'')];
         if(!empty($bet['league']))$lines[]='🏆 '.$bet['league'];
-        if(!empty($bet['status']))$lines[]='🔴 '.$bet['status'];
+        if(($bet['status']??'')==='AO VIVO')$lines[]='🔴 AO VIVO';
         $lines[]='';
         $lines[]='🎯 '.$label('Mercado','Market').': '.($bet['market']??'');
         $lines[]='✅ '.$label('Seleção','Selection').': '.($bet['selection']??'');
@@ -177,31 +177,25 @@ final class SmartFormatting
         return implode("\n",$lines);
     }
     /**
-     * Parse only explicit, matching monetary denominations. No exchange-rate
-     * assumptions and no float arithmetic for large monetary quantities.
+     * No implicit currency conversion; amounts are parsed to integer cents.
+     * Missing or contradictory money values leave the profit field absent.
      */
     public static function calculatePotentialProfit(string $stake,string $return): string
     {
-        $a=self::moneyParts($stake); $b=self::moneyParts($return);
+        $a=self::moneyParts($stake);$b=self::moneyParts($return);
         if($a===null||$b===null||$a['currency']!==$b['currency']||$a['cents']<=0||$b['cents']<$a['cents'])return '';
         $cents=$b['cents']-$a['cents'];
-        $formatted=number_format(intdiv($cents,100),0,',','.').','.str_pad((string)($cents%100),2,'0',STR_PAD_LEFT);
-        return $a['currency']==='R: string
-    {
-        return "\n\n━━━━━━━━━━━━\n".self::SIGNATURE;
-    }
-}
-?'R$ '.$formatted:$formatted.' '.$a['currency'];
+        $amount=number_format(intdiv($cents,100),0,',','.').','.str_pad((string)($cents%100),2,'0',STR_PAD_LEFT);
+        return $a['currency']==='R$'?'R$ '.$amount:$amount.' '.$a['currency'];
     }
     /** @return array{cents:int,currency:string}|null */
     private static function moneyParts(string $raw): ?array
     {
-        $raw=trim(str_replace("\xc2\xa0",' ',$raw));
+        $raw=trim(str_replace("\\xc2\\xa0",' ',$raw));
         if(!preg_match('/^(R\\$|€|£|\\$|[A-Z]{3})?\\s*([0-9][0-9., ]*)\\s*(R\\$|€|£|\\$|[A-Z]{3})?$/uD',$raw,$m))return null;
         $currency=($m[1]??'')?:($m[3]??'');
         if($currency===''||(!empty($m[1])&&!empty($m[3])&&$m[1]!==$m[3]))return null;
         $value=str_replace(' ','',$m[2]);
-        // Use the last punctuation as decimal separator only when followed by 1-2 digits.
         if(!preg_match('/^([0-9][0-9.,]*?)(?:([,.])([0-9]{1,2}))?$/D',$value,$parts))return null;
         $whole=$parts[1];$fraction=$parts[3]??'';
         $group=($parts[2]??'')===','?'.':',';
