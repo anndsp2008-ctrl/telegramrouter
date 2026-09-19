@@ -139,19 +139,42 @@ HTML;
             $output=$formatted['mode'];
             $card=$formatted['image'];
             if($output==='card' && $card!==null){
-                try {
-                    $summary='⚽ APOSTA VIP'."\n".mb_substr($newText,0,480,'UTF-8');
-                    $this->messages->sendMedia(
-                        peer:$peer,
-                        media:['_'=>'inputMediaUploadedPhoto','file'=>$card],
-                        message:$summary,
-                        entities:[]
-                    );
-                    $this->deliveryMethod='ai_vip_card';
-                } finally {
-                    @unlink($card);
+                $signature=SmartFormatting::signature();
+                $units=static fn(string $value): int =>
+                    (int)(strlen(mb_convert_encoding($value,'UTF-16LE','UTF-8'))/2);
+                $signatureUnits=$units($signature);
+                $textUnits=$units($newText);
+                // If the signature would overflow the media caption, keep it only at the very
+                // end of the generated continuation. Never insert it between related parts.
+                $captionLimit=($textUnits+$signatureUnits)<=1024
+                    ? 1024
+                    : max(1,1024-$signatureUnits);
+                [$cardCaption,$cardRest]=$this->splitCaption($newText,[],$captionLimit);
+                if($cardRest===''){
+                    $cardCaption.=$signature;
+                    $continuation='';
+                } else {
+                    $continuation=$cardRest.$signature;
                 }
-                return;
+                $continuationPrefix="↪️ Continuação da mensagem:\n\n";
+                if($continuation!=='' && $units($continuationPrefix.$continuation)>4096){
+                    @unlink($card);
+                    $formatted=null; // preserve the previous forwarding path instead of truncating analysis.
+                } else {
+                    try {
+                        $this->messages->sendMedia(
+                            peer:$peer,
+                            media:['_'=>'inputMediaUploadedPhoto','file'=>$card],
+                            message:$cardCaption,
+                            entities:[]
+                        );
+                        if($continuation!=='')$this->sendContinuation($peer,$continuation,[]);
+                        $this->deliveryMethod='ai_vip_card';
+                    } finally {
+                        @unlink($card);
+                    }
+                    return;
+                }
             }
             if($output==='text' || $deliveryMedia===null){
                 // Telegram's text cap is 4096 UTF-16 units. Do not truncate analysis.
