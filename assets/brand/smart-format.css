@@ -1,0 +1,75 @@
+/* Opt-in VIP formatting: isolated from existing routing controls. */
+.routing-form .tmr-smart-format-choice{
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:11px;
+  min-width:0;
+  margin:14px 0 18px;
+  padding:17px;
+  border:1px solid rgba(121,233,190,.22);
+  border-radius:15px;
+  background:rgba(21,42,41,.28);
+}
+.routing-form .tmr-smart-format-choice .treatment-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#79e9be;
+  font-weight:700;
+  font-size:13px;
+  line-height:1.4;
+}
+.routing-form .tmr-smart-format-choice .field-help{
+  margin:0;
+  max-width:100%;
+  font-size:11px;
+  line-height:1.5;
+  color:#93a8bc;
+}
+.routing-form .tmr-smart-format-choice .treatment-checks{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:0!important;
+  margin:0!important;
+}
+.routing-form .tmr-smart-format-choice label{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:6px;
+  min-width:0;
+  font-size:12px;
+  line-height:1.4;
+  color:#dce7f0;
+}
+.routing-form .tmr-smart-format-choice .treatment-checks label{
+  flex-direction:row;
+  align-items:center;
+  gap:9px;
+  min-height:32px;
+  margin:0;
+}
+.routing-form .tmr-smart-format-choice input[type=checkbox]{
+  flex:0 0 15px;
+  width:15px;
+  height:15px;
+  min-width:15px;
+  min-height:15px;
+  margin:0;
+  padding:0;
+  accent-color:#79e9be;
+}
+.routing-form .tmr-smart-format-choice select{
+  box-sizing:border-box;
+  width:100%;
+  max-width:100%;
+  min-height:42px;
+  padding:9px 40px 9px 12px;
+  font-size:13px;
+}
+@media(max-width:640px){
+  .routing-form .tmr-smart-format-choice{padding:14px;gap:10px}
+  .routing-form .tmr-smart-format-choice select{font-size:16px}
+}

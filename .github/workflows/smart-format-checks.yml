@@ -1,0 +1,35 @@
+name: Smart formatting isolated checks
+on:
+  pull_request:
+    paths:
+      - 'app/SmartFormatting.php'
+      - 'app/VipCardRenderer.php'
+      - 'runtime-smart-format.php'
+      - 'tests/smart-format-smoke.php'
+      - '.github/workflows/smart-format-checks.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP extensions and fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-mbstring php-gd fonts-dejavu-core
+      - name: Lint standalone modules
+        run: |
+          php -l app/SmartFormatting.php
+          php -l app/VipCardRenderer.php
+          php -l runtime-smart-format.php
+      - name: Reconstruct sanitized baseline and patch it offline
+        run: |
+          mkdir -p /tmp/tmr-smart-fixture
+          cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
+          cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          php -l /tmp/tmr-smart-fixture/index.php
+          php -l /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php | grep SMART_FORMAT_ALREADY_APPLIED
+      - name: Run isolated card and text smoke checks
+        run: php tests/smart-format-smoke.php
