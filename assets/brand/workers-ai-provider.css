@@ -1,9 +1,100 @@
-/* Workers AI uses exactly the same v10 provider stack, header grid, badge,
-   form collapse and test-strip components as Azure, Gemini and Google Cloud.
-   Only its provider-specific accent and icon differ. */
-.translation-provider-grid > .workers-ai-provider-card:has(.provider-form input[name="provider"][value="workers_ai"]){
-  --provider-accent:#f48120!important;
+/*
+ * Workers AI card: layout contract identical to the other three v10 providers.
+ * Scope every override to the fourth card so Azure, Gemini, Google Cloud and
+ * routing/media/card rendering remain unchanged.
+ */
+.translation-provider-grid > .workers-ai-provider-card:has(input[name="provider"][value="workers_ai"]){
+  --provider-accent:#f48120;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
 }
-.translation-provider-grid > .workers-ai-provider-card > .provider-head::before{
+
+/* Generic saas-card-head/form-status styles must NOT give the badge flex:1 or
+   squeeze the provider copy into a narrow column. Pin the four grid tracks. */
+.translation-provider-grid > .workers-ai-provider-card > .saas-card-head{
+  display:grid!important;
+  grid-template-columns:46px minmax(0,1fr) max-content 34px!important;
+  grid-template-rows:auto!important;
+  align-items:center!important;
+  column-gap:14px!important;
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  padding:15px 17px 15px 19px!important;
+  min-height:82px!important;
+}
+.translation-provider-grid > .workers-ai-provider-card > .saas-card-head::before{
   content:"CF"!important;
+  grid-column:1!important;
+  grid-row:1!important;
+  display:grid!important;
+  place-items:center!important;
+  width:44px!important;
+  height:44px!important;
+  border-radius:13px!important;
+  border:1px solid rgba(244,129,32,.28)!important;
+  background:color-mix(in srgb,var(--provider-accent) 18%,rgba(30,41,59,.88))!important;
+  color:#fff!important;
+  font-size:10px!important;
+  font-weight:900!important;
+}
+.translation-provider-grid > .workers-ai-provider-card > .saas-card-head > div:first-child{
+  grid-column:2!important;
+  grid-row:1!important;
+  display:block!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  flex:initial!important;
+  overflow-wrap:normal!important;
+}
+.translation-provider-grid > .workers-ai-provider-card > .saas-card-head > div:first-child > *{
+  max-width:100%!important;
+}
+.translation-provider-grid > .workers-ai-provider-card > .saas-card-head .saas-kicker{
+  color:#f4a259!important;
+}
+.translation-provider-grid > .workers-ai-provider-card > .saas-card-head > .form-status{
+  grid-column:3!important;
+  grid-row:1!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  justify-self:end!important;
+  width:max-content!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:6px 10px!important;
+  flex:0 0 auto!important;
+  white-space:nowrap!important;
+  border-radius:999px!important;
+}
+.translation-provider-grid > .workers-ai-provider-card > .saas-card-head::after{
+  grid-column:4!important;
+  grid-row:1!important;
+  justify-self:end!important;
+  margin:0!important;
+}
+@media(max-width:640px){
+  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head{
+    grid-template-columns:40px minmax(0,1fr) 30px!important;
+    column-gap:11px!important;
+    padding:13px 12px 13px 15px!important;
+    min-height:72px!important;
+  }
+  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::before{
+    width:38px!important;height:38px!important;
+  }
+  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head > .form-status{
+    display:none!important;
+  }
+  .translation-provider-grid > .workers-ai-provider-card > .saas-card-head::after{
+    grid-column:3!important;
+  }
 }
