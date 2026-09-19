@@ -19,6 +19,18 @@ if (!str_contains($source,'mobile-app-header.css')) {
     if(substr_count($source,'</head>')!==1){fwrite(STDERR,"TMR_APP_HEADER_HEAD_MISSING\n");exit(1);}
     $source=str_replace('</head>',$stylesheet.'</head>',$source);
 }
+// Preserve the existing CSRF-protected POST logout; replace only the button contents.
+$oldLogout='<button class="saas-logout">Sair</button>';
+$newLogout='<button class="saas-logout" type="submit" aria-label="Sair" title="Sair"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M14 16l4-4-4-4"/><path d="M18 12H8"/></svg></button>';
+if (!str_contains($source,$newLogout)) {
+    if (substr_count($source,$oldLogout)!==1) { fwrite(STDERR,"TMR_LOGOUT_ICON_BUTTON_MISSING\\n");exit(1); }
+    $source=str_replace($oldLogout,$newLogout,$source);
+}
+$logoutCss='<link rel="stylesheet" href="/assets/brand/logout-icon.css?v=1">';
+if (!str_contains($source,'logout-icon.css')) {
+    if(substr_count($source,'</head>')!==1){fwrite(STDERR,"TMR_LOGOUT_ICON_HEAD_MISSING\\n");exit(1);}
+    $source=str_replace('</head>',$logoutCss.'</head>',$source);
+}
 $tmp=$path.'.app-header-candidate';
 if(@file_put_contents($tmp,$source)===false){fwrite(STDERR,"TMR_APP_HEADER_WRITE_FAILED\n");exit(1);}
 $lint=[];$exitCode=0;
