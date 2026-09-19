@@ -8,6 +8,7 @@ namespace App;
 final class SmartFormatting
 {
     private const SIGNATURE='⚡ TelegramRouter • Aposta encaminhada';
+    private static function diag(string $code): void {error_log('TMR_SMART_FORMAT_REASON '.$code);}
 
     public static function migrate(): void
     {
@@ -49,27 +50,27 @@ final class SmartFormatting
     public static function prepare(string $sourceText,array $rule,?string $localImage,string $mode): ?array
     {
         $key=trim(Repository::integration('gemini_api_key'));
-        if($key==='')return null;
-        if(trim($sourceText)===''&&($localImage===null||!is_file($localImage)))return null;
+        if($key===''){self::diag('GEMINI_KEY_MISSING');return null;}
+        if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Use o idioma '.$target.' em TODO o texto, inclusive a análise.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
         $json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
-        if(!$json)return null;
+        if(!$json){self::diag('GEMINI_RESPONSE_UNAVAILABLE');return null;}
         $bet=[];
         foreach($fields as $field)$bet[$field]=trim((string)($json[$field]??''));
-        if($bet['selection']===''||$bet['market']===''||$bet['match']==='')return null;
-        if($bet['analysis']==='' && self::containsAnalysis($sourceText))return null;
+        if($bet['selection']===''||$bet['market']===''||$bet['match']===''){self::diag('REQUIRED_FIELDS_INCOMPLETE');return null;}
+        if($bet['analysis']==='' && self::containsAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
         $text=self::asText($bet,$translate);
         $image=null;
         if($mode==='card') {
             // Keep the complete formatted analysis in the card caption; never silently shorten it.
             // If it exceeds Telegram's media-caption limit, keep the original delivery unchanged.
             $captionUnits=(int)(strlen(mb_convert_encoding($text,'UTF-16LE','UTF-8'))/2);
-            if($captionUnits>1024)return null;
+            if($captionUnits>1024){self::diag('MEDIA_CAPTION_OVER_LIMIT');return null;}
             $image=VipCardRenderer::render($bet);
-            if($image===null)return null; // No renderer: preserve original routing instead of a partial card.
+            if($image===null){self::diag('CARD_RENDER_FAILED');return null;} // Preserve original on rendering failure.
         }
         return ['caption'=>$text,'image'=>$image,'mode'=>$mode];
     }
@@ -80,7 +81,7 @@ final class SmartFormatting
     /** @param list<string> $fields */
     private static function request(string $key,string $text,?string $image,string $language,array $fields): ?array
     {
-        if(!function_exists('curl_init'))return null;
+        if(!function_exists('curl_init')){self::diag('CURL_EXTENSION_MISSING');return null;}
         $model=trim(Repository::integration('gemini_model'))?:'gemini-2.5-flash';
         if(!preg_match('/^[A-Za-z0-9_.-]+$/D',$model))return null;
         $endpoint='https://generativelanguage.googleapis.com/v1beta/models/'.rawurlencode($model).':generateContent';
@@ -111,15 +112,15 @@ final class SmartFormatting
         // curl_exec in that context can throw before any Gemini response arrives.
         // Run the same Gemini request in an isolated CLI process, passing
         // credentials via stdin (never command arguments or logs).
-        if(!function_exists('proc_open'))return null;
+        if(!function_exists('proc_open')){self::diag('PROCESS_EXTENSION_MISSING');return null;}
         $transport=dirname(__DIR__).'/scripts/smart-gemini-isolated.php';
-        if(!is_file($transport))return null;
+        if(!is_file($transport)){self::diag('ISOLATED_TRANSPORT_MISSING');return null;}
         $input=json_encode(['model'=>$model,'key'=>$key,'payload'=>$payload],
             JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if(!is_string($input))return null;
         $spec=[0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']];
         $process=@proc_open(['php',$transport],$spec,$pipes,dirname(__DIR__));
-        if(!is_resource($process))return null;
+        if(!is_resource($process)){self::diag('ISOLATED_PROCESS_START_FAILED');return null;}
         $output='';
         try {
             $offset=0;$length=strlen($input);
@@ -140,10 +141,15 @@ final class SmartFormatting
             foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);
             $exit=proc_close($process);
         }
-        if($exit!==0||$output==='')return null;
+        if($exit!==0||$output===''){self::diag('ISOLATED_PROCESS_EMPTY_OR_ERROR');return null;}
         $response=json_decode($output,true);
-        return !empty($response['ok'])&&isset($response['data'])&&is_array($response['data'])
-            ?$response['data']:null;
+        if(empty($response['ok'])||!isset($response['data'])||!is_array($response['data'])){
+            $reason=(string)($response['reason']??'UNCLASSIFIED');
+            if(!preg_match('/^[A-Z0-9_]{1,48}$/D',$reason))$reason='UNCLASSIFIED';
+            self::diag('GEMINI_'. $reason);
+            return null;
+        }
+        return $response['data'];
     }
     public static function asText(array $bet,bool $translated): string
     {
