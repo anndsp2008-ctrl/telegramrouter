@@ -7,6 +7,11 @@
 if(getenv('SMART_FORMAT_TEST_ONLY')!=='1'){
     require_once __DIR__.'/bootstrap.php';
     \App\SmartFormatting::migrate();
+    $rendererReady=extension_loaded('gd') && function_exists('imagettftext');
+    $fontReady=is_file('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
+        || is_file('/usr/share/fonts/TTF/DejaVuSans.ttf')
+        || is_file('/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf');
+    echo 'SMART_FORMAT_RENDERER_READY='.(($rendererReady&&$fontReady)?'1':'0')."\n";
 }
 
 $indexPath=__DIR__.'/index.php';
