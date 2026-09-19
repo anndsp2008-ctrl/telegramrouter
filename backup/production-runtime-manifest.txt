@@ -1,0 +1,15 @@
+TelegramRouter production recovery snapshot
+Snapshot date: 2026-09-18/19 (America/Sao_Paulo)
+Railway project: intelligent-rebirth
+Railway service: telegramrouter
+Railway project ID: 8a7e2bf1-e958-43e8-bf44-006d288db0a2
+Railway service ID: 0bbe1530-0483-4240-992d-66a8a48a6560
+Railway environment ID: 868437f1-58d9-4906-8b19-3b05ec484564
+Approved baseline Git commit before backup packaging: 7569e0e72f98cb00b303b7128e8fc3dca643e28e
+Snapshot packaging HEAD before cleanup: eb7c1984271510a5b02c1cd84fd7816c91685d48
+Snapshot parts: 9
+Base64 payload chars (whitespace removed): 246872
+Archive format: gzip-compressed tar, Base64 encoded and split into ordered parts
+Secrets excluded: yes
+Persistent storage excluded: yes
+vendor excluded: yes (rebuild with Composer)
