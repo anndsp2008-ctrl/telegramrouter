@@ -66,5 +66,52 @@ $liveGdSize=getimagesize($liveGdImage);
 if(!is_array($liveGdSize)||$liveGdSize['mime']!=='image/png'||$liveGdSize[0]!==1080)
     throw new RuntimeException('Invalid live slip GD/fallback PNG');
 @unlink($liveGdImage);
+// Approved APOSTA DO DIA template is card-only: retain analysis and exclude
+// bookmaker, stake amounts, returns, profits, status and source-tip time.
+// Non-card text/legend mode continues to expose the original extracted fields.
+$cardFixture=$liveBet;
+$cardFixture['analysis']='Análise original integral da tip, sem alterar o argumento do autor.';
+$cardFixture['bookmaker']='WINAMAX';
+$cardFixture['day']='Sábado';
+$cardView=SmartFormatting::cardView($cardFixture);
+$cardText=SmartFormatting::asText($cardView,true);
+foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1,60','6/10',
+         'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
+    if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
+}
+foreach(['WINAMAX','2.000,00 €','3.200,00 €','1.200,00 €','16h15','Sábado','AO VIVO'] as $forbidden){
+    if(str_contains($cardText,$forbidden))throw new RuntimeException('Forbidden receipt detail in card text: '.$forbidden);
+}
+if(($cardFixture['bookmaker']??'')!=='WINAMAX'||($cardFixture['analysis']??'')!==$cardView['analysis']){
+    throw new RuntimeException('Card view mutated the original bet or its analysis');
+}
+if(!str_contains(SmartFormatting::asText($cardFixture,true),'WINAMAX')){
+    throw new RuntimeException('Non-card formatting changed unexpectedly');
+}
+foreach(['1','0'] as $usePure){
+    putenv('VIP_CARD_FORCE_PURE='.$usePure);
+    $first=VipCardRenderer::render($cardFixture);
+    if($first===null)throw new RuntimeException('Approved card did not render');
+    $firstSize=getimagesize($first);
+    if(!is_array($firstSize)||$firstSize['mime']!=='image/png'||$firstSize[0]!==1080){
+        throw new RuntimeException('Approved card dimensions or MIME invalid');
+    }
+    $noReceipt=$cardFixture;
+    foreach(['status','time','day','bookmaker','stake_amount','potential_return','potential_profit'] as $field){
+        $noReceipt[$field]='RECEIPT_DATA_NEVER_ON_CARD';
+    }
+    $second=VipCardRenderer::render($noReceipt);
+    if($second===null||hash_file('sha256',$first)!==hash_file('sha256',$second)){
+        throw new RuntimeException('Card renderer included forbidden receipt fields');
+    }
+    $differentAnalysis=$cardFixture;
+    $differentAnalysis['analysis']='Outra análise original independente.';
+    $third=VipCardRenderer::render($differentAnalysis);
+    if($third===null||hash_file('sha256',$first)===hash_file('sha256',$third)){
+        throw new RuntimeException('Card renderer omitted the original analysis');
+    }
+    foreach([$first,$second,$third] as $tmp)@unlink($tmp);
+}
+echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
 echo "SMART_FORMAT_TESTS_PASSED\n";
