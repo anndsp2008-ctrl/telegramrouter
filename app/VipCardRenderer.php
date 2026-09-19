@@ -16,6 +16,7 @@ final class VipCardRenderer
         $w=1080; $pad=46;
         $analysis=trim((string)($bet['analysis']??''));
         $analysisLines=self::lines($analysis,83);
+        if($analysisLines===null)return null; // Never truncate the author's analysis.
         $analysisHeight=max(100,count($analysisLines)*30+48);
         $h=min(4000,1010+$analysisHeight);
         $im=imagecreatetruecolor($w,$h);
@@ -86,18 +87,18 @@ final class VipCardRenderer
     {
         return mb_strlen($str,'UTF-8')<=$max?$str:mb_substr($str,0,$max-1,'UTF-8').'…';
     }
-    /** @return list<string> */
-    private static function lines(string $str,int $max): array
+    /** @return list<string>|null */
+    private static function lines(string $str,int $max): ?array
     {
         $words=preg_split('/\s+/u',trim($str))?:[];
         $lines=[];$line='';
         foreach($words as $word){
             if($word==='')continue;
-            if(mb_strlen($word,'UTF-8')>$max)$word=self::fit($word,$max);
+            if(mb_strlen($word,'UTF-8')>$max)return null;
             $candidate=$line===''?$word:$line.' '.$word;
             if(mb_strlen($candidate,'UTF-8')>$max&&$line!==''){$lines[]=$line;$line=$word;}
             else $line=$candidate;
-            if(count($lines)>65)break;
+            if(count($lines)>65)return null;
         }
         if($line!=='')$lines[]=$line;
         return $lines?:['Análise não fornecida no conteúdo original.'];
