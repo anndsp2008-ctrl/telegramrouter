@@ -36,5 +36,16 @@ namespace {
         throw new \RuntimeException('Provider card exposed secret');
     if(substr_count($output,'class="saas-card translation-provider-card')!==1)
         throw new \RuntimeException('Provider layout differs from existing cards');
+    // v10 headers use four grid cells: icon (pseudo-element), content,
+    // configuration badge, and chevron (pseudo-element). A generic
+    // form-status breaks this grid by stretching across the whole row.
+    if(!preg_match('/<div class="provider-head">\\s*<div>.*?<\\/div>\\s*<span class="provider-badge is-configured">\\s*Configurado\\s*<\\/span>\\s*<\\/div>/s',$output))
+        throw new \RuntimeException('Workers AI header does not match the v10 provider grid');
+    if(str_contains($output,'class="form-status"') || str_contains($output,'class="saas-card-head"'))
+        throw new \RuntimeException('Workers AI is using legacy header/badge classes');
+    $css=(string)file_get_contents(__DIR__.'/../assets/brand/workers-ai-provider.css');
+    if(!str_contains($css,'content:"CF"!important') || !str_contains($css,'--provider-accent:#f48120!important'))
+        throw new \RuntimeException('Workers AI provider icon or color absent');
+    echo "WORKERS_AI_CARD_V10_VISUAL_PARITY_TESTS_PASSED\n";
     echo "WORKERS_AI_CARD_RENDER_TESTS_PASSED\n";
 }
