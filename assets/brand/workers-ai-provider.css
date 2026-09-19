@@ -7,3 +7,17 @@
 .translation-provider-grid > .workers-ai-provider-card > .provider-head::before{
   content:"CF"!important;
 }
+
+/* Mirror the existing providers' configured-state pill, without changing
+   layout or any other provider. v10 owns the grid, accordion and typography. */
+.translation-provider-grid > .workers-ai-provider-card .provider-badge.is-configured{
+  color:#8ff0c9!important;
+  background:rgba(38,166,118,.08)!important;
+  border-color:rgba(53,196,145,.20)!important;
+}
+.translation-provider-grid > .workers-ai-provider-card .provider-badge.is-configured::before{
+  background:#35d69b!important;
+}
+.translation-provider-grid > .workers-ai-provider-card .provider-badge.is-empty::before{
+  background:#64748b!important;
+}
