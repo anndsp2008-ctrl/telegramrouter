@@ -108,6 +108,14 @@ final class PurePngVipCardRenderer
             $c->rect(72,62,5,3,'#161d24');
         }
         $c->textFit(92,56,$sport,2,'#87efc9',16);
+        // Separate orange AO VIVO seal is shown only for explicit live status.
+        $status=mb_strtoupper(trim((string)($bet['status']??'')),'UTF-8');
+        if(in_array($status,['AO VIVO','LIVE','EN VIVO','IN PLAY','IN-PLAY'],true)){
+            $c->roundedRect(670,43,136,42,18,'#ff9255');
+            $c->roundedRect(672,45,132,38,16,'#39261e');
+            $c->roundedRect(681,59,9,9,4,'#ff9255');
+            $c->text(701,56,'AO VIVO',2,'#ff9255');
+        }
         // Gold VIP seal with a crown, drawn as simple vector primitives.
         $c->roundedRect(820,43,211,42,19,'#ffc94e');
         $c->roundedRect(822,45,207,38,17,'#29251c');
@@ -156,7 +164,7 @@ final class PurePngVipCardRenderer
     private static function sportLabel(string $raw): string
     {
         $raw=mb_strtolower(trim($raw),'UTF-8');
-        if($raw===''||preg_match('/futebol|football|soccer/u',$raw))return 'FUTEBOL';
+        if(preg_match('/futebol|football|soccer/u',$raw))return 'FUTEBOL';
         if(preg_match('/basquete|basketball|nba/u',$raw))return 'BASQUETE';
         if(preg_match('/tênis|tenis|tennis/u',$raw))return 'TENIS';
         if(preg_match('/vôlei|volei|volleyball/u',$raw))return 'VOLEI';
