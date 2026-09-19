@@ -7,7 +7,8 @@ $root=__DIR__;
 $paths=[
  'repo'=>$root.'/app/Repository.php',
  'translator'=>$root.'/app/TranslationService.php',
- 'index'=>$root.'/index.php'
+ 'index'=>$root.'/index.php',
+ 'schema'=>$root.'/database/schema.sql'
 ];
 foreach($paths as $label=>$path){
     if(!is_file($path)){echo "WORKERS_AI_SKIPPED_SOURCE_".strtoupper($label)."\n";return;}
@@ -124,6 +125,17 @@ try {
         'PROVIDER_CSS');
 
     // Strict syntax checks on private candidates before any persistent mutation.
+    // Keep fresh installs compatible with the added provider as well.
+    $new['schema']=$old['schema'];
+    if(substr_count($new['schema'],"ENUM('azure','gemini','google_cloud') NOT NULL DEFAULT 'azure'")!==1)
+        throw new \RuntimeException('WORKERS_AI_SCHEMA_RULE_ANCHOR');
+    $new['schema']=str_replace("ENUM('azure','gemini','google_cloud') NOT NULL DEFAULT 'azure'",
+        "ENUM('azure','gemini','google_cloud','workers_ai') NOT NULL DEFAULT 'azure'",$new['schema']);
+    if(substr_count($new['schema'],"provider ENUM('azure','gemini','google_cloud') NOT NULL")!==1)
+        throw new \RuntimeException('WORKERS_AI_SCHEMA_ATTEMPT_ANCHOR');
+    $new['schema']=str_replace("provider ENUM('azure','gemini','google_cloud') NOT NULL",
+        "provider ENUM('azure','gemini','google_cloud','workers_ai') NOT NULL",$new['schema']);
+
     foreach($paths as $key=>$dest){
         $temp=$dest.'.workers-candidate';
         if(@file_put_contents($temp,$new[$key])===false)throw new \RuntimeException('WORKERS_AI_WRITE_'.$key);
