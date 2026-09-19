@@ -96,4 +96,8 @@
   .tmr-mobile-navigation a,.tmr-mobile-navigation summary{font-size:10px}
   .tmr-mobile-navigation .tmr-nav-create .tmr-nav-icon{width:49px;height:49px}
 }
+@media (min-width:821px) and (max-width:1024px){
+  .saas-sidebar{display:none!important}
+  .saas-main{margin-left:0!important;width:100%!important;max-width:100%!important}
+}
 @media (min-width:1025px){.tmr-mobile-navigation{display:none!important}}
