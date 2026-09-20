@@ -30,8 +30,8 @@ namespace {
     $source=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
     $transport=(string)file_get_contents(__DIR__.'/../scripts/smart-workers-isolated.php');
     if(!str_contains($source,'foreach($providers as $provider)')||
-       !str_contains($source,"if($provider==='workers_ai')")||
-       !str_contains($source,"elseif($provider==='gemini')")||
+       !str_contains($source,'if($provider===\'workers_ai\')')||
+       !str_contains($source,'elseif($provider===\'gemini\')')||
        !str_contains($source,'PROVIDER_NOT_GENERATIVE_')||
        !str_contains($source,'ALL_CONFIGURED_PROVIDERS_FAILED')||
        !str_contains($source,'$bet=$candidate')||
