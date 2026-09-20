@@ -1056,3 +1056,54 @@
     font-weight:500!important;
   }
 }
+
+/* Workers AI badge parity: the first three cards use this compact green pill.
+   Target the fourth card DIRECTLY: do not rely on an ancestor translation
+   grid, which can differ in the rendered/injected Workers AI card.
+   No other card, header, integration state or provider is affected. */
+html body .workers-ai-provider-card > .provider-head > :is(.provider-badge,.form-status){
+  box-sizing:border-box!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  flex:0 0 auto!important;
+  width:max-content!important;
+  inline-size:max-content!important;
+  min-width:max-content!important;
+  max-width:none!important;
+  height:auto!important;
+  min-height:30px!important;
+  margin:0!important;
+  padding:6px 10px!important;
+  border:1px solid #284840!important;
+  border-radius:999px!important;
+  background:#152a29!important;
+  background-image:none!important;
+  color:#79e9be!important;
+  font-family:inherit!important;
+  font-size:11px!important;
+  font-weight:500!important;
+  line-height:1.4!important;
+  letter-spacing:normal!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+  white-space:nowrap!important;
+  word-break:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  text-align:center!important;
+}
+/* The three reference pills in the supplied mobile screenshot have no dot.
+   Do not let legacy Workers AI pseudo-elements reintroduce a grey dot. */
+html body .workers-ai-provider-card > .provider-head > :is(.provider-badge,.form-status)::before,
+html body .workers-ai-provider-card > .provider-head > :is(.provider-badge,.form-status)::after{
+  content:none!important;
+  display:none!important;
+}
+@media (max-width:400px){
+  html body .workers-ai-provider-card > .provider-head > :is(.provider-badge,.form-status){
+    padding:5px 7px!important;
+    font-size:10px!important;
+  }
+}
