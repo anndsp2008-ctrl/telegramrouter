@@ -45,7 +45,7 @@ namespace {
         if(!\App\SmartFormatting::workerVisualRescueEligible($reason))
             throw new \RuntimeException('Expected visual rescue eligibility');
     }
-    foreach(['HTTP_401_UNAUTHORIZED','HTTP_429','MODEL_LICENSE_REQUIRED_5016'] as $reason){
+    foreach(['HTTP_401_UNAUTHORIZED','HTTP_429','HTTP_503','TIMEOUT','MODEL_LICENSE_REQUIRED_5016'] as $reason){
         if(\App\SmartFormatting::workerVisualRescueEligible($reason))
             throw new \RuntimeException('Visual rescue must not bypass provider access errors');
     }
@@ -71,6 +71,21 @@ namespace {
         throw new \RuntimeException('Gemini HTTP 429 is still retried immediately');
     }
     echo "SMART_TEXT_8B_TIMEOUT_AND_429_TESTS_PASSED\n";
+    // The image-only failing case (non-JSON primary, incomplete Scout)
+    // must attempt a SAME-CLOUDFLARE text structuring pass only when the
+    // Vision outputs contain usable observations. No new provider or raw send.
+    if(!str_contains($source,'WORKERS_AI_TEXT_RESCUE_STARTED')||
+       !str_contains($source,'WORKERS_AI_TEXT_RESCUE_SUCCEEDED')||
+       !str_contains($source,'WORKERS_AI_TEXT_RESCUE_FAILED')||
+       !str_contains($source,'$visionEvidence!==\'\'')||
+       !str_contains($source,'$forcedTextModel')||
+       !str_contains($source,'WorkersAITranslation::PREVIOUS_DEFAULT_MODEL);')||
+       !str_contains($transport,'collectVisualEvidence($result,$visualEvidence)')||
+       !str_contains($transport,"'evidence'=>")||
+       !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
+        throw new \RuntimeException('Same-account Vision evidence rescue not wired');
+    }
+    echo "WORKERS_AI_VISION_EVIDENCE_TEXT_RESCUE_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";
 }
