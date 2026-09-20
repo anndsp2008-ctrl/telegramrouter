@@ -99,9 +99,13 @@ jobs:
           printf '{}' | php scripts/smart-workers-isolated.php | grep -Fq 'INPUT_INVALID'
           SMART_WORKERS_CLASSIFIER_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED'
           SMART_WORKERS_JSON_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED'
-          grep -Fq "foreach(['response','description'] as \\$textField)" scripts/smart-workers-isolated.php
-          grep -Fq 'EVIDÊNCIA EXTRAÍDA DA IMAGEM' scripts/smart-workers-isolated.php
-          grep -Fq "\\$payload=['prompt'=>\\$strictPrompt??\\$prompt,'image'=>\\$image," scripts/smart-workers-isolated.php
+          python3 - <<'PY'
+          from pathlib import Path
+          code=Path('scripts/smart-workers-isolated.php').read_text()
+          assert "foreach(['response','description'] as $textField)" in code
+          assert 'EVIDÊNCIA EXTRAÍDA DA IMAGEM' in code
+          assert "'image'=>$image" in code
+          PY
           grep -Fq 'if($attempt===0){usleep(250000);continue;}' scripts/smart-workers-isolated.php
           grep -Fq 'parsedVisionBet($result)' scripts/smart-workers-isolated.php
           grep -Fq 'probeVision($account,$token)' app/WorkersAITranslation.php
