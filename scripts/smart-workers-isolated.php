@@ -37,8 +37,12 @@ function cloudflareFailureReason(int $http,string|false $body,int $errno): strin
             default=>'HTTP_429'
         };
     }
-    if($http===400)return $errorCode===5007?'MODEL_NOT_FOUND_5007':
-        ($errorCode===5004?'IMAGE_INPUT_INVALID_5004':'HTTP_400');
+    if($http===400)return match($errorCode){
+        5007=>'MODEL_NOT_FOUND_5007',
+        5004=>'IMAGE_INPUT_INVALID_5004',
+        3003=>'REQUEST_INCOMPLETE_3003',
+        default=>$errorCode>0?'HTTP_400_CF_'.$errorCode:'HTTP_400'
+    };
     if($http>=500)return 'HTTP_5XX';
     if($errno===28)return 'TIMEOUT';
     return 'NETWORK';
@@ -54,7 +58,10 @@ if(getenv('SMART_WORKERS_CLASSIFIER_TEST')==='1'){
         [403,0,'HTTP_403_FORBIDDEN'],
         [401,0,'HTTP_401_UNAUTHORIZED'],
         [429,3036,'DAILY_QUOTA_EXHAUSTED_3036'],
-        [400,5004,'IMAGE_INPUT_INVALID_5004']
+        [400,5004,'IMAGE_INPUT_INVALID_5004'],
+        [400,3003,'REQUEST_INCOMPLETE_3003'],
+        [400,5999,'HTTP_400_CF_5999'],
+        [400,0,'HTTP_400']
     ] as [$status,$code,$expected]){
         $body=$code>0?json_encode(['errors'=>[['code'=>$code,'message'=>'REDACTED']]]):'{}';
         if(cloudflareFailureReason($status,$body,0)!==$expected)
@@ -324,16 +331,17 @@ try{
         ];
     }
     if($image!==null){
-        // Cloudflare's current official Llama 3.2 Vision tutorial sends a
-        // plain user message alongside a separate top-level base64 data URI
-        // in "image". The previous OpenAI-style image_url content array can
-        // return a text-only observation and never read the uploaded ticket.
-        // Scope the documented shape to the primary Vision model; Scout's
-        // existing input format remains unchanged. Never log image bytes.
+        // The Cloudflare Worker binding tutorial shows messages + image,
+        // but the model's REST schema also defines prompt + image. Do not
+        // assume the Worker binding payload is accepted verbatim by REST.
+        // Start with the REST prompt and image fields, using validated base64;
+        // on a request-shape HTTP 400 only, fall back ONCE to the previously
+        // accepted message image_url shape. Never log source image bytes.
         if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+            $imageBase64=substr($image,strpos($image,',')+1);
             $payload=[
-                'messages'=>[['role'=>'user','content'=>$prompt]],
-                'image'=>$image,
+                'prompt'=>$prompt,
+                'image'=>$imageBase64,
                 'temperature'=>0,'max_tokens'=>2800,'stream'=>false
             ];
         } else {
@@ -412,9 +420,13 @@ try{
                 "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
             if($image!==null &&
                $model==='@cf/meta/llama-3.2-11b-vision-instruct'){
-                // Do not accidentally convert a string user message to an
-                // array on the retry or drop the official top-level image.
-                $payload['messages'][0]['content']=$strictPrompt;
+                if(isset($payload['prompt'])){
+                    $payload['prompt']=$strictPrompt;
+                } elseif(isset($payload['messages'][0]['content'][0]['text'])){
+                    $payload['messages'][0]['content'][0]['text']=$strictPrompt;
+                } else {
+                    reply(false,'PAYLOAD_INVALID');
+                }
             } elseif($image!==null){
                 $payload['messages'][0]['content'][0]['text']=$strictPrompt;
             } elseif(isset($payload['messages'][0]['content'])){
