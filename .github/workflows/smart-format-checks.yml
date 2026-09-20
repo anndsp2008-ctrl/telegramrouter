@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'app/SmartFormatting.php'
+      - 'app/LocalTipExtraction.php'
+      - 'railpack.json'
       - 'app/VipCardRenderer.php'
       - 'runtime-smart-format.php'
       - 'runtime-workers-ai.php'
@@ -27,10 +29,11 @@ jobs:
       - name: Install PHP extensions and fonts
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y php-cli php-mbstring php-gd fonts-dejavu-core
+          sudo apt-get install -y php-cli php-mbstring php-gd fonts-dejavu-core tesseract-ocr tesseract-ocr-por tesseract-ocr-spa tesseract-ocr-eng
       - name: Lint standalone modules
         run: |
           php -l app/SmartFormatting.php
+          php -l app/LocalTipExtraction.php
           php -l app/PurePngVipCardRenderer.php
           php -l app/VipCardRenderer.php
           php -l runtime-smart-format.php
@@ -49,6 +52,7 @@ jobs:
           mkdir -p /tmp/tmr-smart-fixture
           cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
           cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          cp app/LocalTipExtraction.php /tmp/tmr-smart-fixture/app/LocalTipExtraction.php
           cp runtime-workers-ai.php /tmp/tmr-smart-fixture/runtime-workers-ai.php
           cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
           cp app/workers-ai-card.php /tmp/tmr-smart-fixture/app/workers-ai-card.php
