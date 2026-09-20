@@ -184,6 +184,15 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
         if(tipResponseStatus($value)==='OK')throw new RuntimeException('Invalid JSON accepted');
     }
 
+    // Cloudflare JSON Mode returns result.response as an object rather
+    // than a JSON-encoded string on some routes.
+    if(parsedVisionBet(['response'=>$base])!==$base ||
+       parsedVisionBet(['response'=>['match'=>'Venezia x Lazio']])!==null ||
+       parsedVisionBet(['response'=>['match'=>'Venezia x Lazio',
+           'market'=>'Total de escanteios','selection'=>'',
+           'action'=>'forward_to_unknown_channel']])!==null){
+        throw new RuntimeException('Structured JSON response must still pass field validation');
+    }
     $structured=['response'=>null,'tool_calls'=>[['name'=>'unknown_model_generated_name','arguments'=>$base]]];
     if(parsedVisionBet($structured)!==$base)
         throw new RuntimeException('Structured Vision data was ignored');
