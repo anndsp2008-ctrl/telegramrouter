@@ -154,12 +154,8 @@ final class SmartFormatting
      */
     public static function cardProviders(array $rule): array
     {
-        // Translation OFF keeps the established Gemini card pipeline, unless
-        // the user explicitly selected the generative Workers AI model.
-        if(empty($rule['translation_enabled'])){
-            return ($rule['translation_provider']??'')==='workers_ai'
-                ?['workers_ai']:['gemini'];
-        }
+        // Provider order applies even when translation is OFF. Formatting and
+        // interpreting a tip are distinct from whether to translate its text.
         [$primary,$fallback]=TranslationService::resolveProviders(
             (string)($rule['translation_provider']??''));
         $providers=[];
