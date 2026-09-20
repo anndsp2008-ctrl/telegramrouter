@@ -333,8 +333,17 @@ final class SmartFormatting
         $league=trim((string)($bet['league']??''));
         $context=$league!==''?' pela competição '.$league:'';
         $haystack=mb_strtolower($market.' '.$selection,'UTF-8');
+        $negativeBtts=preg_match('/^(?:não|nao|no|not|false)$/u',mb_strtolower($selection,'UTF-8'))===1;
         if($portuguese){
             if(preg_match('/\b(ambos.*marcam|ambas.*marcam|both teams.*score|btts)\b/u',$haystack)){
+                if($negativeBtts){
+                    return self::capitalizeSentences(
+                        'O confronto '.$match.$context.' está associado à seleção '.$selection.' no mercado '.$market.'. '.
+                        'A leitura técnica desse mercado trata de quantas equipes conseguem marcar ao menos um gol, sem presumir seu rendimento prévio. '.
+                        'Para a seleção Não vencer, pelo menos uma equipe deve terminar sem marcar durante a partida. '.
+                        'O cenário contrário ocorre quando as duas equipes marcam ao menos uma vez.'
+                    );
+                }
                 return self::capitalizeSentences(
                     'O confronto '.$match.$context.' está associado à seleção '.$selection.' no mercado '.$market.'. '.
                     'A leitura técnica desse mercado envolve a capacidade de cada lado transformar as suas oportunidades em gols, sem pressupor desempenho recente que não foi informado. '.
@@ -367,6 +376,12 @@ final class SmartFormatting
         }
         $englishContext=$league!==''?' in '.$league:'';
         if(preg_match('/\b(both teams.*score|btts|ambos.*marcam|ambas.*marcam)\b/u',$haystack)){
+            if($negativeBtts){
+                return 'The match '.$match.$englishContext.' is associated with the '.$selection.' selection in the '.$market.' market. '.
+                    'This market asks whether both teams will score, without implying any unreported prior performance. '.
+                    'A No selection wins if at least one team finishes without scoring. '.
+                    'The opposite scenario occurs when both teams score at least once.';
+            }
             return 'The match '.$match.$englishContext.' is associated with the '.$selection.' selection in the '.$market.' market. '.
                 'This market concerns whether both teams convert at least one scoring opportunity, without assuming any unreported recent performance. '.
                 'For a Yes selection to win, each team must score at least once; a goal by just one side is insufficient. '.
@@ -671,7 +686,7 @@ final class SmartFormatting
           'potential_profit'=>['💵','Lucro potencial','Potential profit']] as $field=>$labels){
             if(!empty($bet[$field]))$lines[]=$labels[0].' '.$label($labels[1],$labels[2]).': '.$bet[$field];
         }
-        if(!empty($bet['analysis'])){$lines[]='';$lines[]='📝 '.$label('Análise original','Original analysis').':';$lines[]=$bet['analysis'];}
+        if(!empty($bet['analysis'])){$lines[]='';$lines[]='📝 '.$label('Análise Inteligente da Tip','Intelligent Tip Analysis').':';$lines[]=$bet['analysis'];}
         return implode("\n",$lines);
     }
     /**
