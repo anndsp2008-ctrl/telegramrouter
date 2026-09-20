@@ -182,9 +182,12 @@ final class SmartFormatting
         $token=WorkersAITranslation::token();
         if($account===''||$token===''){self::diag('WORKERS_AI_CREDENTIALS_MISSING');return null;}
         $hasImage=$image!==null&&is_file($image)&&filesize($image)>0;
-        // A text-only Workers model cannot interpret receipt screenshots.
-        // Cloudflare's documented Vision model accepts an image data URI.
-        $model=$hasImage?'@cf/meta/llama-3.2-11b-vision-instruct':WorkersAITranslation::model();
+        // The integration model now defaults to Llama 3.2 Vision for BOTH
+        // translation and smart-card extraction. Preserve custom text models
+        // for text tips; receipt images still require a vision-capable model.
+        $configuredModel=WorkersAITranslation::model();
+        $model=$hasImage && $configuredModel!==WorkersAITranslation::VISION_MODEL
+            ?WorkersAITranslation::VISION_MODEL:$configuredModel;
         if(!WorkersAITranslation::validModel($model)){self::diag('WORKERS_AI_MODEL_INVALID');return null;}
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".

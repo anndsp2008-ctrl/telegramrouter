@@ -14,6 +14,7 @@ on:
       - 'scripts/translation-v2-safe-start.php'
       - 'scripts/google-cloud-safe-start.php'
       - 'tests/smart-provider-routing-smoke.php'
+      - 'tests/workers-ai-model-smoke.php'
       - 'assets/brand/workers-ai-provider.css'
       - 'tests/smart-format-smoke.php'
       - '.github/workflows/smart-format-checks.yml'
@@ -42,6 +43,7 @@ jobs:
           php -l scripts/translation-v2-safe-start.php
           php -l scripts/google-cloud-safe-start.php
           php -l tests/smart-provider-routing-smoke.php
+          php -l tests/workers-ai-model-smoke.php
       - name: Reconstruct sanitized baseline and patch it offline
         run: |
           mkdir -p /tmp/tmr-smart-fixture
@@ -90,6 +92,7 @@ jobs:
         run: |
           php -l tests/workers-ai-card-smoke.php
           php tests/workers-ai-card-smoke.php
+          php tests/workers-ai-model-smoke.php
       - name: Verify translation provider and card fallback parity
         run: |
           php tests/smart-provider-routing-smoke.php

@@ -2,13 +2,15 @@
 namespace App;
 
 /**
- * Optional text-only translation provider. No change to the Gemini card engine.
+ * Optional Workers AI provider for text translation and multimodal VIP-card extraction.
  * API credentials are read from the existing encrypted integration store, with
  * an optional Railway secret fallback for the initial setup.
  */
 final class WorkersAITranslation
 {
-    public const DEFAULT_MODEL='@cf/meta/llama-3.1-8b-instruct-fp8';
+    public const VISION_MODEL='@cf/meta/llama-3.2-11b-vision-instruct';
+    public const PREVIOUS_DEFAULT_MODEL='@cf/meta/llama-3.1-8b-instruct-fp8';
+    public const DEFAULT_MODEL=self::VISION_MODEL;
 
     public static function token(array $overrides=[]): string
     {
@@ -27,7 +29,11 @@ final class WorkersAITranslation
     public static function model(array $overrides=[]): string
     {
         $value=trim((string)($overrides['workers_ai_model']??''));
-        return $value!==''?$value:(trim(Repository::integration('workers_ai_model'))?:self::DEFAULT_MODEL);
+        if($value==='')$value=trim(Repository::integration('workers_ai_model'));
+        // Existing installations saved the old suggested default in the DB.
+        // Show and use the new Vision model without changing custom choices.
+        if($value===''||$value===self::PREVIOUS_DEFAULT_MODEL)return self::DEFAULT_MODEL;
+        return $value;
     }
     public static function validModel(string $value): bool
     {
@@ -128,7 +134,7 @@ final class WorkersAITranslation
             return ['ok'=>false,'reason'=>'PROBE_UNAVAILABLE','http'=>null];
         $input=json_encode([
             'account'=>$account,'token'=>$token,
-            'model'=>'@cf/meta/llama-3.2-11b-vision-instruct',
+            'model'=>self::VISION_MODEL,
             'prompt'=>'Responda somente OK.','image'=>null,'check_only'=>true
         ],JSON_UNESCAPED_UNICODE);
         if(!is_string($input))
