@@ -950,3 +950,35 @@
     font-size:10px!important;
   }
 }
+
+/* Workers AI fourth card: override legacy form-status mobile placement.
+   All providers now share one compact status immediately left of chevron,
+   irrespective of whether the original element was form-status or badge. */
+@media (max-width:1024px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge{
+    display:inline-flex!important;
+    grid-column:3 / 4!important;
+    grid-row:1 / 2!important;
+    justify-self:end!important;
+    align-self:center!important;
+    width:max-content!important;
+    inline-size:max-content!important;
+    min-width:max-content!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:6px 10px!important;
+    white-space:nowrap!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > div > .workers-ai-observation{
+    margin:10px 0 0!important;
+    padding:0!important;
+    max-width:100%!important;
+    overflow-wrap:anywhere!important;
+  }
+}
+@media (max-width:400px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge{
+    padding:5px 7px!important;
+    font-size:10px!important;
+  }
+}
