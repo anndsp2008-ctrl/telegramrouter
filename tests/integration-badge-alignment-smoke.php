@@ -141,7 +141,8 @@ echo "INTEGRATION_TABLET_MIXED_BADGE_VARIANTS_TESTS_PASSED\n";
 // It must share the EXACT HTML/CSS contract of the three other provider
 // badges instead of accumulating overrides with different specificity.
 $workersMarkup=(string)file_get_contents($root.'/app/workers-ai-card.php');
-if(!str_contains($workersMarkup,'<span class="provider-badge <?=$workersAIConfigured?') ||
+if(!str_contains($workersMarkup,'<span class="provider-badge">') ||
+   str_contains($workersMarkup,'<span class="provider-badge <?=$workersAIConfigured?') ||
    str_contains($workersMarkup,'<span class="form-status provider-badge') ||
    !str_contains($workersMarkup,"\$workersAIConfigured?'Configurado':'Não configurado'")){
     $fail('Workers AI is not using the shared provider-badge HTML / credential-derived status');
@@ -156,3 +157,13 @@ foreach(['display:inline-flex!important;','border-radius:999px!important;','whit
 if(!str_contains($mobile,'.translation-provider-grid .provider-badge::before{'))
     $fail('Shared mobile status dot style missing');
 echo "INTEGRATION_WORKERS_SHARED_BADGE_MARKUP_PARITY_TESTS_PASSED\n";
+
+// The last status must have EXACTLY the same class list as the other three.
+// It must not inherit any per-state class styles that change font/border/dot.
+// The label itself remains determined by the existing credentials expression.
+if(substr_count($workersMarkup,'<span class="provider-badge">')!==1 ||
+   preg_match('/<span class="provider-badge\s+[^"]+"/',$workersMarkup) ||
+   !str_contains($workersMarkup,"\$workersAIConfigured?'Configurado':'Não configurado'")){
+    $fail('Workers AI badge is not identical to the other provider badges');
+}
+echo "INTEGRATION_WORKERS_EXACT_SHARED_CLASS_TESTS_PASSED\n";
