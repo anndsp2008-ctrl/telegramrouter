@@ -1,7 +1,9 @@
 <?php declare(strict_types=1);
 /** Isolated Cloudflare REST extraction; secrets and source enter through STDIN only. */
-function reply(bool $ok,string $reason='OK',?array $data=null): never {
-    echo json_encode(['ok'=>$ok,'reason'=>$reason,'data'=>$data],
+function reply(bool $ok,string $reason='OK',?array $data=null,?string $evidence=null): never {
+    // Only the parent isolated PHP process receives evidence over stdout.
+    // Never print model text, image data or the original tip in application logs.
+    echo json_encode(['ok'=>$ok,'reason'=>$reason,'data'=>$data,'evidence'=>$evidence],
         JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     exit(0);
 }
@@ -244,6 +246,7 @@ try{
     }
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
+    $visualEvidence=''; // Local-only, bounded image observation for text structuring.
     // Vision inference may need more than the former 16s/8s windows.
     // Only test requests use small output; production card requests have
     // an independent, larger timeout and one bounded transient retry.
@@ -298,6 +301,24 @@ try{
             $result=(array)($envelope['result']??[]);
             $bet=parsedVisionBet($result);
             if($bet!==null)reply(true,'OK',$bet);
+            // Llama Vision can describe the ticket or return incomplete JSON.
+            // Keep only bounded model observations for the SAME Cloudflare
+            // account's text model. The parent never logs these strings.
+            if($image!==null){
+                foreach(['response','description'] as $evidenceKey){
+                    $observed=$result[$evidenceKey]??null;
+                    if(is_string($observed)&&trim($observed)!==''){
+                        $observed=mb_substr(trim($observed),0,6000,'UTF-8');
+                        if($visualEvidence!=='' && !str_contains($visualEvidence,$observed)){
+                            $visualEvidence.="\n";
+                        }
+                        if(!str_contains($visualEvidence,$observed)){
+                            $visualEvidence.=$observed;
+                            $visualEvidence=mb_substr($visualEvidence,0,10000,'UTF-8');
+                        }
+                    }
+                }
+            }
             $description=$result['description']??null;
             $hasTools=is_array($result['tool_calls']??null)&&count($result['tool_calls'])>0;
             $reason=is_string($response)?tipResponseStatus($response)
@@ -331,7 +352,7 @@ try{
                 }
                 usleep(250000);continue;
             }
-            reply(false,$reason);
+            reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null);
         }
         if($attempt===0&&(in_array($http,[500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}
