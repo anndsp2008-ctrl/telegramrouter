@@ -108,7 +108,8 @@ foreach([
     if(!str_contains($workerRule,$token))$fail('Workers AI desktop/tablet/mobile parity: '.$token);
 }
 if(!str_contains($workers,'class="workers-ai-observation"') ||
-   !str_contains($workers,'class="form-status provider-badge') ||
+   !str_contains($workers,'class="provider-badge') ||
+   str_contains($workers,'class="form-status provider-badge') ||
    substr_count($workers,'Se o Llama 3.2 Vision retornar uma imagem')!==1)
    $fail('Workers AI note/badge markup is inconsistent with other providers');
 echo "INTEGRATION_WORKERS_AI_UNIFIED_LAYOUT_TESTS_PASSED\n";
