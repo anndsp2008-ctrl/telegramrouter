@@ -1,7 +1,9 @@
 <?php declare(strict_types=1);
 /** Isolated Cloudflare REST extraction; secrets and source enter through STDIN only. */
-function reply(bool $ok,string $reason='OK',?array $data=null): never {
-    echo json_encode(['ok'=>$ok,'reason'=>$reason,'data'=>$data],
+function reply(bool $ok,string $reason='OK',?array $data=null,?string $evidence=null): never {
+    // Only the parent isolated PHP process receives evidence over stdout.
+    // Never print model text, image data or the original tip in application logs.
+    echo json_encode(['ok'=>$ok,'reason'=>$reason,'data'=>$data,'evidence'=>$evidence],
         JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     exit(0);
 }
@@ -125,6 +127,20 @@ function parsedVisionBet(array $result): ?array {
     }
     return null;
 }
+/**
+ * Keep bounded visual observations only inside the worker-to-parent stdout.
+ * Do not copy suggested model tool-actions, original image bytes or secrets.
+ */
+function collectVisualEvidence(array $result,string $existing=''): string {
+    foreach(['response','description'] as $key){
+        $observed=$result[$key]??null;
+        if(!is_string($observed)||trim($observed)==='')continue;
+        $observed=mb_substr(trim($observed),0,6000,'UTF-8');
+        if(str_contains($existing,$observed))continue;
+        $existing=mb_substr(trim($existing."\n".$observed),0,10000,'UTF-8');
+    }
+    return $existing;
+}
 /** Return a privacy-safe failure category without echoing generated text. */
 function tipResponseStatus(string $response): string {
     if(trim($response)==='')return 'RESPONSE_EMPTY';
@@ -177,6 +193,19 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
         throw new RuntimeException('Unstructured model tool action was accepted as a bet');
     if(parsedVisionBet(['response'=>'Not a bet','tool_calls'=>[['arguments'=>['match'=>'Venezia']]]])!==null)
         throw new RuntimeException('Incomplete model output was accepted');
+    $observed=collectVisualEvidence([
+        'response'=>'Texto visual: Venezia x Lazio, seleção Mais de 8,5',
+        'description'=>'JSON parcial: {"match":"Venezia x Lazio"}',
+        'tool_calls'=>[['arguments'=>['action'=>'send','token'=>'SECRET_DO_NOT_COPY']]]
+    ]);
+    if(!str_contains($observed,'Venezia x Lazio')||
+       !str_contains($observed,'JSON parcial')||
+       str_contains($observed,'SECRET_DO_NOT_COPY')||
+       collectVisualEvidence(['response'=>null,'description'=>null])!==''||
+       collectVisualEvidence(['response'=>'Mesmo texto'],'Mesmo texto')!=='Mesmo texto')
+        throw new RuntimeException('Visual evidence collector failed safe handling');
+    if(mb_strlen(collectVisualEvidence(['response'=>str_repeat('A',12000)]),'UTF-8')>10000)
+        throw new RuntimeException('Unbounded visual evidence output');
     echo "WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED\n";
     exit(0);
 }
@@ -244,6 +273,7 @@ try{
     }
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
+    $visualEvidence=''; // Local-only, bounded image observation for text structuring.
     // Vision inference may need more than the former 16s/8s windows.
     // Only test requests use small output; production card requests have
     // an independent, larger timeout and one bounded transient retry.
@@ -298,6 +328,12 @@ try{
             $result=(array)($envelope['result']??[]);
             $bet=parsedVisionBet($result);
             if($bet!==null)reply(true,'OK',$bet);
+            // Llama Vision can describe the ticket or return incomplete JSON.
+            // Keep only bounded model observations for the SAME Cloudflare
+            // account's text model. The parent never logs these strings.
+            if($image!==null){
+                $visualEvidence=collectVisualEvidence($result,$visualEvidence);
+            }
             $description=$result['description']??null;
             $hasTools=is_array($result['tool_calls']??null)&&count($result['tool_calls'])>0;
             $reason=is_string($response)?tipResponseStatus($response)
@@ -331,7 +367,7 @@ try{
                 }
                 usleep(250000);continue;
             }
-            reply(false,$reason);
+            reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null);
         }
         if($attempt===0&&(in_array($http,[500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}

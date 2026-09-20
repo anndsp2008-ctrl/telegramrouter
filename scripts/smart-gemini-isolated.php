@@ -39,7 +39,10 @@ try {
         curl_close($ch);
         if($http===200 && is_string($result))break;
         if($attempt===0 && (in_array($http,[500,502,503,504],true) || $curlErr===28 || in_array($curlErr,[6,7,52,56],true))){
-            usleep(650000);
+            // A 503 often indicates transient upstream capacity. Give the
+            // existing configured Gemini model one bounded recovery window;
+            // do not change models or providers, and never retry 429 here.
+            usleep($http===503?1800000:650000);
             continue;
         }
         break;
