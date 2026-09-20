@@ -178,8 +178,10 @@ foreach([
         }
     }
 }
-if(!str_contains(SmartFormatting::asText($noAnalysisBet,true),'Análise Inteligente da Tip')||
-   !str_contains(SmartFormatting::asText($noAnalysisBet,false),'Intelligent Tip Analysis')){
+$analysedBet=$noAnalysisBet;
+$analysedBet['analysis']=SmartFormatting::ensureSportsAnalysis($noAnalysisBet,true);
+if(!str_contains(SmartFormatting::asText($analysedBet,true),'Análise Inteligente da Tip')||
+   !str_contains(SmartFormatting::asText($analysedBet,false),'Intelligent Tip Analysis')){
     throw new RuntimeException('Intelligent tip heading is missing from captions');
 }
 echo "SMART_FORMAT_DETAILED_INTELLIGENT_ANALYSIS_TESTS_PASSED\n";
