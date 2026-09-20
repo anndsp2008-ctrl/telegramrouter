@@ -955,3 +955,18 @@ body:has(.translation-provider-grid) .translation-provider-grid .form-status{
 .translation-provider-grid .provider-test.bad{
   border-color:rgba(255,49,90,.20)!important;
 }
+
+/* Global status badge size contract for every provider: intrinsic content
+   width even when legacy header styles allocate a flexible grid track. */
+body:has(.translation-provider-grid) .translation-provider-grid > * > :is(.provider-head,.saas-card-head) > .provider-badge{
+  display:inline-flex!important;
+  width:max-content!important;
+  inline-size:max-content!important;
+  min-width:max-content!important;
+  max-width:none!important;
+  flex:0 0 auto!important;
+  justify-self:end!important;
+  align-self:center!important;
+  margin:0!important;
+  white-space:nowrap!important;
+}
