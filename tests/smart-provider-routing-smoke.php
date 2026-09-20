@@ -34,7 +34,9 @@ namespace {
        !str_contains($source,'elseif($provider===\'gemini\')')||
        !str_contains($source,'PROVIDER_NOT_GENERATIVE_')||
        !str_contains($source,'ALL_CONFIGURED_PROVIDERS_FAILED')||
-       !str_contains($source,'$bet=self::sentenceCaseBet($candidate)')||
+       !str_contains($source,'$candidate=self::sentenceCaseBet($candidate)')||
+       !str_contains($source,'$candidate[\'analysis\']=self::ensureSportsAnalysis')||
+       !str_contains($source,'$bet=$candidate')||
        !str_contains($source,'WorkersAITranslation::VISION_MODEL')||
        !str_contains($transport,"'type'=>'image_url'")||
        !str_contains($transport,"'image_url'=>['url'=>\$image]")||

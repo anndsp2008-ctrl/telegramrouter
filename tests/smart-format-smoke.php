@@ -105,6 +105,53 @@ if($cardWithoutMoney['analysis']!==$expectedAnalysis ||
     throw new RuntimeException('Scrubbing altered source or card display boundaries');
 echo "SMART_FORMAT_NO_SOURCE_FINANCIAL_ANALYSIS_TESTS_PASSED\n";
 
+// A source tip is allowed to have no authored analysis. The router must still
+// produce a useful sports-only explanation from explicit bet fields, rather
+// than publishing empty content or boilerplate such as responsible-gambling text.
+$noAnalysisBet=[
+    'match'=>'Fulham × Manchester United',
+    'league'=>'Premier League',
+    'market'=>'Ambos os times marcam',
+    'selection'=>'Sim',
+    'odd'=>'1.50',
+    'stake'=>'2',
+    'analysis'=>''
+];
+$autoAnalysis=SmartFormatting::ensureSportsAnalysis($noAnalysisBet,true);
+if(!SmartFormatting::usableSportsAnalysis($autoAnalysis) ||
+   !str_contains($autoAnalysis,'Fulham × Manchester United') ||
+   !str_contains($autoAnalysis,'duas equipes precisam marcar') ||
+   mb_stripos($autoAnalysis,'stake',0,'UTF-8')!==false ||
+   mb_stripos($autoAnalysis,'€',0,'UTF-8')!==false ||
+   mb_stripos($autoAnalysis,'probabilidade',0,'UTF-8')!==false)
+    throw new RuntimeException('Missing-source analysis did not produce safe sports-specific fallback');
+
+$genericOnly=$noAnalysisBet;
+$genericOnly['analysis']='Aposta feita com responsabilidade.';
+$replacedGeneric=SmartFormatting::ensureSportsAnalysis($genericOnly,true);
+if(!SmartFormatting::usableSportsAnalysis($replacedGeneric) ||
+   $replacedGeneric==='Aposta feita com responsabilidade.' ||
+   !str_contains($replacedGeneric,'Fulham × Manchester United'))
+    throw new RuntimeException('Generic responsible-betting filler was not replaced');
+
+$explicitAuthor=$noAnalysisBet;
+$explicitAuthor['analysis']='O mercado exige participação ofensiva dos dois lados e um gol de cada equipe durante a partida.';
+$keptAuthor=SmartFormatting::ensureSportsAnalysis($explicitAuthor,true);
+if($keptAuthor!==$explicitAuthor['analysis'])
+    throw new RuntimeException('Usable source sports analysis was unnecessarily replaced');
+
+$overBet=[
+    'match'=>'Arsenal × Chelsea','market'=>'Total de gols','selection'=>'Mais de 2,5',
+    'analysis'=>'','stake'=>'4'
+];
+$overAnalysis=SmartFormatting::ensureSportsAnalysis($overBet,true);
+if(!str_contains($overAnalysis,'Mais de 2,5') ||
+   !str_contains($overAnalysis,'superar a linha indicada') ||
+   !SmartFormatting::usableSportsAnalysis($overAnalysis))
+    throw new RuntimeException('Over-market fallback analysis missing explicit market condition');
+
+echo "SMART_FORMAT_AUTO_ANALYSIS_WHEN_SOURCE_MISSING_TESTS_PASSED\n";
+
 // Every AI-formatted tip publishes Stake 10, even if it was absent, malformed
 // or supplied as a different suggested unit amount by the source channel.
 foreach([[],['stake'=>''],['stake'=>'2'],['stake'=>'6/10'],['stake'=>'999']] as $input){
