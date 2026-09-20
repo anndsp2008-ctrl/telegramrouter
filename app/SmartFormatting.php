@@ -52,7 +52,7 @@ final class SmartFormatting
     public static function cardHandlesTranslation(array $rule,array $setting): bool
     {
         return !empty($rule['translation_enabled']) && !empty($setting['enabled'])
-            && ($setting['output_mode']??'')==='card';
+            && in_array($setting['output_mode']??'',['card','caption','text'],true);
     }
     public static function shouldTranslateInsideCard(array $rule): bool
     {
@@ -69,21 +69,52 @@ final class SmartFormatting
      */
     public static function prepare(string $sourceText,array $rule,?string $localImage,string $mode): ?array
     {
-        $key=trim(Repository::integration('gemini_api_key'));
-        if($key===''){self::diag('GEMINI_KEY_MISSING');return null;}
         if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
-        $json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
-        if(!$json){self::diag('GEMINI_RESPONSE_UNAVAILABLE');return null;}
-        $bet=[];
-        foreach($fields as $field)$bet[$field]=trim((string)($json[$field]??''));
-        // Compute profit deterministically from explicit, matching currencies.
-        $bet['potential_profit']=self::calculatePotentialProfit($bet['stake_amount'],$bet['potential_return']);
-        if($bet['selection']===''||$bet['market']===''||$bet['match']===''){self::diag('REQUIRED_FIELDS_INCOMPLETE');return null;}
-        if($bet['analysis']==='' && self::containsAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
+        // Use the EXACT primary/fallback resolution from the translation rule.
+        // Every attempt must translate AND extract; no invisible Gemini call
+        // when the configured provider is Workers AI or translation-only.
+        $bet=null;
+        $providers=self::cardProviders($rule);
+        foreach($providers as $provider){
+            $json=null;
+            if($provider==='workers_ai'){
+                $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields);
+            } elseif($provider==='gemini'){
+                $key=trim(Repository::integration('gemini_api_key'));
+                if($key!=='')$json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
+                else self::diag('GEMINI_KEY_MISSING');
+            } else {
+                // Azure Translator/Google Cloud Translation translate text but
+                // cannot extract structured tip data from source photos.
+                self::diag('PROVIDER_NOT_GENERATIVE_'.$provider);
+            }
+            if(!is_array($json)){
+                self::diag('SMART_PROVIDER_FAILED_'.$provider);
+                continue;
+            }
+            $candidate=[];
+            foreach($fields as $field)$candidate[$field]=trim((string)($json[$field]??''));
+            $candidate['potential_profit']=self::calculatePotentialProfit(
+                $candidate['stake_amount'],$candidate['potential_return']);
+            if($candidate['selection']===''||$candidate['market']===''||$candidate['match']===''){
+                self::diag('REQUIRED_FIELDS_INCOMPLETE_'.$provider);
+                continue;
+            }
+            if($candidate['analysis']==='' && self::containsAnalysis($sourceText)){
+                self::diag('ANALYSIS_ABSENT_'.$provider);
+                continue;
+            }
+            $bet=$candidate;
+            error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
+                'provider'=>$provider,'fallback'=>$provider!==$providers[0]
+            ]));
+            break;
+        }
+        if($bet===null){self::diag('ALL_CONFIGURED_PROVIDERS_FAILED');return null;}
         // Keep the underlying extraction untouched. Only card-mode presentation
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
@@ -115,9 +146,103 @@ final class SmartFormatting
         }
         return ['caption'=>$text,'image'=>$image,'mode'=>$mode];
     }
+    /**
+     * The existing translation service owns provider selection and fallback.
+     * Never substitute a different provider silently; unsupported translation-
+     * only providers are skipped only when a configured compatible fallback exists.
+     * @return list<string>
+     */
+    public static function cardProviders(array $rule): array
+    {
+        // Provider order applies even when translation is OFF. Formatting and
+        // interpreting a tip are distinct from whether to translate its text.
+        [$primary,$fallback]=TranslationService::resolveProviders(
+            (string)($rule['translation_provider']??''));
+        $providers=[];
+        foreach([$primary,$fallback] as $provider){
+            if(is_string($provider)&&$provider!==''&&$provider!=='none'&&!in_array($provider,$providers,true)){
+                $providers[]=$provider;
+            }
+        }
+        return $providers;
+    }
     private static function containsAnalysis(string $text): bool
     {
         return mb_strlen(trim($text),'UTF-8')>=180;
+    }
+    /**
+     * Workers AI may use a text model for text-only tips; when a receipt image
+     * is attached a separate Cloudflare vision model must inspect its contents.
+     * The isolated REST transport never logs source text, images or credentials.
+     * @param list<string> $fields
+     */
+    private static function requestWorkers(string $text,?string $image,string $language,array $fields): ?array
+    {
+        $account=WorkersAITranslation::account();
+        $token=WorkersAITranslation::token();
+        if($account===''||$token===''){self::diag('WORKERS_AI_CREDENTIALS_MISSING');return null;}
+        $hasImage=$image!==null&&is_file($image)&&filesize($image)>0;
+        // A text-only Workers model cannot interpret receipt screenshots.
+        // Cloudflare's documented Vision model accepts an image data URI.
+        $model=$hasImage?'@cf/meta/llama-3.2-11b-vision-instruct':WorkersAITranslation::model();
+        if(!WorkersAITranslation::validModel($model)){self::diag('WORKERS_AI_MODEL_INVALID');return null;}
+        $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
+            "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
+            "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
+            "Preserve toda a análise original (exceto publicidade e links), sem resumir ou alterar o sentido. ".
+            "Status AO VIVO somente se a PARTIDA estiver explicitamente em andamento; bilhete aberto não basta. ".
+            "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
+            "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
+            $language." TEXTO ORIGINAL:\n".$text;
+        $photo=null;
+        if($hasImage){
+            $mime=mime_content_type($image)?:'';
+            $size=filesize($image);
+            if($size>4*1024*1024){self::diag('WORKERS_AI_IMAGE_TOO_LARGE');return null;}
+            if(!in_array($mime,['image/png','image/jpeg','image/webp'],true)){
+                self::diag('WORKERS_AI_IMAGE_UNSUPPORTED');return null;
+            }
+            $bytes=file_get_contents($image);
+            if(!is_string($bytes)){self::diag('WORKERS_AI_IMAGE_UNREADABLE');return null;}
+            $photo='data:'.$mime.';base64,'.base64_encode($bytes);
+        }
+        $transport=dirname(__DIR__).'/scripts/smart-workers-isolated.php';
+        if(!function_exists('proc_open')||!is_file($transport)){
+            self::diag('WORKERS_AI_TRANSPORT_MISSING');return null;
+        }
+        $input=json_encode(['account'=>$account,'token'=>$token,'model'=>$model,
+            'prompt'=>$prompt,'image'=>$photo],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        if(!is_string($input)){self::diag('WORKERS_AI_INPUT_ERROR');return null;}
+        $pipes=[];$process=@proc_open(['php',$transport],
+            [0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']],
+            $pipes,dirname(__DIR__));
+        if(!is_resource($process)){self::diag('WORKERS_AI_PROCESS_UNAVAILABLE');return null;}
+        $output='';$exit=-1;
+        try{
+            $offset=0;$length=strlen($input);
+            while($offset<$length){
+                $bytesWritten=@fwrite($pipes[0],substr($input,$offset,65536));
+                if($bytesWritten===false||$bytesWritten===0)break;
+                $offset+=$bytesWritten;
+            }
+            fclose($pipes[0]);unset($pipes[0]);
+            if($offset===$length){
+                $response=@stream_get_contents($pipes[1],450000);
+                if(is_string($response))$output=$response;
+            }
+            fclose($pipes[1]);unset($pipes[1]);
+        } finally {
+            foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);
+            $exit=proc_close($process);
+        }
+        $result=json_decode($output,true);
+        if($exit!==0||!is_array($result)||empty($result['ok'])||!is_array($result['data']??null)){
+            $reason=(string)($result['reason']??'PROCESS_FAILED');
+            if(!preg_match('/^[A-Z0-9_]{1,40}$/D',$reason))$reason='PROCESS_FAILED';
+            self::diag('WORKERS_AI_'.$reason);
+            return null;
+        }
+        return $result['data'];
     }
     /** @param list<string> $fields */
     private static function request(string $key,string $text,?string $image,string $language,array $fields): ?array

@@ -258,14 +258,16 @@ $translatedRule=['id'=>16,'translation_enabled'=>1,'translation_target_language'
 $activeCard=['enabled'=>true,'output_mode'=>'card'];
 if(!SmartFormatting::cardHandlesTranslation($translatedRule,$activeCard))
     throw new RuntimeException('Card did not take ownership of translation');
+foreach(['card','caption','text'] as $mode){
+    if(!SmartFormatting::cardHandlesTranslation($translatedRule,['enabled'=>true,'output_mode'=>$mode]))
+        throw new RuntimeException('Enabled smart mode did not take ownership of translation: '.$mode);
+}
 foreach([
     [['enabled'=>false,'output_mode'=>'card'],$translatedRule],
-    [['enabled'=>true,'output_mode'=>'caption'],$translatedRule],
-    [['enabled'=>true,'output_mode'=>'text'],$translatedRule],
     [$activeCard,['translation_enabled'=>0]]
 ] as [$setting,$rule]){
     if(SmartFormatting::cardHandlesTranslation($rule,$setting))
-        throw new RuntimeException('Translation was intercepted for non-card rule');
+        throw new RuntimeException('Legacy translation intercepted for disabled rule');
 }
 $runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($runtimeSource)

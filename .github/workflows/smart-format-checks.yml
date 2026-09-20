@@ -10,6 +10,8 @@ on:
       - 'app/WorkersAITranslation.php'
       - 'app/workers-ai-card.php'
       - 'scripts/workers-ai-request.php'
+      - 'scripts/smart-workers-isolated.php'
+      - 'tests/smart-provider-routing-smoke.php'
       - 'assets/brand/workers-ai-provider.css'
       - 'tests/smart-format-smoke.php'
       - '.github/workflows/smart-format-checks.yml'
@@ -34,6 +36,8 @@ jobs:
           php -l app/WorkersAITranslation.php
           php -l app/workers-ai-card.php
           php -l scripts/workers-ai-request.php
+          php -l scripts/smart-workers-isolated.php
+          php -l tests/smart-provider-routing-smoke.php
       - name: Reconstruct sanitized baseline and patch it offline
         run: |
           mkdir -p /tmp/tmr-smart-fixture
@@ -73,5 +77,9 @@ jobs:
         run: |
           php -l tests/workers-ai-card-smoke.php
           php tests/workers-ai-card-smoke.php
+      - name: Verify translation provider and card fallback parity
+        run: |
+          php tests/smart-provider-routing-smoke.php
+          printf '{}' | php scripts/smart-workers-isolated.php | grep -Fq 'INPUT_INVALID'
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
