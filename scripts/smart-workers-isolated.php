@@ -107,6 +107,22 @@ function parseTip(string $response): ?array {
  * Ignore names, destinations, URLs and any other proposed tool behavior.
  */
 function parsedVisionBet(array $result): ?array {
+    // Some JSON-mode endpoints return the validated fields directly under
+    // the REST envelope's result object, without a "response" wrapper.
+    // Only the five known scalar bet fields are read here: never run tools,
+    // guess missing values or treat metadata as the bet itself.
+    if(isset($result['match'],$result['market'],$result['selection'])){
+        $direct=[];
+        foreach(['match','market','selection','league','odd'] as $field){
+            if(array_key_exists($field,$result)){
+                if(!is_string($result[$field]))return null;
+                $direct[$field]=$result[$field];
+            }
+        }
+        $directEncoded=json_encode($direct,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        if(is_string($directEncoded)&&tipResponseStatus($directEncoded)==='OK')
+            return $direct;
+    }
     // JSON Mode can return result.response as an already decoded object.
     // Validate that data exactly as we validate the string form; never
     // accept tool actions, partial objects or unstructured model output.
@@ -399,6 +415,13 @@ try{
             $result=(array)($envelope['result']??[]);
             $bet=parsedVisionBet($result);
             if($bet!==null)reply(true,'OK',$bet);
+            // A successful REST envelope may contain a bare JSON string as
+            // result (rather than result.response); validate it identically.
+            $rawResult=$envelope['result']??null;
+            if(is_string($rawResult) && tipResponseStatus($rawResult)==='OK'){
+                $parsed=parseTip($rawResult);
+                if(is_array($parsed))reply(true,'OK',$parsed);
+            }
             // Llama Vision can describe the ticket or return incomplete JSON.
             // Keep only bounded model observations for the SAME Cloudflare
             // account's text model. The parent never logs these strings.
@@ -410,6 +433,24 @@ try{
             $reason=is_string($response)?tipResponseStatus($response)
                 :(is_string($description)?tipResponseStatus($description)
                 :($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT'));
+            // A HTTP-200 JSON Mode response without structured output is not
+            // a successful extraction. Its second bounded attempt uses the
+            // SAME configured Cloudflare model without response_format,
+            // allowing a normal JSON reply before any slow Scout fallback.
+            if($structuredEvidence && $attempt===0 &&
+               isset($payload['response_format']) &&
+               in_array($reason,['RESPONSE_MISSING_TEXT','RESPONSE_NOT_JSON',
+                   'RESPONSE_MISSING_REQUIRED_FIELDS','RESPONSE_BAD_FIELD_TYPES'],true)){
+                unset($payload['response_format']);
+                $payload['messages'][0]['content']=
+                    "Return ONLY a single JSON object with explicit match, market, selection, league and odd. ".
+                    "Use empty strings only when a value is absent; never invent a selection, market or match.\n".$prompt;
+                $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+                if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
+                $encoded=$retryBody;
+                $retryPrepared=true;
+                continue;
+            }
             // When Vision has already observed legible content but failed to
             // wrap it as JSON, return evidence to its parent immediately. A
             // second multimodal call often wastes the remaining Telegram
