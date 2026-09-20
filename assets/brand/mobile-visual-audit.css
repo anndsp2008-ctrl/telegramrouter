@@ -1015,3 +1015,44 @@
     font-size:10px!important;
   }
 }
+
+/* Workers AI ONLY: last provider has both form-status and provider-badge.
+   Its legacy form-status typography/padding overrides the other cards.
+   Use precisely the same mobile dimensions as the three regular badges,
+   preserving the already-correct status dot, position and colour. */
+@media (max-width:1024px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty){
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:6px!important;
+    box-sizing:border-box!important;
+    width:max-content!important;
+    inline-size:max-content!important;
+    min-width:max-content!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:30px!important;
+    padding:7px 18px!important;
+    margin:0!important;
+    border:1px solid #284840!important;
+    border-radius:999px!important;
+    background:#152a29!important;
+    color:#79e9be!important;
+    font-family:inherit!important;
+    font-size:11px!important;
+    font-weight:500!important;
+    line-height:1.4!important;
+    letter-spacing:normal!important;
+    text-shadow:none!important;
+    box-shadow:none!important;
+    white-space:nowrap!important;
+  }
+}
+@media (max-width:400px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty){
+    padding:5px 7px!important;
+    font-size:10px!important;
+    font-weight:500!important;
+  }
+}
