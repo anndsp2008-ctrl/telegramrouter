@@ -106,7 +106,8 @@ jobs:
           assert 'EVIDÊNCIA EXTRAÍDA DA IMAGEM' in code
           assert "'image'=>$image" in code
           PY
-          grep -Fq 'if($attempt===0){usleep(250000);continue;}' scripts/smart-workers-isolated.php
+          grep -Fq 'if($attempt===0){' scripts/smart-workers-isolated.php
+          grep -Fq 'usleep(250000);continue;' scripts/smart-workers-isolated.php
           grep -Fq 'parsedVisionBet($result)' scripts/smart-workers-isolated.php
           grep -Fq 'probeVision($account,$token)' app/WorkersAITranslation.php
           grep -Fq 'MODEL_LICENSE_REQUIRED_5016' app/WorkersAITranslation.php
