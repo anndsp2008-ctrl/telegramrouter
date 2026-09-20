@@ -55,6 +55,22 @@ namespace {
        !str_contains($transport,'guided_json')){
         throw new \RuntimeException('Cloudflare visual rescue is not wired through the same provider');
     }
+    // Text tips cannot spend 75 seconds invoking the default Vision model.
+    // Verify the 8B text model uses the established chat payload, including
+    // the retry path; photo-only Vision behavior must remain in place.
+    if(!str_contains($source,'?WorkersAITranslation::PREVIOUS_DEFAULT_MODEL:$configuredModel')||
+       !str_contains($transport,"'messages'=>[['role'=>'user','content'=>")||
+       !str_contains($transport,'$timeouts=[25,10]')||
+       !str_contains($transport,"['messages'][0]['content']=")||
+       !str_contains($transport,'in_array($http,[500,502,503,504],true)')){
+        throw new \RuntimeException('Text model routing, bounded retry or 429 fail-fast missing');
+    }
+    $geminiTransport=(string)file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
+    if(!str_contains($geminiTransport,'in_array($http,[500,502,503,504],true)')||
+       str_contains($geminiTransport,'in_array($http,[429,500,502,503,504],true)')){
+        throw new \RuntimeException('Gemini HTTP 429 is still retried immediately');
+    }
+    echo "SMART_TEXT_8B_TIMEOUT_AND_429_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";
 }
