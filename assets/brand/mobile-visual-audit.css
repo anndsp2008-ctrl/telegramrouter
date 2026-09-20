@@ -818,23 +818,78 @@
   }
 }
 
-/* Integration status alignment invariant: desktop, tablet and mobile badges
-   share the RIGHT-hand edge, including 320px screens and wrapped headers.
-   Keep this after all historical responsive overrides. */
+/* Integration card invariant: the badge is ALWAYS immediately LEFT of the
+   chevron, on the SAME TOP ROW, just like desktop. Older mobile rules above
+   intentionally lose to these final, more specific declarations.
+   Header title may occupy a second row at narrow widths, never the badge. */
 @media (max-width:1024px){
   body:has(.translation-provider-grid) .translation-provider-grid
-  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head) > .provider-badge{
-    margin-left:auto!important;
-    margin-right:0!important;
-    justify-self:end!important;
-    text-align:center!important;
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head){
+    display:grid!important;
+    grid-template-columns:40px minmax(0,1fr) max-content 34px!important;
+    grid-template-rows:auto auto!important;
+    align-items:center!important;
+    justify-content:stretch!important;
+    align-content:center!important;
+    gap:8px!important;
+    min-width:0!important;
+    padding:13px 14px!important;
+    box-sizing:border-box!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head)::before{
+    grid-column:1!important;grid-row:1!important;
+    order:0!important;
+    width:40px!important;height:40px!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head)>div{
+    grid-column:1 / -1!important;grid-row:2!important;
+    order:0!important;
+    min-width:0!important;
     max-width:100%!important;
+    overflow-wrap:anywhere!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head)>.provider-badge{
+    display:inline-flex!important;
+    grid-column:3!important;grid-row:1!important;
+    order:0!important;
+    justify-self:end!important;
+    align-self:center!important;
+    margin:0!important;
+    width:max-content!important;
+    min-width:0!important;
+    max-width:100%!important;
+    flex-shrink:0!important;
+    padding:6px 9px!important;
+    font-size:10px!important;
+    line-height:1.25!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head)::after{
+    grid-column:4!important;grid-row:1!important;
+    order:0!important;
+    justify-self:end!important;
+    margin:0!important;
+    width:32px!important;height:32px!important;
   }
 }
-@media (max-width:640px){
+@media (max-width:400px){
   body:has(.translation-provider-grid) .translation-provider-grid
-  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head) > .provider-badge{
-    grid-column:2 / 4!important;
-    grid-row:2!important;
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head){
+    grid-template-columns:36px minmax(0,1fr) max-content 32px!important;
+    column-gap:6px!important;
+    padding:11px 10px!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head)::before{
+    width:36px!important;height:36px!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid
+  >*:has(.provider-form input[name="provider"]) > :is(.provider-head,.saas-card-head)>.provider-badge{
+    padding:5px 7px!important;font-size:10px!important;
   }
 }
