@@ -112,3 +112,26 @@ if(!str_contains($workers,'class="workers-ai-observation"') ||
    substr_count($workers,'Se o Llama 3.2 Vision retornar uma imagem')!==1)
    $fail('Workers AI note/badge markup is inconsistent with other providers');
 echo "INTEGRATION_WORKERS_AI_UNIFIED_LAYOUT_TESTS_PASSED\n";
+
+// Distinct integration implementations use either provider-badge OR
+// form-status. Both must fit content, remain in the first-row third cell,
+// and sit beside the first-row chevron throughout 320-1024px.
+$allStatuses=strrpos($mobile,'/* FINAL tablet/mobile invariant for real provider markup:');
+if($allStatuses===false)$fail('Tablet status fallback for mixed badge markup missing');
+$all=substr($mobile,$allStatuses);
+foreach([
+  ':is(.provider-badge,.form-status)',
+  'grid-column:3 / 4!important;',
+  'grid-row:1 / 2!important;',
+  'width:max-content!important;',
+  'inline-size:max-content!important;',
+  'min-width:max-content!important;',
+  'max-width:none!important;',
+  'flex-grow:0!important;',
+  'flex-shrink:0!important;',
+  'margin:0!important;',
+  '@media (max-width:400px)'
+] as $token){
+  if(!str_contains($all,$token))$fail('Unstandardized tablet provider status: '.$token);
+}
+echo "INTEGRATION_TABLET_MIXED_BADGE_VARIANTS_TESTS_PASSED\n";
