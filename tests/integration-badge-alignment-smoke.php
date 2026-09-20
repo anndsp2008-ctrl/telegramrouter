@@ -17,7 +17,7 @@ $required=[
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
     ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&workers-dot=5'],
-    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=13']
+    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=14']
 ];
 foreach($required as [$label,$source,$token]){
     if(!str_contains($source,$token))$fail('Integration badge alignment regression: '.$label);
@@ -174,3 +174,29 @@ if($badJoint) $fail('Workers AI status dot was hidden by a joint pseudo-element 
 if(substr_count($style,'.form-status.provider-badge.is-empty::before')!==1)
    $fail('Workers AI non-configured status is missing its yellow dot');
 echo "INTEGRATION_WORKERS_MOBILE_DOT_PARITY_TESTS_PASSED\n";
+
+// The three earlier status pills use mobile 7px 18px / 11px regular,
+// switching to 5px 7px / 10px on <=400px. Verify the final Workers AI
+// override uses the same dimensions for both credential-derived states.
+// This is deliberately scoped to Workers AI; other cards stay untouched.
+$workerMobileStart=strrpos($mobile,'/* Workers AI ONLY: last provider');
+if($workerMobileStart===false)$fail('No final Workers AI-only mobile status override');
+$workerMobile=substr($mobile,$workerMobileStart);
+foreach([
+  '@media (max-width:1024px)',
+  '@media (max-width:400px)',
+  '.workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)',
+  'padding:7px 18px!important;',
+  'font-size:11px!important;',
+  'font-weight:500!important;',
+  'line-height:1.4!important;',
+  'padding:5px 7px!important;',
+  'font-size:10px!important;',
+  'gap:6px!important;'
+] as $token){
+  if(!str_contains($workerMobile,$token))$fail('Workers AI mobile badge still differs: '.$token);
+}
+$otherMarkup=(string)file_get_contents($root.'/app/workers-ai-card.php');
+if(!str_contains($otherMarkup,"\$workersAIConfigured?'Configurado':'Não configurado'"))
+  $fail('Actual Workers AI configured state changed');
+echo "INTEGRATION_WORKERS_EXACT_MOBILE_PILL_PARITY_TESTS_PASSED\n";
