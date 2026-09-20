@@ -19,6 +19,18 @@ $statement=$pdo->prepare(
 $statement->execute(['router_rules','translation_provider']);
 $columnType=strtolower((string)($statement->fetchColumn()?:''));
 if(str_contains($columnType,"'workers_ai'")){
+    // Temporary, strictly allowlisted startup diagnostic for the other legacy
+    // installer. Do not log tokens, API payloads, tip text or database rows.
+    $googleInstaller='/tmp/router-google-cloud/install.php';
+    $code=@file($googleInstaller,FILE_IGNORE_NEW_LINES);
+    if(is_array($code)){
+        foreach($code as $i=>$line){
+            if($i>115)break;
+            if(preg_match('/translation_provider|translation_primary_provider|translation_fallback_provider|ENUM\\(/i',$line)){
+                error_log('TMR_GOOGLE_INSTALL_DIAG '.($i+1).' '.substr(trim($line),0,320));
+            }
+        }
+    }
     echo "TRANSLATION_V2_MIGRATION_SKIPPED_NEW_PROVIDER_ACTIVE\n";
     exit(0);
 }
