@@ -129,11 +129,19 @@ final class SmartFormatting
                 self::diag('REQUIRED_FIELDS_INCOMPLETE_'.$provider);
                 continue;
             }
-            if($candidate['analysis']==='' && self::containsAnalysis($sourceText)){
-                self::diag('ANALYSIS_ABSENT_'.$provider);
+            // Normalize and sanitize provider prose first. If the source has
+            // no real sports analysis (or the model returns only generic/financial
+            // filler), create a conservative analysis from explicit bet fields.
+            $candidate=self::sentenceCaseBet($candidate);
+            $candidate['analysis']=self::ensureSportsAnalysis(
+                $candidate,
+                $translate || str_starts_with(mb_strtolower($target,'UTF-8'),'pt')
+            );
+            if(!self::usableSportsAnalysis($candidate['analysis'])){
+                self::diag('ANALYSIS_UNUSABLE_'.$provider);
                 continue;
             }
-            $bet=self::sentenceCaseBet($candidate);
+            $bet=$candidate;
             error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
                 'provider'=>$provider,'fallback'=>$provider!==$providers[0]
             ]));
@@ -285,6 +293,76 @@ final class SmartFormatting
         return $bet;
     }
 
+    /** Reject empty or boilerplate analysis that adds no betting context. */
+    public static function usableSportsAnalysis(string $analysis): bool
+    {
+        $analysis=trim(self::sanitizeAnalysis($analysis));
+        if(mb_strlen($analysis,'UTF-8')<45)return false;
+        $flat=mb_strtolower(preg_replace('/\s+/u',' ',$analysis)??$analysis,'UTF-8');
+        $generic=[
+            'aposta feita com responsabilidade',
+            'aposte com responsabilidade',
+            'jogue com responsabilidade',
+            'bet responsibly',
+            'responsible betting',
+            'aposta responsável',
+            'boa sorte',
+            'good luck'
+        ];
+        foreach($generic as $phrase){
+            if($flat===$phrase||$flat===$phrase.'.'||$flat===$phrase.'!')return false;
+        }
+        return true;
+    }
+
+    /**
+     * The AI is asked to produce analysis first. This deterministic fallback
+     * exists only when the source has none or the model returns boilerplate.
+     * It uses explicit match/market/selection only; no form, injuries, stats,
+     * probability, expected value or prediction is invented.
+     */
+    public static function ensureSportsAnalysis(array $bet,bool $portuguese=true): string
+    {
+        $existing=self::capitalizeSentences(self::sanitizeAnalysis((string)($bet['analysis']??'')));
+        if(self::usableSportsAnalysis($existing))return $existing;
+        $match=trim((string)($bet['match']??''));
+        $market=trim((string)($bet['market']??''));
+        $selection=trim((string)($bet['selection']??''));
+        if($match===''||$market===''||$selection==='')return '';
+
+        $haystack=mb_strtolower($market.' '.$selection,'UTF-8');
+        if($portuguese){
+            if(preg_match('/\b(ambos.*marcam|ambas.*marcam|both teams.*score|btts)\b/u',$haystack)){
+                return self::capitalizeSentences(
+                    'A seleção considera gols dos dois lados no confronto '.$match.'. '.
+                    'Para a aposta ser vencedora, as duas equipes precisam marcar pelo menos um gol.'
+                );
+            }
+            if(preg_match('/\b(over|mais de|acima de)\b/u',$haystack)){
+                return self::capitalizeSentences(
+                    'A aposta está concentrada em '.$selection.' no mercado '.$market.' para '.$match.'. '.
+                    'A seleção será vencedora se o total observado superar a linha indicada.'
+                );
+            }
+            if(preg_match('/\b(under|menos de|abaixo de)\b/u',$haystack)){
+                return self::capitalizeSentences(
+                    'A aposta está concentrada em '.$selection.' no mercado '.$market.' para '.$match.'. '.
+                    'A seleção será vencedora se o total observado permanecer abaixo da linha indicada.'
+                );
+            }
+            return self::capitalizeSentences(
+                'A seleção '.$selection.' foi indicada no mercado '.$market.' para o confronto '.$match.'. '.
+                'A resolução da aposta depende do cumprimento dessa condição específica de mercado.'
+            );
+        }
+        if(preg_match('/\b(both teams.*score|btts)\b/u',$haystack)){
+            return 'The selection expects both sides to score in '.$match.'. '.
+                'For the bet to win, each team must score at least once.';
+        }
+        return 'The selection '.$selection.' is placed in the '.$market.' market for '.$match.'. '.
+            'The bet is settled according to that specific market condition.';
+    }
+
     private static function containsAnalysis(string $text): bool
     {
         return mb_strlen(trim($text),'UTF-8')>=180;
@@ -315,7 +393,8 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            "No campo analysis, preserve apenas a análise esportiva; omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
+            "No campo analysis: se a origem trouxer uma análise esportiva real, preserve seus fatos relevantes; se NÃO trouxer análise esportiva, CRIE uma análise curta de 1 a 3 frases baseada SOMENTE em match, league, market e selection extraídos. Explique o que a seleção significa e qual condição esportiva precisa ocorrer para ela vencer, sem frases genéricas. ".
+            "Nunca use apenas frases como 'Aposta feita com responsabilidade'. Omita stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não invente probabilidade, estatísticas, forma recente, lesões, escalações, motivação, favoritismo ou fatos externos. ".
             "Status AO VIVO somente se a PARTIDA estiver explicitamente em andamento; bilhete aberto não basta. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
             "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
@@ -433,10 +512,10 @@ final class SmartFormatting
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
             "Odd é cotação, não probabilidade: não invente porcentagens de acerto nem prometa resultado vencedor. ".
-            "O campo analysis deve conter exclusivamente a análise esportiva relevante do autor, ".
-            "sem resumir fatos esportivos, sem publicidade, links ou dados inventados. ".
+            "No campo analysis: se houver análise esportiva real na origem, preserve seus fatos relevantes; se NÃO houver, CRIE uma análise curta de 1 a 3 frases usando SOMENTE match, league, market e selection extraídos, explicando a condição esportiva necessária para a seleção vencer. ".
+            "Não use frases genéricas como 'Aposta feita com responsabilidade'. Não invente probabilidade, estatísticas, forma recente, lesões, escalações, motivação, favoritismo ou fatos externos. ".
             "Não reproduza stake original, unidades, quantia apostada, banca, retorno financeiro, lucro ou valores monetários no campo analysis. ".
-            "Omitir analysis é permitido SOMENTE quando não há análise de fato. ".
+            "O campo analysis deve ser preenchido sempre que match, market e selection estiverem disponíveis. ".
             "Não mencione o nome do roteador no JSON. ".$language." ".
             "TEXTO ORIGINAL:\n".$text;
         $parts=[['text'=>$prompt]];
