@@ -2,6 +2,7 @@
 require __DIR__.'/../app/PurePngVipCardRenderer.php';
 require __DIR__.'/../app/VipCardRenderer.php';
 require __DIR__.'/../app/SmartFormatting.php';
+use App\LocalTipExtraction;
 use App\VipCardRenderer;
 use App\SmartFormatting;
 $bet=['match'=>'Venezia × Lazio','league'=>'Itália • Série A',
@@ -13,6 +14,37 @@ foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $req
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+// Deterministic OCR parser: explicitly selected SINGLE event and market only.
+// Source images with multiple selections must fall back to the existing IA.
+$ocrCases=[
+    ["Fulham x Manchester United\nAmbos equipos marcan: Sí",
+     'Fulham × Manchester United','Ambos marcam','Sim'],
+    ["Barcelona × Real Madrid\nTotal escanteios Over 8,5\nOdd: 1,90",
+     'Barcelona × Real Madrid','Total de Escanteios','Mais de 8,5'],
+    ["Palmeiras x Santos\nTotal gols Menos de 2,5",
+     'Palmeiras × Santos','Total de Gols','Menos de 2,5']
+];
+foreach($ocrCases as [$source,$expectedMatch,$expectedMarket,$expectedSelection]){
+    $parsed=LocalTipExtraction::parse($source);
+    if(!is_array($parsed)||($parsed['match']??'')!==$expectedMatch ||
+       ($parsed['market']??'')!==$expectedMarket ||
+       ($parsed['selection']??'')!==$expectedSelection){
+        throw new RuntimeException('Explicit local tip extraction failed');
+    }
+    if(!str_contains(SmartFormatting::ensureSportsAnalysis($parsed,true),$expectedMatch))
+        throw new RuntimeException('Local parser did not keep grounded detailed analysis');
+}
+foreach([
+    "Fulham x Manchester United\nAmbos equipos marcan",
+    "Fulham x Manchester United\nAmbos equipos marcan: Sí\nTotal goles Over 2,5",
+    "Fulham x Manchester United\nBarcelona x Real Madrid\nAmbos equipos marcan: Sí",
+    "Fulham x Manchester United\nOver 8,5",
+    "Fulham x Manchester United\nAmbos equipos marcan: Sí\nAmbos equipos marcan: No"
+] as $ambiguous){
+    if(LocalTipExtraction::parse($ambiguous)!==null)
+        throw new RuntimeException('Ambiguous OCR slip was accepted as an unambiguous bet');
+}
+echo "SMART_LOCAL_OCR_CONSERVATIVE_PARSER_TESTS_PASSED\n";
 // Sentence initials, not Title Case: keep internal case, proper names, numeric
 // odds, URLs and paragraph structure intact. Format card text and image identically.
 $caseExamples=[
