@@ -105,6 +105,15 @@ function parseTip(string $response): ?array {
  * Ignore names, destinations, URLs and any other proposed tool behavior.
  */
 function parsedVisionBet(array $result): ?array {
+    // JSON Mode can return result.response as an already decoded object.
+    // Validate that data exactly as we validate the string form; never
+    // accept tool actions, partial objects or unstructured model output.
+    $structuredResponse=$result['response']??null;
+    if(is_array($structuredResponse) && !array_is_list($structuredResponse)){
+        $encoded=json_encode($structuredResponse,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        if(is_string($encoded) && tipResponseStatus($encoded)==='OK')
+            return $structuredResponse;
+    }
     // Cloudflare's ImageTextToText REST result uses "description", not
     // necessarily the TextGeneration "response" field. Accept either ONLY
     // when it contains validated structured bet data (never free-form prose).
@@ -233,6 +242,9 @@ try{
     if(!is_array($fields)||count($fields)>24)$fields=[];
     $fields=array_values(array_filter($fields,static fn($field): bool =>
         is_string($field)&&preg_match('/^[a-z_]{2,30}$/D',$field)===1));
+    $structuredEvidence=$evidenceRescue && !$checkOnly &&
+        $image===null && $model==='@cf/meta/llama-3.1-8b-instruct-fp8' &&
+        count(array_intersect(['match','market','selection'],$fields))===3;
 
     if(!preg_match('/^[a-f0-9]{32}$/Di',$account)||
        !preg_match('~^@cf/[A-Za-z0-9._-]+/[A-Za-z0-9._-]{2,100}$~D',$model)||
@@ -286,6 +298,22 @@ try{
     } elseif(!$checkOnly && $evidenceRescue &&
              $model==='@cf/meta/llama-3.1-8b-instruct-fp8'){
         $payload['max_tokens']=strlen($prompt)>6500?1650:1150;
+    }
+    // The model supports Cloudflare JSON Mode: requesting a schema is more
+    // reliable than hoping that another "respond only in JSON" prompt works.
+    // This is opt-in for Vision-evidence recovery only; already working text
+    // cards, image Vision and the configured Gemini fallback are unchanged.
+    if($structuredEvidence){
+        $properties=[];
+        foreach($fields as $field)$properties[$field]=['type'=>'string'];
+        $payload['response_format']=[
+            'type'=>'json_schema',
+            'json_schema'=>[
+                'type'=>'object','properties'=>$properties,
+                'required'=>['match','market','selection'],
+                'additionalProperties'=>false
+            ]
+        ];
     }
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
@@ -403,6 +431,16 @@ try{
                 usleep(250000);continue;
             }
             reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null);
+        }
+        // If this account/model rejects JSON Mode, retry the existing text
+        // extraction once without that option. No implicit provider change.
+        if($structuredEvidence && $attempt===0 && $http===400 &&
+           isset($payload['response_format'])){
+            unset($payload['response_format']);
+            $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+            if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
+            $retryPrepared=true;
+            continue;
         }
         if($attempt===0&&(in_array($http,[500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}
