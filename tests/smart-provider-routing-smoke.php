@@ -159,7 +159,7 @@ namespace {
     if(!str_contains($source,'$fields=[\'match\',\'market\',\'selection\',\'league\',\'odd\'];') ||
        !str_contains($transport,'if(isset($result[\'match\'],$result[\'market\'],$result[\'selection\']))') ||
        !str_contains($transport,'$rawResult=$envelope[\'result\']??null;') ||
-       !str_contains($transport,"in_array($reason,['RESPONSE_MISSING_TEXT','RESPONSE_NOT_JSON',") ||
+       !str_contains($transport,'in_array($reason,[\'RESPONSE_MISSING_TEXT\',\'RESPONSE_NOT_JSON\',') ||
        !str_contains($transport,'unset($payload[\'response_format\']);') ||
        !str_contains($transport,'$retryPrepared=true;') ||
        !str_contains($source,'if($candidate[\'selection\']===\'\'||$candidate[\'market\']===\'\'||$candidate[\'match\']===\'\')')){
