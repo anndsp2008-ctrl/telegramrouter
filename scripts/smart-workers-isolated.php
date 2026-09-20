@@ -127,6 +127,20 @@ function parsedVisionBet(array $result): ?array {
     }
     return null;
 }
+/**
+ * Keep bounded visual observations only inside the worker-to-parent stdout.
+ * Do not copy suggested model tool-actions, original image bytes or secrets.
+ */
+function collectVisualEvidence(array $result,string $existing=''): string {
+    foreach(['response','description'] as $key){
+        $observed=$result[$key]??null;
+        if(!is_string($observed)||trim($observed)==='')continue;
+        $observed=mb_substr(trim($observed),0,6000,'UTF-8');
+        if(str_contains($existing,$observed))continue;
+        $existing=mb_substr(trim($existing."\n".$observed),0,10000,'UTF-8');
+    }
+    return $existing;
+}
 /** Return a privacy-safe failure category without echoing generated text. */
 function tipResponseStatus(string $response): string {
     if(trim($response)==='')return 'RESPONSE_EMPTY';
@@ -179,6 +193,19 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
         throw new RuntimeException('Unstructured model tool action was accepted as a bet');
     if(parsedVisionBet(['response'=>'Not a bet','tool_calls'=>[['arguments'=>['match'=>'Venezia']]]])!==null)
         throw new RuntimeException('Incomplete model output was accepted');
+    $observed=collectVisualEvidence([
+        'response'=>'Texto visual: Venezia x Lazio, seleção Mais de 8,5',
+        'description'=>'JSON parcial: {"match":"Venezia x Lazio"}',
+        'tool_calls'=>[['arguments'=>['action'=>'send','token'=>'SECRET_DO_NOT_COPY']]]
+    ]);
+    if(!str_contains($observed,'Venezia x Lazio')||
+       !str_contains($observed,'JSON parcial')||
+       str_contains($observed,'SECRET_DO_NOT_COPY')||
+       collectVisualEvidence(['response'=>null,'description'=>null])!==''||
+       collectVisualEvidence(['response'=>'Mesmo texto'],'Mesmo texto')!=='Mesmo texto')
+        throw new RuntimeException('Visual evidence collector failed safe handling');
+    if(mb_strlen(collectVisualEvidence(['response'=>str_repeat('A',12000)]),'UTF-8')>10000)
+        throw new RuntimeException('Unbounded visual evidence output');
     echo "WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED\n";
     exit(0);
 }
@@ -305,19 +332,7 @@ try{
             // Keep only bounded model observations for the SAME Cloudflare
             // account's text model. The parent never logs these strings.
             if($image!==null){
-                foreach(['response','description'] as $evidenceKey){
-                    $observed=$result[$evidenceKey]??null;
-                    if(is_string($observed)&&trim($observed)!==''){
-                        $observed=mb_substr(trim($observed),0,6000,'UTF-8');
-                        if($visualEvidence!=='' && !str_contains($visualEvidence,$observed)){
-                            $visualEvidence.="\n";
-                        }
-                        if(!str_contains($visualEvidence,$observed)){
-                            $visualEvidence.=$observed;
-                            $visualEvidence=mb_substr($visualEvidence,0,10000,'UTF-8');
-                        }
-                    }
-                }
+                $visualEvidence=collectVisualEvidence($result,$visualEvidence);
             }
             $description=$result['description']??null;
             $hasTools=is_array($result['tool_calls']??null)&&count($result['tool_calls'])>0;
