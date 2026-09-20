@@ -73,7 +73,7 @@ foreach([$contract,$global] as $scope){
     ] as $token){
         if(!str_contains($scope,$token))$fail('Provider badge expands or varies across cards: '.$token);
     }
-    if(str_contains($scope,'width:100%!important;') ||
+    if(preg_match('/(?<![a-z-])width:100%\\s*!important;/i',$scope) ||
        str_contains($scope,'grid-column:2 / 4!important;') ||
        str_contains($scope,'justify-self:stretch!important;'))
         $fail('Provider badge may stretch across header');
