@@ -154,7 +154,22 @@ try{
     // short prompt with 2800 max output tokens can exceed a Vision timeout.
     // Full cards retain their current output allowance and validation.
     $payload=['prompt'=>$prompt,'temperature'=>0,'max_tokens'=>$checkOnly?12:2800];
-    if($image!==null)$payload['image']=$image;
+    if($image!==null){
+        // Cloudflare's Vision input schema recommends an image_url part inside
+        // the user message. The former top-level image parameter is deprecated
+        // and can return HTTP 200 without generated text for some inputs.
+        // Keep the original data URI unchanged and NEVER expose it in logs.
+        $payload=[
+            'messages'=>[[
+                'role'=>'user',
+                'content'=>[
+                    ['type'=>'text','text'=>$prompt],
+                    ['type'=>'image_url','image_url'=>['url'=>$image]]
+                ]
+            ]],
+            'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+        ];
+    }
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
     // Vision inference may need more than the former 16s/8s windows.
@@ -163,12 +178,17 @@ try{
     $timeouts=$checkOnly?[30,20]:[45,30];
     foreach($timeouts as $attempt=>$timeout){
         if($attempt===1&&!$checkOnly){
-            // On a successful HTTP response that was not valid JSON, give the
-            // same provider one more strictly constrained chance. No new facts.
-            $payload['prompt']="Return ONLY one COMPLETE valid JSON object. ".
+            // Retry once with strict JSON output after an invalid, empty, or
+            // transient response. Preserve the original image part in-place.
+            $strictPrompt="Return ONLY one COMPLETE valid JSON object. ".
                 "The first character MUST be { and the final character MUST be }. ".
                 "Every requested field must be a STRING; unknown values are empty strings. ".
                 "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
+            if($image!==null){
+                $payload['messages'][0]['content'][0]['text']=$strictPrompt;
+            } else {
+                $payload['prompt']=$strictPrompt;
+            }
             $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
             if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
             $encoded=$retryBody;
@@ -192,7 +212,14 @@ try{
             if(!is_array($envelope)||empty($envelope['success'])){
                 reply(false,'CF_ENVELOPE_INVALID');
             }
-            if(!is_string($response))reply(false,'RESPONSE_MISSING_TEXT');
+            if(!is_string($response)){
+                // Do not log response bodies, tips, or image content. A 200
+                // with tool_calls but no text is not a valid extracted bet.
+                $hasTools=is_array($envelope['result']['tool_calls']??null)
+                    &&count($envelope['result']['tool_calls'])>0;
+                if($attempt===0&&!$checkOnly){usleep(250000);continue;}
+                reply(false,$hasTools?'RESPONSE_TOOL_CALLS_ONLY':'RESPONSE_MISSING_TEXT');
+            }
             if($checkOnly&&trim($response)!=='')reply(true,'OK',[]);
             $status=tipResponseStatus($response);
             if($status==='OK'){
