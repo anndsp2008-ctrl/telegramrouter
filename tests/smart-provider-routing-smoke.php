@@ -184,6 +184,21 @@ namespace {
             throw new \RuntimeException('Official Vision image input or Cloudflare result-string normalization missing');
         }
     }
+    // #1455: Workers AI REST returned HTTP 400 immediately with a top-level
+    // messages + image payload. The REST prompt + image shape must be tried
+    // first; one request-shape 400 can use the earlier image_url transport.
+    // Other provider/model auth errors must not be retried or reclassified.
+    if(!str_contains($transport,"'prompt'=>\$prompt,") ||
+       !str_contains($transport,"'image'=>\$imageBase64,") ||
+       !str_contains($transport,'$imageShapeReason=$http===400?') ||
+       !str_contains($transport,'$imageShapeReason!==\'MODEL_NOT_FOUND_5007\'') ||
+       !str_contains($transport,"'image_url'=>['url'=>\$image]") ||
+       !str_contains($transport,'$retryPrepared=true;') ||
+       !str_contains($transport,'3003=>\'REQUEST_INCOMPLETE_3003\'') ||
+       !str_contains($transport,'default=>$errorCode>0?\'HTTP_400_CF_\'.$errorCode:\'HTTP_400\'')){
+        throw new \RuntimeException('Cloudflare REST image 400 compatibility and error-code guard missing');
+    }
+    echo "SMART_IMAGE_1455_REST_400_COMPATIBILITY_TESTS_PASSED\n";
     echo "SMART_IMAGE_1453_OFFICIAL_VISION_AND_RESULT_STRING_TESTS_PASSED\n";
     echo "SMART_IMAGE_1451_MINIMAL_SCHEMA_AND_SAFE_RETRY_TESTS_PASSED\n";
     echo "SMART_IMAGE_1449_SUPPORTED_SCHEMA_EVIDENCE_RESCUE_TESTS_PASSED\n";
