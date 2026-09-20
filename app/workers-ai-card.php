@@ -33,9 +33,9 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
         <input name="workers_ai_account_id" value="<?=sh($workersAIAccount)?>" maxlength="32"
           autocomplete="off" placeholder="32 caracteres hexadecimais">
       </label>
-      <label class="field-wide">Modelo<span class="field-help">Modelo de geração de texto para tradução.</span>
+      <label class="field-wide">Modelo de IA para tradução e interpretação<span class="field-help">Modelo utilizado na tradução de texto e na interpretação de imagens dos cards VIP. Padrão: Llama 3.2 11B Vision.</span>
         <input name="workers_ai_model" value="<?=sh($workersAIModel)?>"
-          autocomplete="off" placeholder="@cf/meta/llama-3.1-8b-instruct-fp8">
+          autocomplete="off" placeholder="@cf/meta/llama-3.2-11b-vision-instruct">
       </label>
     </div>
     <div class="provider-actions">
