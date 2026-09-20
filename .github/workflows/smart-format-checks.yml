@@ -53,6 +53,21 @@ jobs:
           php -l /tmp/tmr-smart-fixture/app/TelegramRouter.php
           WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_ALREADY_APPLIED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php | grep SMART_FORMAT_ALREADY_APPLIED
+      - name: Inspect sanitized baseline event delivery/exception paths (temporary)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/tmr-smart-fixture/app/TelegramRouter.php')
+          lines=p.read_text().splitlines()
+          tags=['sendSmartOrOriginal','deliveryMethod','catch (','catch(','processMessage','handleMessage','try {','throw ','retry','failed','sendContinuation(']
+          hits=[i for i,line in enumerate(lines) if any(t in line for t in tags)]
+          keep=set()
+          for i in hits:
+              keep.update(range(max(0,i-5),min(len(lines),i+8)))
+          for i in sorted(keep):
+              if i<750:
+                  print(f'ROUTER_DETAIL {i+1}: {lines[i][:900]}')
+          PY
       - name: Assert isolated single-pass routing patch
         run: |
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
