@@ -126,10 +126,21 @@ namespace {
        !str_contains($transport,"'type'=>'json_schema'") ||
        !str_contains($transport,"'required'=>['match','market','selection']") ||
        !str_contains($transport,'$structuredResponse=$result[\'response\']??null;') ||
-       !str_contains($transport,'if($structuredEvidence && $attempt===0 && $http===400') ||
+       !str_contains($transport,'if($structuredEvidence && $attempt===0 &&') ||
        !str_contains($transport,'unset($payload[\'response_format\']);')){
         throw new \RuntimeException('Image evidence JSON Mode or compatibility fallback missing');
     }
+    // #1445: the installed fp8 model returned HTTP 403 / CF 5025 because it
+    // cannot execute JSON Schema. Never send response_format to that model.
+    // Other 403 errors (credentials, licensing) are not compatibility errors.
+    if(!str_contains($transport,'$model===\'@cf/meta/llama-3.1-8b-instruct\'') ||
+       !str_contains($transport,'MODEL_JSON_SCHEMA_UNSUPPORTED_5025') ||
+       !str_contains($transport,'$jsonSchemaUnsupported=$http===403') ||
+       !str_contains($transport,'$http===400 || $jsonSchemaUnsupported') ||
+       str_contains($transport,'$image===null && $model===\'@cf/meta/llama-3.1-8b-instruct-fp8\' &&')){
+        throw new \RuntimeException('FP8 JSON schema unsupported guard / exact 5025 retry missing');
+    }
+    echo "SMART_IMAGE_1445_FP8_JSON_SCHEMA_GUARD_TESTS_PASSED\n";
     echo "SMART_IMAGE_1443_STRUCTURED_TEXT_RESCUE_TESTS_PASSED\n";
     echo "SMART_IMAGE_1441_EXTRACTION_FIRST_AND_FALLBACK_GUARDS_PASSED\n";
     echo "SMART_IMAGE_1437_EVIDENCE_FIRST_AND_TIMEOUT_GUARDS_PASSED\n";

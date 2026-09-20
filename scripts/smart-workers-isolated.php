@@ -23,6 +23,7 @@ function cloudflareFailureReason(int $http,string|false $body,int $errno): strin
         return match($errorCode){
             5016=>'MODEL_LICENSE_REQUIRED_5016',
             5035=>'WORKERS_PAID_REQUIRED_5035',
+            5025=>'MODEL_JSON_SCHEMA_UNSUPPORTED_5025',
             5018,3041=>'MODEL_ACCESS_DENIED_'.$errorCode,
             3023=>'ACCOUNT_BLOCKED_3023',
             default=>$errorCode>0?'HTTP_403_CF_'.$errorCode:'HTTP_403_FORBIDDEN'
@@ -47,6 +48,7 @@ if(getenv('SMART_WORKERS_CLASSIFIER_TEST')==='1'){
     foreach([
         [403,5016,'MODEL_LICENSE_REQUIRED_5016'],
         [403,5035,'WORKERS_PAID_REQUIRED_5035'],
+        [403,5025,'MODEL_JSON_SCHEMA_UNSUPPORTED_5025'],
         [403,5018,'MODEL_ACCESS_DENIED_5018'],
         [403,3023,'ACCOUNT_BLOCKED_3023'],
         [403,0,'HTTP_403_FORBIDDEN'],
@@ -251,8 +253,12 @@ try{
     if(!is_array($fields)||count($fields)>24)$fields=[];
     $fields=array_values(array_filter($fields,static fn($field): bool =>
         is_string($field)&&preg_match('/^[a-z_]{2,30}$/D',$field)===1));
+    // JSON Mode is NOT available on the currently configured FP8 text model.
+    // Cloudflare rejects response_format for that model with HTTP 403 / CF 5025.
+    // Only request schema on an explicitly selected JSON-capable model; never
+    // silently replace the configured FP8 model or repeat an unsupported call.
     $structuredEvidence=$evidenceRescue && !$checkOnly &&
-        $image===null && $model==='@cf/meta/llama-3.1-8b-instruct-fp8' &&
+        $image===null && $model==='@cf/meta/llama-3.1-8b-instruct' &&
         count(array_intersect(['match','market','selection'],$fields))===3;
 
     if(!preg_match('/^[a-f0-9]{32}$/Di',$account)||
@@ -441,9 +447,15 @@ try{
             }
             reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null);
         }
-        // If this account/model rejects JSON Mode, retry the existing text
-        // extraction once without that option. No implicit provider change.
-        if($structuredEvidence && $attempt===0 && $http===400 &&
+        // An unsupported JSON schema is not a credential/authentication
+        // failure. Only 5025 (or malformed schema HTTP 400) permits one
+        // compatible retry of the SAME model without response_format.
+        // Other HTTP 403 errors, including model license/access restrictions,
+        // must never be bypassed by dropping request parameters.
+        $jsonSchemaUnsupported=$http===403 &&
+            cloudflareFailureReason($http,$body,$errno)==='MODEL_JSON_SCHEMA_UNSUPPORTED_5025';
+        if($structuredEvidence && $attempt===0 &&
+           ($http===400 || $jsonSchemaUnsupported) &&
            isset($payload['response_format'])){
             unset($payload['response_format']);
             $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
