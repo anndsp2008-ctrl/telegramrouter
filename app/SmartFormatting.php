@@ -430,6 +430,21 @@ final class SmartFormatting
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
             "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
             $language." TEXTO ORIGINAL:\n".$text;
+        if($hasImage || $forcedTextModel!==null){
+            // A multimodal image read is an extraction step, not the place to
+            // write a four-paragraph sports essay. Longer prompts/completions
+            // starve the evidence rescue and the configured Gemini fallback.
+            // The PHP layer generates the detailed, grounded sports analysis
+            // whenever the source contains no authored sports analysis.
+            $prompt="Extraia do texto e da imagem uma tip de aposta. Responda SOMENTE um objeto JSON válido com estas chaves string: ".
+                implode(', ',$fields).". ".
+                "Priorize match, market e selection explícitos. Desconhecido = string vazia, nunca invente informações. ".
+                "Copie em analysis apenas análise ESPORTIVA realmente presente na origem; se não houver, deixe analysis vazio. ".
+                "Não crie nova análise neste passo: o formato detalhado será feito após a extração validada. ".
+                "Nunca copie stake original ou valores financeiros para analysis; não invente estatísticas, probabilidades ou fatos externos. ".
+                "Conserve nomes, números e seleções da tip; não confunda bilhete aberto com partida ao vivo. ".
+                $language."\nTEXTO E EVIDÊNCIAS DA ORIGEM:\n".$text;
+        }
         $photo=null;
         if($hasImage){
             $mime=mime_content_type($image)?:'';
@@ -516,7 +531,17 @@ final class SmartFormatting
                         self::diag('WORKERS_AI_TEXT_RESCUE_SUCCEEDED');
                         return $recovered;
                     }
+                    // After an actual timeout in the text rescue, retrying yet
+                    // another Vision model tends to exhaust the Telegram
+                    // processing window. Let the user's configured provider
+                    // fallback run instead. Other invalid responses may still
+                    // use the existing Scout rescue.
+                    $textTimedOut=end(self::$failureCodes)==='WORKERS_AI_TIMEOUT';
                     self::diag('WORKERS_AI_TEXT_RESCUE_FAILED');
+                    if($textTimedOut){
+                        self::diag('WORKERS_AI_VISION_RESCUE_SKIPPED_AFTER_TEXT_TIMEOUT');
+                        return null;
+                    }
                 }
                 if($index===0 && isset($models[1]))continue;
                 if($visionEvidence!=='' && !$textRescueAttempted)break;
