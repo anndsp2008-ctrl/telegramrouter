@@ -307,7 +307,7 @@ final class SmartFormatting
     public static function reconcileExplicitSourceOdd(string $sourceText,array $bet): ?array
     {
         if(!preg_match_all(
-            '~(?<![\p{L}\p{N}_])(?:odds?|cotação|cotizacion|cotización|cuota)\s*[:=]?\s*([1-9]\d{0,2}[.,]\d{1,3})(?![\d.,])~iu',
+            '~(?<![\p{L}\p{N}_])(?:odds?|cotação|cotizacion|cotización|cuota)\s*[:=]?\s*([1-9]\d{0,2}[.,]\d{1,3})(?!\d|[.,]\d)~iu',
             $sourceText,$found
         ))return $bet;
         $rawOdds=array_values(array_unique($found[1]??[]));
