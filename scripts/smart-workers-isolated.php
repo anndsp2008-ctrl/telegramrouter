@@ -96,6 +96,30 @@ function parseTip(string $response): ?array {
     }
     return null;
 }
+/**
+ * Vision can return a structured tool_calls result with no response string.
+ * Never execute a model-suggested tool; accept only a complete data object
+ * containing explicit match, market and selection as normal card extraction.
+ * Ignore names, destinations, URLs and any other proposed tool behavior.
+ */
+function parsedVisionBet(array $result): ?array {
+    $response=$result['response']??null;
+    if(is_string($response)){
+        $data=parseTip($response);
+        if(is_array($data)&&tipResponseStatus($response)==='OK')return $data;
+    }
+    $calls=$result['tool_calls']??null;
+    if(!is_array($calls))return null;
+    foreach($calls as $call){
+        if(!is_array($call))continue;
+        $args=$call['arguments']??null;
+        if(is_string($args))$args=parseTip($args);
+        if(!is_array($args)||array_is_list($args))continue;
+        $candidate=json_encode($args,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        if(is_string($candidate)&&tipResponseStatus($candidate)==='OK')return $args;
+    }
+    return null;
+}
 /** Return a privacy-safe failure category without echoing generated text. */
 function tipResponseStatus(string $response): string {
     if(trim($response)==='')return 'RESPONSE_EMPTY';
@@ -129,6 +153,19 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
              '{"match":{"untrusted":true},"market":"Escanteios","selection":"Mais de 8,5"}'] as $value){
         if(tipResponseStatus($value)==='OK')throw new RuntimeException('Invalid JSON accepted');
     }
+
+    $structured=['response'=>null,'tool_calls'=>[['name'=>'unknown_model_generated_name','arguments'=>$base]]];
+    if(parsedVisionBet($structured)!==$base)
+        throw new RuntimeException('Structured Vision data was ignored');
+    $stringArgs=['response'=>null,'tool_calls'=>[['arguments'=>$json]]];
+    if(parsedVisionBet($stringArgs)!==$base)
+        throw new RuntimeException('String-encoded Vision data was ignored');
+    $unsafe=['response'=>null,'tool_calls'=>[['name'=>'arbitrary_action',
+        'arguments'=>['action'=>'send','destination'=>'unknown']]]];
+    if(parsedVisionBet($unsafe)!==null)
+        throw new RuntimeException('Unstructured model tool action was accepted as a bet');
+    if(parsedVisionBet(['response'=>'Not a bet','tool_calls'=>[['arguments'=>['match'=>'Venezia']]]])!==null)
+        throw new RuntimeException('Incomplete model output was accepted');
     echo "WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED\n";
     exit(0);
 }
@@ -212,22 +249,19 @@ try{
             if(!is_array($envelope)||empty($envelope['success'])){
                 reply(false,'CF_ENVELOPE_INVALID');
             }
-            if(!is_string($response)){
-                // Do not log response bodies, tips, or image content. A 200
-                // with tool_calls but no text is not a valid extracted bet.
-                $hasTools=is_array($envelope['result']['tool_calls']??null)
-                    &&count($envelope['result']['tool_calls'])>0;
-                if($attempt===0&&!$checkOnly){usleep(250000);continue;}
-                reply(false,$hasTools?'RESPONSE_TOOL_CALLS_ONLY':'RESPONSE_MISSING_TEXT');
+            if($checkOnly){
+                if(is_string($response)&&trim($response)!=='')reply(true,'OK',[]);
+                reply(false,'PROBE_MISSING_TEXT');
             }
-            if($checkOnly&&trim($response)!=='')reply(true,'OK',[]);
-            $status=tipResponseStatus($response);
-            if($status==='OK'){
-                $bet=parseTip($response);
-                if(is_array($bet))reply(true,'OK',$bet);
-            }
-            if($attempt===0&&!$checkOnly){usleep(250000);continue;}
-            reply(false,$status);
+            $result=(array)($envelope['result']??[]);
+            $bet=parsedVisionBet($result);
+            if($bet!==null)reply(true,'OK',$bet);
+            $hasTools=is_array($result['tool_calls']??null)&&count($result['tool_calls'])>0;
+            $reason=!is_string($response)
+                ?($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT')
+                :tipResponseStatus($response);
+            if($attempt===0){usleep(250000);continue;}
+            reply(false,$reason);
         }
         if($attempt===0&&(in_array($http,[429,500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}

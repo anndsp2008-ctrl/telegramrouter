@@ -99,7 +99,8 @@ jobs:
           printf '{}' | php scripts/smart-workers-isolated.php | grep -Fq 'INPUT_INVALID'
           SMART_WORKERS_CLASSIFIER_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED'
           SMART_WORKERS_JSON_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED'
-          grep -Fq "if(\$attempt===0&&!\$checkOnly){usleep(250000);continue;}" scripts/smart-workers-isolated.php
+          grep -Fq 'if($attempt===0){usleep(250000);continue;}' scripts/smart-workers-isolated.php
+          grep -Fq 'parsedVisionBet($result)' scripts/smart-workers-isolated.php
           grep -Fq 'probeVision($account,$token)' app/WorkersAITranslation.php
           grep -Fq 'MODEL_LICENSE_REQUIRED_5016' app/WorkersAITranslation.php
           grep -Fq '$checkOnly?12:2800' scripts/smart-workers-isolated.php
