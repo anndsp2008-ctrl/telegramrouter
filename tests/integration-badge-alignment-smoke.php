@@ -17,24 +17,36 @@ $required=[
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
     ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&badge-right=1'],
-    ['responsive cache v10', $installer, '/assets/brand/mobile-visual-audit.css?v=10']
+    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=11']
 ];
 foreach($required as [$label,$source,$token]){
     if(!str_contains($source,$token))$fail('Integration badge alignment regression: '.$label);
 }
 if(str_contains($desktop,'.translation-provider-grid .provider-badge{'."\n".'    display:none!important;'))
     $fail('Provider badge is hidden at a mobile breakpoint');
-$end=strrpos($mobile,'/* Integration status alignment invariant:');
-if($end===false)$fail('Missing final cross-breakpoint alignment rule');
-$invariant=substr($mobile,$end);
-foreach(['@media (max-width:1024px)','@media (max-width:640px)',
-          '> .provider-badge','margin-left:auto!important;',
-          'margin-right:0!important;','justify-self:end!important;',
-          'grid-column:2 / 4!important;','grid-row:2!important;'] as $requiredToken){
+// Inspect only the LAST responsive override: legacy rules above intentionally
+// differ, but the final override must keep badge and chevron in row 1.
+$start=strrpos($mobile,'/* Integration card invariant:');
+if($start===false)$fail('Missing final cross-breakpoint same-row layout');
+$invariant=substr($mobile,$start);
+foreach([
+    '@media (max-width:1024px)',
+    '@media (max-width:400px)',
+    'display:grid!important;',
+    'grid-template-columns:40px minmax(0,1fr) max-content 34px!important;',
+    'grid-template-columns:36px minmax(0,1fr) max-content 32px!important;',
+    'grid-column:3!important;grid-row:1!important;',
+    'grid-column:4!important;grid-row:1!important;',
+    'grid-column:1 / -1!important;grid-row:2!important;',
+    'white-space:nowrap!important;'
+] as $requiredToken){
     if(!str_contains($invariant,$requiredToken))
-        $fail('Cross-breakpoint right-side invariant missing: '.$requiredToken);
+        $fail('Same-row status/chevron invariant missing: '.$requiredToken);
 }
-if(str_contains($invariant,'justify-self:start!important;')||
-   str_contains($invariant,'grid-column:1 / -1!important;'))
-    $fail('Late mobile rule can move the badge back to the left');
-echo "INTEGRATION_BADGE_RIGHT_ALL_VIEWPORTS_TESTS_PASSED\n";
+// The badge and chevron must be placed in adjacent cells of one header row,
+// never on separate rows or in a mobile full-width badge row.
+if(preg_match('/> \.provider-badge\s*\{[^}]*grid-row\s*:\s*2\s*!important/s',$invariant) ||
+   preg_match('/> \.provider-badge\s*\{[^}]*grid-column\s*:\s*2\s*\/\s*4\s*!important/s',$invariant)){
+    $fail('Mobile badge would leave the chevron row');
+}
+echo "INTEGRATION_BADGE_SAME_ROW_ALL_VIEWPORTS_TESTS_PASSED\n";
