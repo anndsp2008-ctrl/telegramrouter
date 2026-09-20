@@ -44,6 +44,30 @@ foreach([
     if(LocalTipExtraction::parse($ambiguous)!==null)
         throw new RuntimeException('Ambiguous OCR slip was accepted as an unambiguous bet');
 }
+// Exercise the actual local OCR transport with an ephemeral synthetic slip.
+// This contains no customer content, credentials or real Telegram image.
+if(LocalTipExtraction::ocrAvailable() && function_exists('imagecreatetruecolor')){
+    $fixtureImage=tempnam(sys_get_temp_dir(),'tmr-ocr-');
+    if($fixtureImage===false)throw new RuntimeException('Could not create OCR test image');
+    $canvas=imagecreatetruecolor(1100,170);
+    if($canvas===false)throw new RuntimeException('Could not allocate OCR test image');
+    $white=imagecolorallocate($canvas,255,255,255);
+    $black=imagecolorallocate($canvas,0,0,0);
+    imagefilledrectangle($canvas,0,0,1099,169,$white);
+    imagestring($canvas,5,40,35,'Fulham x Manchester United',$black);
+    imagestring($canvas,5,40,85,'Ambos equipos marcan: SI',$black);
+    imagepng($canvas,$fixtureImage);
+    imagedestroy($canvas);
+    try{
+        $observed=LocalTipExtraction::readImage($fixtureImage,4000);
+        if(!is_string($observed)||LocalTipExtraction::parse($observed)===null){
+            throw new RuntimeException('Synthetic slip was not read by the bounded local OCR transport');
+        }
+    } finally {
+        @unlink($fixtureImage);
+    }
+    echo "SMART_LOCAL_OCR_SYNTHETIC_IMAGE_TESTS_PASSED\n";
+}
 echo "SMART_LOCAL_OCR_CONSERVATIVE_PARSER_TESTS_PASSED\n";
 // Sentence initials, not Title Case: keep internal case, proper names, numeric
 // odds, URLs and paragraph structure intact. Format card text and image identically.
