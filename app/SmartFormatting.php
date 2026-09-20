@@ -256,7 +256,7 @@ final class SmartFormatting
         foreach($models as $index=>$activeModel){
             if($index>0)self::diag('WORKERS_AI_VISION_RESCUE_STARTED');
             $input=json_encode(['account'=>$account,'token'=>$token,'model'=>$activeModel,
-                'prompt'=>$prompt,'image'=>$photo],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+                'prompt'=>$prompt,'image'=>$photo,'fields'=>$fields],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if(!is_string($input)){self::diag('WORKERS_AI_INPUT_ERROR');return null;}
         $pipes=[];$process=@proc_open(['php',$transport],
             [0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']],
