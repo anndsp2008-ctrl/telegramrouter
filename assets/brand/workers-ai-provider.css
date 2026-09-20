@@ -32,3 +32,25 @@ body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-pr
     justify-self:start!important;
   }
 }
+
+/* The shared v10 stylesheet deliberately hides all provider-test > em nodes.
+   The Workers AI diagnostics are required to distinguish auth, model licence,
+   and billing issues. Override this rule ONLY for the Workers AI fourth card. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-test.bad > em{
+  display:block!important;
+  grid-column:1/-1!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:4px 0 0!important;
+  padding:9px 11px!important;
+  color:#ffadba!important;
+  font:inherit!important;
+  font-size:12px!important;
+  font-style:normal!important;
+  line-height:1.5!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  border:1px solid rgba(255,49,90,.22)!important;
+  border-radius:9px!important;
+  background:rgba(255,49,90,.055)!important;
+}
