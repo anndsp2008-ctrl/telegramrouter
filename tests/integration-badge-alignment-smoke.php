@@ -108,7 +108,8 @@ foreach([
     if(!str_contains($workerRule,$token))$fail('Workers AI desktop/tablet/mobile parity: '.$token);
 }
 if(!str_contains($workers,'class="workers-ai-observation"') ||
-   !str_contains($workers,'class="form-status provider-badge') ||
+   !str_contains($workers,'class="provider-badge') ||
+   str_contains($workers,'class="form-status provider-badge') ||
    substr_count($workers,'Se o Llama 3.2 Vision retornar uma imagem')!==1)
    $fail('Workers AI note/badge markup is inconsistent with other providers');
 echo "INTEGRATION_WORKERS_AI_UNIFIED_LAYOUT_TESTS_PASSED\n";
@@ -136,67 +137,22 @@ foreach([
 }
 echo "INTEGRATION_TABLET_MIXED_BADGE_VARIANTS_TESTS_PASSED\n";
 
-// The fourth provider must visually match all others. Its previous
-// form-status styles added a grey dot, white bold text and a dark/grey pill.
-// Assert the last scoped rule normalizes BOTH configuration states without
-// changing the HTML-derived status itself or any other provider.
-$workersPill=strrpos($desktop,'/* Workers AI configuration pill: visual parity');
-if($workersPill===false)$fail('Missing isolated Workers AI visual parity rule');
-$style=substr($desktop,$workersPill);
-foreach([
-  '.workers-ai-provider-card',
-  '.form-status.provider-badge:is(.is-configured,.is-empty)',
-  'border:1px solid #284840!important;',
-  'background:#152a29!important;',
-  'color:#79e9be!important;',
-  'font-size:11px!important;',
-  'font-weight:500!important;',
-  'text-shadow:none!important;',
-  'content:""!important;',
-  'display:block!important;',
-  'gap:6px!important;',
-  'background:#79e9be!important;',
-  'background:#facc15!important;',
-  'content:none!important;',
-  'display:none!important;'
-] as $token){
-  if(!str_contains($style,$token))$fail('Workers AI status visually differs: '.$token);
-}
+// The actual bug was caused by the extra form-status class on Workers AI.
+// It must share the EXACT HTML/CSS contract of the three other provider
+// badges instead of accumulating overrides with different specificity.
 $workersMarkup=(string)file_get_contents($root.'/app/workers-ai-card.php');
-if(!str_contains($workersMarkup,"\$workersAIConfigured?'Configurado':'Não configurado'"))
-    $fail('Workers AI state must remain driven by actual credentials');
-echo "INTEGRATION_WORKERS_PILL_VISUAL_PARITY_TESTS_PASSED\n";
-
-// Check selectors independently: ::before must provide the coloured dot
-// while ::after stays hidden. An old joint selector hid both.
-$badJoint=preg_match('/::before\s*,\s*body:has\(\.translation-provider-grid\).*?::after\s*\{\s*content:none!important;/s',$style);
-if($badJoint) $fail('Workers AI status dot was hidden by a joint pseudo-element selector');
-if(substr_count($style,'.form-status.provider-badge.is-empty::before')!==1)
-   $fail('Workers AI non-configured status is missing its yellow dot');
-echo "INTEGRATION_WORKERS_MOBILE_DOT_PARITY_TESTS_PASSED\n";
-
-// The three earlier status pills use mobile 7px 18px / 11px regular,
-// switching to 5px 7px / 10px on <=400px. Verify the final Workers AI
-// override uses the same dimensions for both credential-derived states.
-// This is deliberately scoped to Workers AI; other cards stay untouched.
-$workerMobileStart=strrpos($mobile,'/* Workers AI ONLY: last provider');
-if($workerMobileStart===false)$fail('No final Workers AI-only mobile status override');
-$workerMobile=substr($mobile,$workerMobileStart);
-foreach([
-  '@media (max-width:1024px)',
-  '@media (max-width:400px)',
-  '.workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)',
-  'padding:7px 18px!important;',
-  'font-size:11px!important;',
-  'font-weight:500!important;',
-  'line-height:1.4!important;',
-  'padding:5px 7px!important;',
-  'font-size:10px!important;',
-  'gap:6px!important;'
-] as $token){
-  if(!str_contains($workerMobile,$token))$fail('Workers AI mobile badge still differs: '.$token);
+if(!str_contains($workersMarkup,'<span class="provider-badge <?=$workersAIConfigured?') ||
+   str_contains($workersMarkup,'<span class="form-status provider-badge') ||
+   !str_contains($workersMarkup,"\$workersAIConfigured?'Configurado':'Não configurado'")){
+    $fail('Workers AI is not using the shared provider-badge HTML / credential-derived status');
 }
-$otherMarkup=(string)file_get_contents($root.'/app/workers-ai-card.php');
-if(!str_contains($otherMarkup,"\$workersAIConfigured?'Configurado':'Não configurado'"))
-  $fail('Actual Workers AI configured state changed');
-echo "INTEGRATION_WORKERS_EXACT_MOBILE_PILL_PARITY_TESTS_PASSED\n";
+$commonStatusStart=strpos($desktop,'.translation-provider-grid .provider-badge{');
+$commonStatusEnd=strpos($desktop,'.translation-provider-grid .provider-badge::before{',$commonStatusStart);
+if($commonStatusStart===false || $commonStatusEnd===false || $commonStatusEnd<=$commonStatusStart)
+    $fail('Shared provider-badge stylesheet missing');
+$shared=substr($desktop,$commonStatusStart,$commonStatusEnd-$commonStatusStart);
+foreach(['display:inline-flex!important;','border-radius:999px!important;','white-space:nowrap!important;'] as $token)
+    if(!str_contains($shared,$token))$fail('Shared status style changed unexpectedly: '.$token);
+if(!str_contains($mobile,'.translation-provider-grid .provider-badge::before{'))
+    $fail('Shared mobile status dot style missing');
+echo "INTEGRATION_WORKERS_SHARED_BADGE_MARKUP_PARITY_TESTS_PASSED\n";
