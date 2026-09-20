@@ -94,5 +94,8 @@ jobs:
         run: |
           php tests/smart-provider-routing-smoke.php
           printf '{}' | php scripts/smart-workers-isolated.php | grep -Fq 'INPUT_INVALID'
+          SMART_WORKERS_CLASSIFIER_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED'
+          grep -Fq 'probeVision($account,$token)' app/WorkersAITranslation.php
+          grep -Fq 'MODEL_LICENSE_REQUIRED_5016' app/WorkersAITranslation.php
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php

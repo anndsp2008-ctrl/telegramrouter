@@ -32,6 +32,9 @@ namespace {
              'provider-test','provider-stats','csrf-test-value'] as $required){
         if(!str_contains($output,$required))throw new \RuntimeException('Missing Workers AI control: '.$required);
     }
+    if(!str_contains($output,'O teste verifica o modelo de texto e o modelo Vision')||
+       !str_contains($output,'llama-3.2-11b-vision-instruct/'))
+        throw new \RuntimeException('Workers AI test does not explain Vision model license');
     if(str_contains($output,'secret-test-token-not-for-output'))
         throw new \RuntimeException('Provider card exposed secret');
     if(substr_count($output,'class="saas-card translation-provider-card')!==1)

@@ -5,6 +5,60 @@ function reply(bool $ok,string $reason='OK',?array $data=null): never {
         JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     exit(0);
 }
+/** Cloudflare API errors are reduced to safe status/code labels. Never log or
+ * propagate upstream response bodies (they may contain private details).
+ * Error 5016 is model-license acceptance, not a bad API token.
+ */
+function cloudflareFailureReason(int $http,string|false $body,int $errno): string {
+    $errorCode=0;
+    if(is_string($body) && strlen($body)<60000){
+        $json=json_decode($body,true);
+        $code=is_array($json)?($json['errors'][0]['code']??null):null;
+        if((is_int($code)||is_string($code))&&preg_match('/^[0-9]{3,5}$/D',(string)$code))
+            $errorCode=(int)$code;
+    }
+    if($http===403){
+        return match($errorCode){
+            5016=>'MODEL_LICENSE_REQUIRED_5016',
+            5035=>'WORKERS_PAID_REQUIRED_5035',
+            5018,3041=>'MODEL_ACCESS_DENIED_'.$errorCode,
+            3023=>'ACCOUNT_BLOCKED_3023',
+            default=>$errorCode>0?'HTTP_403_CF_'.$errorCode:'HTTP_403_FORBIDDEN'
+        };
+    }
+    if($http===401)return 'HTTP_401_UNAUTHORIZED';
+    if($http===429){
+        return match($errorCode){
+            3036=>'DAILY_QUOTA_EXHAUSTED_3036',
+            3040=>'CAPACITY_EXCEEDED_3040',
+            default=>'HTTP_429'
+        };
+    }
+    if($http===400)return $errorCode===5007?'MODEL_NOT_FOUND_5007':
+        ($errorCode===5004?'IMAGE_INPUT_INVALID_5004':'HTTP_400');
+    if($http>=500)return 'HTTP_5XX';
+    if($errno===28)return 'TIMEOUT';
+    return 'NETWORK';
+}
+// Offline regression test: fake Cloudflare status/envelopes, never call the API.
+if(getenv('SMART_WORKERS_CLASSIFIER_TEST')==='1'){
+    foreach([
+        [403,5016,'MODEL_LICENSE_REQUIRED_5016'],
+        [403,5035,'WORKERS_PAID_REQUIRED_5035'],
+        [403,5018,'MODEL_ACCESS_DENIED_5018'],
+        [403,3023,'ACCOUNT_BLOCKED_3023'],
+        [403,0,'HTTP_403_FORBIDDEN'],
+        [401,0,'HTTP_401_UNAUTHORIZED'],
+        [429,3036,'DAILY_QUOTA_EXHAUSTED_3036'],
+        [400,5004,'IMAGE_INPUT_INVALID_5004']
+    ] as [$status,$code,$expected]){
+        $body=$code>0?json_encode(['errors'=>[['code'=>$code,'message'=>'REDACTED']]]):'{}';
+        if(cloudflareFailureReason($status,$body,0)!==$expected)
+            throw new RuntimeException('Workers AI classification mismatch '.$status.'/'.$code);
+    }
+    echo "WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED\n";
+    exit(0);
+}
 function parseTip(string $response): ?array {
     $response=trim($response);
     $parsed=json_decode($response,true);
@@ -29,6 +83,7 @@ try{
     $model=(string)($input['model']??'');
     $prompt=(string)($input['prompt']??'');
     $image=$input['image']??null;
+    $checkOnly=($input['check_only']??false)===true;
     if(!preg_match('/^[a-f0-9]{32}$/Di',$account)||
        !preg_match('~^@cf/[A-Za-z0-9._-]+/[A-Za-z0-9._-]{2,100}$~D',$model)||
        $token===''||$prompt===''||strlen($prompt)>300000||
@@ -58,6 +113,7 @@ try{
             $envelope=json_decode($body,true);
             $response=$envelope['result']['response']??null;
             if(!empty($envelope['success'])&&is_string($response)){
+                if($checkOnly&&trim($response)!=='')reply(true,'OK',[]);
                 $bet=parseTip($response);
                 if(is_array($bet))reply(true,'OK',$bet);
             }
@@ -65,9 +121,7 @@ try{
         }
         if($attempt===0&&(in_array($http,[429,500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}
-        $reason=$http===429?'HTTP_429':($http===401||$http===403?'HTTP_AUTH':
-            ($http===400?'HTTP_400':($http>=500?'HTTP_5XX':($errno===28?'TIMEOUT':'NETWORK'))));
-        reply(false,$reason);
+        reply(false,cloudflareFailureReason($http,$body,$errno));
     }
     reply(false,'UNAVAILABLE');
 } catch(Throwable) {
