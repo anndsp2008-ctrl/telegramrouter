@@ -59,21 +59,59 @@ if(getenv('SMART_WORKERS_CLASSIFIER_TEST')==='1'){
     echo "WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED\n";
     exit(0);
 }
+/**
+ * Llama Vision sometimes wraps JSON in a sentence/code fence. Extract only a
+ * complete, syntactically valid JSON object; never fill in missing bet fields
+ * or convert narrative text into invented structured data.
+ */
 function parseTip(string $response): ?array {
     $response=trim($response);
-    $parsed=json_decode($response,true);
-    if(is_array($parsed)&&!array_is_list($parsed))return $parsed;
-    $fence=str_repeat(chr(96),3);
-    if(str_starts_with($response,$fence)&&str_ends_with($response,$fence)){
-        $start=strpos($response,"\n");
-        if($start!==false){
-            $inner=trim(substr($response,$start+1,-3));
-            $parsed=json_decode($inner,true);
-            if(is_array($parsed)&&!array_is_list($parsed))return $parsed;
+    if($response==='')return null;
+    $direct=json_decode($response,true);
+    if(is_array($direct)&&!array_is_list($direct))return $direct;
+    $length=strlen($response);
+    $start=null;$depth=0;$inString=false;$escaped=false;
+    for($i=0;$i<$length;$i++){
+        $char=$response[$i];
+        if($start===null){
+            if($char!=='{')continue;
+            $start=$i;$depth=1;$inString=false;$escaped=false;
+            continue;
+        }
+        if($inString){
+            if($escaped){$escaped=false;continue;}
+            if($char==='\\'){$escaped=true;continue;}
+            if($char==='"')$inString=false;
+            continue;
+        }
+        if($char==='"'){$inString=true;continue;}
+        if($char==='{'){$depth++;continue;}
+        if($char==='}'){
+            $depth--;
+            if($depth!==0)continue;
+            $candidate=json_decode(substr($response,$start,$i-$start+1),true);
+            if(is_array($candidate)&&!array_is_list($candidate))return $candidate;
+            $start=null;
         }
     }
     return null;
 }
+/** Return a privacy-safe failure category without echoing generated text. */
+function tipResponseStatus(string $response): string {
+    if(trim($response)==='')return 'RESPONSE_EMPTY';
+    $result=parseTip($response);
+    if($result===null)return 'RESPONSE_NOT_JSON';
+    foreach(['match','market','selection'] as $key){
+        if(!isset($result[$key])||!is_scalar($result[$key])||trim((string)$result[$key])===''){
+            return 'RESPONSE_MISSING_REQUIRED_FIELDS';
+        }
+    }
+    foreach($result as $value){
+        if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
+    }
+    return 'OK';
+}
+
 try{
     $raw=stream_get_contents(STDIN,7500000);
     $input=is_string($raw)?json_decode($raw,true):null;
@@ -103,6 +141,17 @@ try{
     // an independent, larger timeout and one bounded transient retry.
     $timeouts=$checkOnly?[30,20]:[45,30];
     foreach($timeouts as $attempt=>$timeout){
+        if($attempt===1&&!$checkOnly){
+            // On a successful HTTP response that was not valid JSON, give the
+            // same provider one more strictly constrained chance. No new facts.
+            $payload['prompt']="Return ONLY one COMPLETE valid JSON object. ".
+                "The first character MUST be { and the final character MUST be }. ".
+                "Every requested field must be a STRING; unknown values are empty strings. ".
+                "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
+            $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+            if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
+            $encoded=$retryBody;
+        }
         $ch=curl_init($endpoint);
         if($ch===false)reply(false,'CURL_INIT');
         curl_setopt_array($ch,[
@@ -118,13 +167,19 @@ try{
         unset($ch);
         if($http===200&&is_string($body)&&strlen($body)<=450000){
             $envelope=json_decode($body,true);
-            $response=$envelope['result']['response']??null;
-            if(!empty($envelope['success'])&&is_string($response)){
-                if($checkOnly&&trim($response)!=='')reply(true,'OK',[]);
+            $response=is_array($envelope)?($envelope['result']['response']??null):null;
+            if(!is_array($envelope)||empty($envelope['success'])){
+                reply(false,'CF_ENVELOPE_INVALID');
+            }
+            if(!is_string($response))reply(false,'RESPONSE_MISSING_TEXT');
+            if($checkOnly&&trim($response)!=='')reply(true,'OK',[]);
+            $status=tipResponseStatus($response);
+            if($status==='OK'){
                 $bet=parseTip($response);
                 if(is_array($bet))reply(true,'OK',$bet);
             }
-            reply(false,'RESPONSE_INVALID');
+            if($attempt===0&&!$checkOnly){usleep(250000);continue;}
+            reply(false,$status);
         }
         if($attempt===0&&(in_array($http,[429,500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}
