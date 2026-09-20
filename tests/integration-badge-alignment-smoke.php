@@ -16,8 +16,8 @@ $required=[
     ['mobile/touch badge', $mobile, 'justify-self:end!important;'],
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
-    ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&badge-compact=2'],
-    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=12']
+    ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&unified-workers=3'],
+    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=13']
 ];
 foreach($required as [$label,$source,$token]){
     if(!str_contains($source,$token))$fail('Integration badge alignment regression: '.$label);
@@ -73,7 +73,7 @@ foreach([$contract,$global] as $scope){
     ] as $token){
         if(!str_contains($scope,$token))$fail('Provider badge expands or varies across cards: '.$token);
     }
-    if(str_contains($scope,'width:100%!important;') ||
+    if(preg_match('/(?<![a-z-])width:100%\\s*!important;/i',$scope) ||
        str_contains($scope,'grid-column:2 / 4!important;') ||
        str_contains($scope,'justify-self:stretch!important;'))
         $fail('Provider badge may stretch across header');
@@ -86,3 +86,52 @@ foreach([
     if(!str_contains($contract,$token))$fail('Badge and chevron no longer share header row: '.$token);
 }
 echo "INTEGRATION_BADGE_COMPACT_ALL_PROVIDERS_TESTS_PASSED\n";
+
+// Real fourth provider is a form-status span, not just a generic provider badge.
+// The responsive override MUST win over its legacy mobile "row 2 / col 2"
+// placement, and its explanatory note must remain in the same text wrapper
+// as the ordinary title and description.
+$workers=(string)file_get_contents($root.'/app/workers-ai-card.php');
+$workerStart=strrpos($mobile,'/* Workers AI fourth card:');
+if($workerStart===false)$fail('Missing Workers AI-specific final responsive layout');
+$workerRule=substr($mobile,$workerStart);
+foreach([
+    '.form-status.provider-badge',
+    'grid-column:3 / 4!important;',
+    'grid-row:1 / 2!important;',
+    'width:max-content!important;',
+    'inline-size:max-content!important;',
+    'min-width:max-content!important;',
+    'max-width:none!important;',
+    '> div > .workers-ai-observation'
+] as $token){
+    if(!str_contains($workerRule,$token))$fail('Workers AI desktop/tablet/mobile parity: '.$token);
+}
+if(!str_contains($workers,'class="workers-ai-observation"') ||
+   !str_contains($workers,'class="form-status provider-badge') ||
+   substr_count($workers,'Se o Llama 3.2 Vision retornar uma imagem')!==1)
+   $fail('Workers AI note/badge markup is inconsistent with other providers');
+echo "INTEGRATION_WORKERS_AI_UNIFIED_LAYOUT_TESTS_PASSED\n";
+
+// Distinct integration implementations use either provider-badge OR
+// form-status. Both must fit content, remain in the first-row third cell,
+// and sit beside the first-row chevron throughout 320-1024px.
+$allStatuses=strrpos($mobile,'/* FINAL tablet/mobile invariant for real provider markup:');
+if($allStatuses===false)$fail('Tablet status fallback for mixed badge markup missing');
+$all=substr($mobile,$allStatuses);
+foreach([
+  ':is(.provider-badge,.form-status)',
+  'grid-column:3 / 4!important;',
+  'grid-row:1 / 2!important;',
+  'width:max-content!important;',
+  'inline-size:max-content!important;',
+  'min-width:max-content!important;',
+  'max-width:none!important;',
+  'flex-grow:0!important;',
+  'flex-shrink:0!important;',
+  'margin:0!important;',
+  '@media (max-width:400px)'
+] as $token){
+  if(!str_contains($all,$token))$fail('Unstandardized tablet provider status: '.$token);
+}
+echo "INTEGRATION_TABLET_MIXED_BADGE_VARIANTS_TESTS_PASSED\n";
