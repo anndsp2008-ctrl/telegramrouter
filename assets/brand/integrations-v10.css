@@ -1002,3 +1002,39 @@ body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-pr
   margin:0!important;
   white-space:nowrap!important;
 }
+
+/* Workers AI configuration pill: visual parity with the other three status
+   badges. Scope ONLY this provider; do not change its stored config state,
+   accent/icon, test-result styling, card layout or position. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty){
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:0!important;
+  box-sizing:border-box!important;
+  width:max-content!important;
+  inline-size:max-content!important;
+  min-width:max-content!important;
+  max-width:none!important;
+  min-height:30px!important;
+  height:auto!important;
+  padding:6px 10px!important;
+  border:1px solid #284840!important;
+  border-radius:999px!important;
+  background:#152a29!important;
+  background-image:none!important;
+  color:#79e9be!important;
+  font-family:inherit!important;
+  font-size:11px!important;
+  font-weight:500!important;
+  line-height:1.4!important;
+  letter-spacing:normal!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+  white-space:nowrap!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)::before,
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)::after{
+  content:none!important;
+  display:none!important;
+}
