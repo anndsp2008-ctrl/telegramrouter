@@ -3,7 +3,7 @@ namespace App {
     final class WorkersAITranslation {
         public static function token(): string {return 'secret-test-token-not-for-output';}
         public static function account(): string {return '0123456789abcdef0123456789abcdef';}
-        public static function model(): string {return '@cf/meta/llama-3.1-8b-instruct-fp8';}
+        public static function model(): string {return '@cf/meta/llama-3.2-11b-vision-instruct';}
     }
     final class Repository {
         public static function providerTestStatus(string $provider): ?array {
@@ -32,6 +32,9 @@ namespace {
              'provider-test','provider-stats','csrf-test-value'] as $required){
         if(!str_contains($output,$required))throw new \RuntimeException('Missing Workers AI control: '.$required);
     }
+    if(!str_contains($output,'value="@cf/meta/llama-3.2-11b-vision-instruct"')||
+       !str_contains($output,'Modelo de IA para tradução e interpretação'))
+        throw new \RuntimeException('Workers AI UI is not set to Llama Vision model');
     if(!str_contains($output,'O teste verifica o modelo de texto e o modelo Vision')||
        !str_contains($output,'llama-3.2-11b-vision-instruct/'))
         throw new \RuntimeException('Workers AI test does not explain Vision model license');
