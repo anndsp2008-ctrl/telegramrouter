@@ -127,7 +127,7 @@ namespace {
        !str_contains($transport,"'required'=>['match','market','selection']") ||
        !str_contains($transport,'$structuredResponse=$result[\'response\']??null;') ||
        !str_contains($transport,'if($structuredEvidence && $attempt===0 && $http===400') ||
-       !str_contains($transport,"unset($payload['response_format']);")){
+       !str_contains($transport,'unset($payload[\'response_format\']);')){
         throw new \RuntimeException('Image evidence JSON Mode or compatibility fallback missing');
     }
     echo "SMART_IMAGE_1443_STRUCTURED_TEXT_RESCUE_TESTS_PASSED\n";
