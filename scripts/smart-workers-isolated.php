@@ -278,6 +278,15 @@ try{
                 'additionalProperties'=>false];
         }
     }
+    // Image extraction does not require a 2800-token narrative. The parent
+    // builds the longer grounded analysis only after validation. Keep enough
+    // space for a long source analysis while reducing avoidable inference time.
+    if(!$checkOnly && $image!==null){
+        $payload['max_tokens']=strlen($prompt)>6500?2300:1700;
+    } elseif(!$checkOnly && $evidenceRescue &&
+             $model==='@cf/meta/llama-3.1-8b-instruct-fp8'){
+        $payload['max_tokens']=strlen($prompt)>6500?1650:1150;
+    }
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
     $visualEvidence=''; // Local-only, bounded image observation for text structuring.
