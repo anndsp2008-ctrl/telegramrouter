@@ -53,12 +53,16 @@ namespace {
     if(!str_contains($css,'content:"CF"!important') || !str_contains($css,'--provider-accent:#f48120!important'))
         throw new \RuntimeException('Workers AI provider icon or color absent');
     $installer=(string)file_get_contents(__DIR__.'/../runtime-workers-ai.php');
-    if(!str_contains($installer,'workers-ai-provider.css?v=3') ||
+    if(!str_contains($installer,'workers-ai-provider.css?v=4') ||
        !str_contains($css,'> .form-status') ||
        str_contains($css,'.provider-badge.is-configured') ||
        str_contains($css,'.provider-badge.is-configured::before')){
         throw new \RuntimeException('Workers AI provider cache or status styling may be stale');
     }
+    if(!str_contains($css,'> .provider-test.bad > em') ||
+       !str_contains($css,'display:block!important;') ||
+       !str_contains($css,'grid-column:1/-1!important;'))
+        throw new \RuntimeException('Workers AI failed connection explanation still hidden by v10');
     echo "WORKERS_AI_CARD_V10_VISUAL_PARITY_TESTS_PASSED\n";
     echo "WORKERS_AI_CARD_RENDER_TESTS_PASSED\n";
 }
