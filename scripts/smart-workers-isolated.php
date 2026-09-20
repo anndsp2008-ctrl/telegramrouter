@@ -158,6 +158,12 @@ function parsedVisionBet(array $result): ?array {
  * Keep bounded visual observations only inside the worker-to-parent stdout.
  * Do not copy suggested model tool-actions, original image bytes or secrets.
  */
+/** Normalize all documented Workers AI result variants without losing text. */
+function normalizeCloudflareResult(mixed $rawResult): array {
+    if(is_array($rawResult))return $rawResult;
+    if(is_string($rawResult))return ['response'=>$rawResult];
+    return [];
+}
 function collectVisualEvidence(array $result,string $existing=''): string {
     foreach(['response','description'] as $key){
         $observed=$result[$key]??null;
@@ -227,6 +233,13 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     $visionDescription=['description'=>$json,'response'=>null];
     if(parsedVisionBet($visionDescription)!==$base)
         throw new RuntimeException('ImageTextToText description JSON not parsed');
+    if(normalizeCloudflareResult($json)!==['response'=>$json] ||
+       parsedVisionBet(normalizeCloudflareResult($json))!==$base ||
+       tipResponseStatus(normalizeCloudflareResult('Falha textual')['response'])!=='RESPONSE_NOT_JSON' ||
+       collectVisualEvidence(normalizeCloudflareResult('Observação legível'))!=='Observação legível' ||
+       normalizeCloudflareResult(null)!==[]){
+        throw new RuntimeException('Bare Cloudflare result string was dropped or accepted unsafely');
+    }
     $visionNarrative=['description'=>'Observações do comprovante, sem JSON','response'=>null];
     if(parsedVisionBet($visionNarrative)!==null)
         throw new RuntimeException('Non-JSON image description was treated as a bet');
@@ -311,20 +324,30 @@ try{
         ];
     }
     if($image!==null){
-        // Cloudflare's Vision input schema recommends an image_url part inside
-        // the user message. The former top-level image parameter is deprecated
-        // and can return HTTP 200 without generated text for some inputs.
-        // Keep the original data URI unchanged and NEVER expose it in logs.
-        $payload=[
-            'messages'=>[[
-                'role'=>'user',
-                'content'=>[
-                    ['type'=>'text','text'=>$prompt],
-                    ['type'=>'image_url','image_url'=>['url'=>$image]]
-                ]
-            ]],
-            'temperature'=>0,'max_tokens'=>2800,'stream'=>false
-        ];
+        // Cloudflare's current official Llama 3.2 Vision tutorial sends a
+        // plain user message alongside a separate top-level base64 data URI
+        // in "image". The previous OpenAI-style image_url content array can
+        // return a text-only observation and never read the uploaded ticket.
+        // Scope the documented shape to the primary Vision model; Scout's
+        // existing input format remains unchanged. Never log image bytes.
+        if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+            $payload=[
+                'messages'=>[['role'=>'user','content'=>$prompt]],
+                'image'=>$image,
+                'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+            ];
+        } else {
+            $payload=[
+                'messages'=>[[
+                    'role'=>'user',
+                    'content'=>[
+                        ['type'=>'text','text'=>$prompt],
+                        ['type'=>'image_url','image_url'=>['url'=>$image]]
+                    ]
+                ]],
+                'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+            ];
+        }
         if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
             $properties=[];
             foreach($fields as $field)$properties[$field]=['type'=>'string'];
@@ -387,7 +410,12 @@ try{
                 "The first character MUST be { and the final character MUST be }. ".
                 "Every requested field must be a STRING; unknown values are empty strings. ".
                 "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
-            if($image!==null){
+            if($image!==null &&
+               $model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+                // Do not accidentally convert a string user message to an
+                // array on the retry or drop the official top-level image.
+                $payload['messages'][0]['content']=$strictPrompt;
+            } elseif($image!==null){
                 $payload['messages'][0]['content'][0]['text']=$strictPrompt;
             } elseif(isset($payload['messages'][0]['content'])){
                 // Text-only 8B uses chat messages, never mix prompt and messages.
@@ -414,24 +442,22 @@ try{
         unset($ch);
         if($http===200&&is_string($body)&&strlen($body)<=450000){
             $envelope=json_decode($body,true);
-            $response=is_array($envelope)?($envelope['result']['response']??null):null;
             if(!is_array($envelope)||empty($envelope['success'])){
                 reply(false,'CF_ENVELOPE_INVALID');
             }
+            // Cloudflare may return result.response, a JSON object directly
+            // under result, OR a bare result string. Do not cast a bare string
+            // to an array: that silently erases the visual observation and
+            // misclassifies the reply as RESPONSE_MISSING_TEXT.
+            $rawResult=$envelope['result']??null;
+            $result=normalizeCloudflareResult($rawResult);
+            $response=$result['response']??null;
             if($checkOnly){
                 if(is_string($response)&&trim($response)!=='')reply(true,'OK',[]);
                 reply(false,'PROBE_MISSING_TEXT');
             }
-            $result=(array)($envelope['result']??[]);
             $bet=parsedVisionBet($result);
             if($bet!==null)reply(true,'OK',$bet);
-            // A successful REST envelope may contain a bare JSON string as
-            // result (rather than result.response); validate it identically.
-            $rawResult=$envelope['result']??null;
-            if(is_string($rawResult) && tipResponseStatus($rawResult)==='OK'){
-                $parsed=parseTip($rawResult);
-                if(is_array($parsed))reply(true,'OK',$parsed);
-            }
             // Llama Vision can describe the ticket or return incomplete JSON.
             // Keep only bounded model observations for the SAME Cloudflare
             // account's text model. The parent never logs these strings.
