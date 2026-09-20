@@ -20,8 +20,8 @@ namespace {
         [['translation_enabled'=>1,'translation_provider'=>'azure'],['azure','workers_ai']],
         [['translation_enabled'=>1,'translation_provider'=>'google_cloud'],['google_cloud']],
         [['translation_enabled'=>1,'translation_provider'=>''],['workers_ai','gemini']],
-        [['translation_enabled'=>0,'translation_provider'=>'workers_ai'],['workers_ai']],
-        [['translation_enabled'=>0,'translation_provider'=>'azure'],['gemini']]
+        [['translation_enabled'=>0,'translation_provider'=>'workers_ai'],['workers_ai','gemini']],
+        [['translation_enabled'=>0,'translation_provider'=>'azure'],['azure','workers_ai']]
     ] as [$rule,$expected]){
         $actual=\App\SmartFormatting::cardProviders($rule);
         if($actual!==$expected)
