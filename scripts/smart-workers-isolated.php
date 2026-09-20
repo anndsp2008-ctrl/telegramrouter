@@ -262,6 +262,9 @@ try{
                 "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
             if($image!==null){
                 $payload['messages'][0]['content'][0]['text']=$strictPrompt;
+            } elseif(isset($payload['messages'][0]['content'])){
+                // Text-only 8B uses chat messages, never mix prompt and messages.
+                $payload['messages'][0]['content']=$strictPrompt;
             } else {
                 $payload['prompt']=$strictPrompt;
             }
