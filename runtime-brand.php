@@ -67,7 +67,7 @@ if (!is_string($json) || @file_put_contents($manifestPath, $json."\n") === false
 
 $headBrand = '<link rel="stylesheet" href="/assets/brand/brand.css?v=2">'
     .'<link rel="stylesheet" href="/assets/brand/mobile-shell.css?v=2">'
-    .'<link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8&workers-pill=4">'
+    .'<link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8&workers-dot=5">'
     .'<link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=2">'
     .'<link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1">'
     .'<link rel="stylesheet" href="/assets/brand/mobile-visual-audit.css?v=13">'
