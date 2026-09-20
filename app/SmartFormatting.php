@@ -8,7 +8,25 @@ namespace App;
 final class SmartFormatting
 {
     private const SIGNATURE='⚡ TelegramRouter • Aposta encaminhada';
-    private static function diag(string $code): void {error_log('TMR_SMART_FORMAT_REASON '.$code);}
+    /** Sanitized per-tip codes only: never store message content, photos or keys. */
+    private static array $failureCodes=[];
+    private static function diag(string $code): void
+    {
+        $safe=strtoupper($code);
+        if(!preg_match('/^[A-Z0-9_]{1,64}$/D',$safe))$safe='UNCLASSIFIED';
+        self::$failureCodes[]=$safe;
+        if(count(self::$failureCodes)>12)array_shift(self::$failureCodes);
+        error_log('TMR_SMART_FORMAT_REASON '.$safe);
+    }
+    /** Called only after an enabled rule has failed before sending to Telegram. */
+    public static function failureSummary(): string
+    {
+        $causes=array_values(array_unique(array_filter(self::$failureCodes,
+            static fn(string $code): bool => !str_starts_with($code,'SMART_PROVIDER_FAILED_')
+                && $code!=='ALL_CONFIGURED_PROVIDERS_FAILED'
+        )));
+        return implode('; ',array_slice($causes,-4));
+    }
 
     public static function migrate(): void
     {
@@ -69,6 +87,7 @@ final class SmartFormatting
      */
     public static function prepare(string $sourceText,array $rule,?string $localImage,string $mode): ?array
     {
+        self::$failureCodes=[]; // Never carry another message's errors into this event.
         if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);

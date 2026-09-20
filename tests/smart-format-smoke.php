@@ -269,11 +269,27 @@ foreach([
     if(SmartFormatting::cardHandlesTranslation($rule,$setting))
         throw new RuntimeException('Legacy translation intercepted for disabled rule');
 }
+// Mandatory AI errors must remain actionable without revealing raw tip text.
+$diagMethod=(new ReflectionClass(SmartFormatting::class))->getMethod('diag');
+$diagMethod->invoke(null,'WORKERS_AI_RESPONSE_MISSING_TEXT');
+$diagMethod->invoke(null,'SMART_PROVIDER_FAILED_workers_ai');
+$diagMethod->invoke(null,'GEMINI_CURL_TIMEOUT');
+$diagMethod->invoke(null,'ALL_CONFIGURED_PROVIDERS_FAILED');
+$summary=SmartFormatting::failureSummary();
+if(!str_contains($summary,'WORKERS_AI_RESPONSE_MISSING_TEXT') ||
+   !str_contains($summary,'GEMINI_CURL_TIMEOUT') ||
+   str_contains($summary,'ALL_CONFIGURED_PROVIDERS_FAILED') ||
+   str_contains($summary,'SMART_PROVIDER_FAILED_'))
+    throw new RuntimeException('Per-tip failure summary missing real provider reason');
+SmartFormatting::prepare('',[],null,'card');
+if(SmartFormatting::failureSummary()!=='SOURCE_EMPTY')
+    throw new RuntimeException('Stale failure code leaked between messages');
 $runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($runtimeSource)
    ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
    ||!str_contains($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE')
    ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_REQUIRED_FAILED')
+   ||!str_contains($runtimeSource,'SmartFormatting::failureSummary()')
    ||!str_contains($runtimeSource,"if(!empty(\$setting['enabled']))")
    ||str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
    ||str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK'))
