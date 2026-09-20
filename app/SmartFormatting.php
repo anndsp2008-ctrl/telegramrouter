@@ -74,25 +74,47 @@ final class SmartFormatting
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
-        // The legacy translation provider and the smart-card extraction engine
-        // were previously independent. Respect an explicitly selected Workers
-        // AI provider (including global primary for inherited rules), without
-        // changing the Gemini engine for other existing configurations.
-        $provider=self::cardProvider($rule);
-        if($provider==='workers_ai'){
-            $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields);
-        } else {
-            $key=trim(Repository::integration('gemini_api_key'));
-            if($key===''){self::diag('GEMINI_KEY_MISSING');return null;}
-            $json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
+        // Use the EXACT primary/fallback resolution from the translation rule.
+        // Every attempt must translate AND extract; no invisible Gemini call
+        // when the configured provider is Workers AI or translation-only.
+        $bet=null;
+        $providers=self::cardProviders($rule);
+        foreach($providers as $provider){
+            $json=null;
+            if($provider==='workers_ai'){
+                $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields);
+            } elseif($provider==='gemini'){
+                $key=trim(Repository::integration('gemini_api_key'));
+                if($key!=='')$json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
+                else self::diag('GEMINI_KEY_MISSING');
+            } else {
+                // Azure Translator/Google Cloud Translation translate text but
+                // cannot extract structured tip data from source photos.
+                self::diag('PROVIDER_NOT_GENERATIVE_'.$provider);
+            }
+            if(!is_array($json)){
+                self::diag('SMART_PROVIDER_FAILED_'.$provider);
+                continue;
+            }
+            $candidate=[];
+            foreach($fields as $field)$candidate[$field]=trim((string)($json[$field]??''));
+            $candidate['potential_profit']=self::calculatePotentialProfit(
+                $candidate['stake_amount'],$candidate['potential_return']);
+            if($candidate['selection']===''||$candidate['market']===''||$candidate['match']===''){
+                self::diag('REQUIRED_FIELDS_INCOMPLETE_'.$provider);
+                continue;
+            }
+            if($candidate['analysis']==='' && self::containsAnalysis($sourceText)){
+                self::diag('ANALYSIS_ABSENT_'.$provider);
+                continue;
+            }
+            $bet=$candidate;
+            error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
+                'provider'=>$provider,'fallback'=>$provider!==$providers[0]
+            ]));
+            break;
         }
-        if(!$json){self::diag('GEMINI_RESPONSE_UNAVAILABLE');return null;}
-        $bet=[];
-        foreach($fields as $field)$bet[$field]=trim((string)($json[$field]??''));
-        // Compute profit deterministically from explicit, matching currencies.
-        $bet['potential_profit']=self::calculatePotentialProfit($bet['stake_amount'],$bet['potential_return']);
-        if($bet['selection']===''||$bet['market']===''||$bet['match']===''){self::diag('REQUIRED_FIELDS_INCOMPLETE');return null;}
-        if($bet['analysis']==='' && self::containsAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
+        if($bet===null){self::diag('ALL_CONFIGURED_PROVIDERS_FAILED');return null;}
         // Keep the underlying extraction untouched. Only card-mode presentation
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
@@ -124,21 +146,23 @@ final class SmartFormatting
         }
         return ['caption'=>$text,'image'=>$image,'mode'=>$mode];
     }
-    /** The same provider choice used for the rule's translation drives the card.
-     * Other existing providers retain the already approved Gemini card engine.
-     * Inherited rules follow the globally selected translation provider.
+    /**
+     * The existing translation service owns provider selection and fallback.
+     * Never substitute a different provider silently; unsupported translation-
+     * only providers are skipped only when a configured compatible fallback exists.
+     * @return list<string>
      */
-    public static function cardProvider(array $rule): string
+    public static function cardProviders(array $rule): array
     {
-        $selected=trim((string)($rule['translation_provider']??''));
-        if($selected==='workers_ai')return 'workers_ai';
-        if($selected!=='' && $selected!=='global' && $selected!=='default' && $selected!=='inherit')
-            return 'gemini';
-        try {
-            return Repository::translationPrimaryProvider()==='workers_ai'?'workers_ai':'gemini';
-        } catch(\Throwable) {
-            return 'gemini';
+        [$primary,$fallback]=TranslationService::resolveProviders(
+            (string)($rule['translation_provider']??''));
+        $providers=[];
+        foreach([$primary,$fallback] as $provider){
+            if(is_string($provider)&&$provider!==''&&$provider!=='none'&&!in_array($provider,$providers,true)){
+                $providers[]=$provider;
+            }
         }
+        return $providers;
     }
     private static function containsAnalysis(string $text): bool
     {
