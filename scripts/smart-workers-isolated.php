@@ -158,6 +158,12 @@ function parsedVisionBet(array $result): ?array {
  * Keep bounded visual observations only inside the worker-to-parent stdout.
  * Do not copy suggested model tool-actions, original image bytes or secrets.
  */
+/** Normalize all documented Workers AI result variants without losing text. */
+function normalizeCloudflareResult(mixed $rawResult): array {
+    if(is_array($rawResult))return $rawResult;
+    if(is_string($rawResult))return ['response'=>$rawResult];
+    return [];
+}
 function collectVisualEvidence(array $result,string $existing=''): string {
     foreach(['response','description'] as $key){
         $observed=$result[$key]??null;
@@ -227,6 +233,13 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     $visionDescription=['description'=>$json,'response'=>null];
     if(parsedVisionBet($visionDescription)!==$base)
         throw new RuntimeException('ImageTextToText description JSON not parsed');
+    if(normalizeCloudflareResult($json)!==['response'=>$json] ||
+       parsedVisionBet(normalizeCloudflareResult($json))!==$base ||
+       tipResponseStatus(normalizeCloudflareResult('Falha textual')['response'])!=='RESPONSE_NOT_JSON' ||
+       collectVisualEvidence(normalizeCloudflareResult('Observação legível'))!=='Observação legível' ||
+       normalizeCloudflareResult(null)!==[]){
+        throw new RuntimeException('Bare Cloudflare result string was dropped or accepted unsafely');
+    }
     $visionNarrative=['description'=>'Observações do comprovante, sem JSON','response'=>null];
     if(parsedVisionBet($visionNarrative)!==null)
         throw new RuntimeException('Non-JSON image description was treated as a bet');
@@ -437,8 +450,7 @@ try{
             // to an array: that silently erases the visual observation and
             // misclassifies the reply as RESPONSE_MISSING_TEXT.
             $rawResult=$envelope['result']??null;
-            $result=is_array($rawResult)?$rawResult:
-                (is_string($rawResult)?['response'=>$rawResult]:[]);
+            $result=normalizeCloudflareResult($rawResult);
             $response=$result['response']??null;
             if($checkOnly){
                 if(is_string($response)&&trim($response)!=='')reply(true,'OK',[]);
