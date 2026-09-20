@@ -61,7 +61,7 @@ try {
       <option value="text" <?=$smartMode==='text'?'selected':''?>>Somente texto formatado</option>
     </select>
   </label>
-  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Caso a interpretação ou o card falhe, o envio original será mantido.</p>
+  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Se a IA ou o card falhar, a mensagem NÃO será encaminhada sem formatação; a falha será registrada no histórico, sem encaminhar o conteúdo original.</p>
 </section>
 HTML;
     $index=$replaceOne($index,
@@ -112,11 +112,12 @@ HTML;
         mixed $analysisMedia=null
     ): void
     {
-        // The optional feature must never prevent delivery if its settings are unavailable.
+        // If settings cannot be read, never guess that the rule is disabled:
+        // that could leak an unformatted source message to a mandatory AI rule.
         try {
             $setting=SmartFormatting::settings((int)($rule['id']??0));
-        } catch(\Throwable $ignored) {
-            $setting=['enabled'=>false,'output_mode'=>'card'];
+        } catch(\Throwable $error) {
+            throw new \RuntimeException('SMART_FORMAT_SETTINGS_UNAVAILABLE',0,$error);
         }
         $formatted=null;
         $sourceImage=null;
@@ -217,19 +218,18 @@ HTML;
                 }
             }
         }
-        // When the opt-in translated card failed before sending, restore the
-        // legacy translation once and then perform the original legacy delivery.
-        // This also respects translation_fallback_original / failure settings.
-        if(SmartFormatting::cardHandlesTranslation($rule,$setting)){
-            $translationFallback=Transform::translateDetailed($text,$rule,[
+        // Mandatory AI mode: never publish raw, merely translated, or
+        // unformatted source content if AI fails or formatting exceeds limits.
+        // process() catches this error and records the event as FAILED.
+        // Retry only BEFORE any Telegram send; never duplicate a sent card.
+        if(!empty($setting['enabled'])){
+            error_log('TMR_SMART_FORMAT_REQUIRED_FAILED '.json_encode([
                 'rule_id'=>(int)($rule['id']??0),
-                'context'=>'message'
-            ]);
-            $text=(string)$translationFallback['text'];
-            if(!empty($translationFallback['translated']))$entities=[];
-            error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK');
+                'mode'=>(string)($setting['output_mode']??'unknown')
+            ]));
+            throw new \RuntimeException('SMART_FORMAT_REQUIRED_UNAVAILABLE');
         }
-        // Bit-for-bit existing behavior for all disabled rules and AI failures.
+        // Legacy delivery is allowed ONLY if smart formatting is OFF.
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
         } else {

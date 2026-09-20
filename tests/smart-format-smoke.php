@@ -270,9 +270,21 @@ foreach([
 $runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($runtimeSource)
    ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
-   ||!str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
-   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK'))
-    throw new RuntimeException('Single-pass and legacy fallback routing hooks missing');
+   ||!str_contains($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE')
+   ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_REQUIRED_FAILED')
+   ||!str_contains($runtimeSource,"if(!empty(\$setting['enabled']))")
+   ||str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
+   ||str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK'))
+    throw new RuntimeException('Mandatory opt-in formatting or single-pass translation missing');
+$failGuard=strpos($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE');
+$rawDelivery=strpos($runtimeSource,"if(\$deliveryMedia===null){", $failGuard?:0);
+if($failGuard===false||$rawDelivery===false||$failGuard>$rawDelivery)
+    throw new RuntimeException('Unformatted legacy send reachable before mandatory AI guard');
+$transportSource=file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
+if(!is_string($transportSource)||!str_contains($transportSource,'$curlErr===28')||
+   !str_contains($transportSource,'[429,500,502,503,504]'))
+    throw new RuntimeException('Transient AI timeout/network retry is not installed');
+echo "SMART_FORMAT_REQUIRED_NO_RAW_FALLBACK_TESTS_PASSED\n";
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";

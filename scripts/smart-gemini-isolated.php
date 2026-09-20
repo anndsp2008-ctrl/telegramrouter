@@ -12,6 +12,7 @@ try {
     $endpoint='https://generativelanguage.googleapis.com/v1beta/models/'
              .rawurlencode($data['model']).':generateContent';
     // SMART_GEMINI_TEMPORARY_RETRY_V1: at most one short retry for transient overload.
+    // Retry timeout, transient connection failures and 5xx/429 only.
     // Never retry authentication, bad requests, or response-format failures.
     // Both attempts together stay below 26 seconds; no Telegram send occurs here.
     $result=false;
@@ -35,7 +36,7 @@ try {
         $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
         curl_close($ch);
         if($http===200 && is_string($result))break;
-        if($attempt===0 && in_array($http,[429,502,503,504],true)){
+        if($attempt===0 && (in_array($http,[429,500,502,503,504],true) || $curlErr===28 || in_array($curlErr,[6,7,52,56],true))){
             usleep(650000);
             continue;
         }
