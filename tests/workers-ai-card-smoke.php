@@ -45,10 +45,14 @@ namespace {
     // v10 headers use four grid cells: icon (pseudo-element), content,
     // configuration badge, and chevron (pseudo-element). A generic
     // form-status breaks this grid by stretching across the whole row.
-    if(!preg_match('/<div class="provider-head">\\s*<div>.*?<\\/div>\\s*<span class="form-status is-configured">\\s*Configurado\\s*<\\/span>\\s*<\\/div>/s',$output))
-        throw new \RuntimeException('Workers AI header does not match the v10 provider grid');
-    if(str_contains($output,'class="provider-badge"') || str_contains($output,'class="saas-card-head"'))
-        throw new \RuntimeException('Workers AI is not using the standard form-status badge');
+    if(!preg_match('/<div class="provider-head">\s*<div>.*?<p class="workers-ai-observation">.*?<\/p><\/div>\s*<span class="form-status provider-badge is-configured">\s*Configurado\s*<\/span>\s*<\/div>/s',$output))
+        throw new \RuntimeException('Workers AI explanation and badge are not inside the shared provider header');
+    if(substr_count($output,'Se o Llama 3.2 Vision retornar uma imagem')!==1 ||
+       str_contains($output,'<p class="field-help">Se o Llama 3.2 Vision')){
+        throw new \RuntimeException('Workers AI observation is duplicated or outside the content column');
+    }
+    if(str_contains($output,'class="saas-card-head"'))
+        throw new \RuntimeException('Workers AI provider header structure changed');
     $css=(string)file_get_contents(__DIR__.'/../assets/brand/workers-ai-provider.css');
     if(!str_contains($css,'content:"CF"!important') || !str_contains($css,'--provider-accent:#f48120!important'))
         throw new \RuntimeException('Workers AI provider icon or color absent');
@@ -58,6 +62,15 @@ namespace {
        str_contains($css,'.provider-badge.is-configured') ||
        str_contains($css,'.provider-badge.is-configured::before')){
         throw new \RuntimeException('Workers AI provider cache or status styling may be stale');
+    }
+    $layout=(string)file_get_contents(__DIR__.'/../assets/brand/integrations-v10.css');
+    $responsive=(string)file_get_contents(__DIR__.'/../assets/brand/mobile-visual-audit.css');
+    if(!str_contains($layout,'> div > .workers-ai-observation') ||
+       !str_contains($layout,'> .form-status.provider-badge') ||
+       !str_contains($responsive,'grid-column:3 / 4!important;') ||
+       !str_contains($responsive,'grid-row:1 / 2!important;') ||
+       !str_contains($responsive,'> .workers-ai-provider-card > .provider-head > div > .workers-ai-observation')){
+        throw new \RuntimeException('Workers AI shared text column or compact tablet/mobile status alignment missing');
     }
     if(!str_contains($css,'> .provider-test.bad > em') ||
        !str_contains($css,'display:block!important;') ||
