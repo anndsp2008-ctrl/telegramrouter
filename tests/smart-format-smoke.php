@@ -53,6 +53,58 @@ if($lowerCard['analysis']!=="O time chega motivado. A odd é 1.75 e a seleção 
    $lowerTip['stake_amount']!=='R$ 200,00')
     throw new RuntimeException('Sentence normalization changed source or betting values');
 echo "SMART_FORMAT_SENTENCE_CASE_TESTS_PASSED\n";
+// The source may carry financial marketing prose even after setting Stake 10.
+// Keep sports-only sentences, never repeat source-channel stake, wager amount,
+// expected money return or bankroll references inside the AI analysis.
+$incomingAnalysis='A aposta é uma simples aposta de ambos os times marcando, com Fulham e Manchester United se enfrentando na Premier League. '
+    .'A probabilidade de ambos os times marcarem é de 1.50, o que significa que a aposta tem uma chance de 66,67% de ser vencedora. '
+    .'A aposta é feita com responsabilidade, com um stake de 2 e um valor de aposta de €2. '
+    .'O potencial de retorno é de €3.00, caso a aposta seja vencedora.';
+$expectedAnalysis='A aposta é uma simples aposta de ambos os times marcando, com Fulham e Manchester United se enfrentando na Premier League. '
+    .'A probabilidade de ambos os times marcarem é de 1.50, o que significa que a aposta tem uma chance de 66,67% de ser vencedora.';
+if(SmartFormatting::sanitizeAnalysis($incomingAnalysis)!==$expectedAnalysis ||
+   SmartFormatting::sanitizeAnalysis($expectedAnalysis)!==$expectedAnalysis)
+    throw new RuntimeException('Financial analysis should be omitted without changing sports-only sentences');
+$moneyAnalysisExamples=[
+    ["A equipe pressiona. Stake 2 e aposta de €2. O ataque tem chances.",'A equipe pressiona. O ataque tem chances.'],
+    ["O time cria chances. Valor a ser apostado: R$ 200,00. Mercado de gols mantido.",'O time cria chances. Mercado de gols mantido.'],
+    ["A equipe joga no ataque.\nRetorno potencial de 3 euros.\nO adversário sofre gols.",'A equipe joga no ataque.'."\n".'O adversário sofre gols.'],
+    ["Fulham segue pressionando. Sugestão: 2 unidades de stake; bankroll EUR 100. Jogo equilibrado.",'Fulham segue pressionando. Jogo equilibrado.'],
+    ['O time cria chances. Amount staked USD 20 and potential return 35 dollars. Mercado mantém-se.', 'O time cria chances. Mercado mantém-se.'],
+    ['A odd é 1.50 e a chance informada é 66,67%. O time pressiona pelo gol.', 'A odd é 1.50 e a chance informada é 66,67%. O time pressiona pelo gol.']
+];
+foreach($moneyAnalysisExamples as [$source,$expected]){
+    if(SmartFormatting::sanitizeAnalysis($source)!==$expected)
+        throw new RuntimeException('Analysis financial scrub regression: '.bin2hex($source));
+}
+$tipWithMoney=array_merge($bet,[
+    'analysis'=>$incomingAnalysis,'stake'=>'2','odd'=>'1.50',
+    'stake_amount'=>'€2','potential_return'=>'€3.00'
+]);
+$originalTipWithMoney=$tipWithMoney;
+$cardWithoutMoney=SmartFormatting::cardView($tipWithMoney);
+foreach([$cardWithoutMoney, $tipWithMoney] as $formatTip){
+    foreach([true,false] as $translated){
+        $message=SmartFormatting::asText($formatTip,$translated);
+        if(!str_contains($message,'Stake: 10') ||
+           !str_contains($message,'Odd: 1.50') ||
+           !str_contains($message,'Fulham e Manchester United') ||
+           str_contains($message,'A aposta é feita com responsabilidade') ||
+           !str_contains($message,'A probabilidade de ambos os times'))
+            throw new RuntimeException('Sports tip or fixed stake was lost during financial analysis scrub');
+        $analysisTail=explode('📝 ', $message,2)[1]??'';
+        foreach(['stake de 2','€2','€3.00','retorno','valor de aposta'] as $forbidden){
+            if(mb_stripos($analysisTail,$forbidden,0,'UTF-8')!==false)
+                throw new RuntimeException('Source financial advice leaked into formatted analysis');
+        }
+    }
+}
+if($cardWithoutMoney['analysis']!==$expectedAnalysis ||
+   $tipWithMoney!==$originalTipWithMoney || $cardWithoutMoney['stake']!=='10' ||
+   isset($cardWithoutMoney['stake_amount']))
+    throw new RuntimeException('Scrubbing altered source or card display boundaries');
+echo "SMART_FORMAT_NO_SOURCE_FINANCIAL_ANALYSIS_TESTS_PASSED\n";
+
 // Every AI-formatted tip publishes Stake 10, even if it was absent, malformed
 // or supplied as a different suggested unit amount by the source channel.
 foreach([[],['stake'=>''],['stake'=>'2'],['stake'=>'6/10'],['stake'=>'999']] as $input){
