@@ -15,7 +15,7 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
 <section class="saas-card translation-provider-card workers-ai-provider-card">
   <div class="provider-head">
     <div><span class="saas-kicker">CLOUDFLARE AI</span><h2>Workers AI</h2>
-      <p>Tradução de textos por IA com detecção automática de idioma e modelo configurável.</p></div>
+      <p>Tradução e interpretação de apostas com texto e imagem.</p></div>
     <span class="form-status <?=$workersAIConfigured?'is-configured':'is-empty'?>">
       <?=$workersAIConfigured?'Configurado':'Não configurado'?></span>
   </div>
@@ -42,6 +42,7 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
       <button class="saas-primary" name="action" value="save_translation_provider">Salvar</button>
       <button class="saas-secondary" name="action" value="test_translation_provider">Testar conexão</button>
     </div>
+    <p class="field-help">O teste verifica o modelo de texto e o modelo Vision utilizado nos cards com imagens. Para usar o Llama 3.2 Vision, é necessário aceitar separadamente os termos da Meta na Cloudflare. <a href="https://developers.cloudflare.com/workers-ai/models/llama-3.2-11b-vision-instruct/" target="_blank" rel="noopener noreferrer">Ver instruções do modelo</a>.</p>
   </form>
   <div class="provider-test <?=$workersAITest?((int)$workersAITest['last_test_ok']?'ok':'bad'):'neutral'?>">
     <b>Último teste</b><span><?=$workersAITest?((int)$workersAITest['last_test_ok']?'Conexão válida':'Falha'):'Ainda não testado'?></span>
