@@ -226,6 +226,7 @@ try{
     $prompt=(string)($input['prompt']??'');
     $image=$input['image']??null;
     $checkOnly=($input['check_only']??false)===true;
+    $evidenceRescue=($input['evidence_rescue']??false)===true;
     // Only the rescue vision model uses guided_json; the selected Llama 3.2
     // primary and the existing translation transport remain unchanged.
     $fields=$input['fields']??[];
@@ -288,6 +289,15 @@ try{
     // Do not block the configured provider fallback for up to 75 seconds.
     if(!$checkOnly && $image===null &&
        $model==='@cf/meta/llama-3.1-8b-instruct-fp8')$timeouts=[25,10];
+    // Image rescue must never consume 40+ seconds before the configured
+    // provider fallback. First image inference gets a bounded window; the
+    // auxiliary Scout and evidence-text passes have their own shorter caps.
+    if(!$checkOnly && $image!==null &&
+       $model==='@cf/meta/llama-3.2-11b-vision-instruct')$timeouts=[24,8];
+    if(!$checkOnly && $image!==null &&
+       $model==='@cf/meta/llama-4-scout-17b-16e-instruct')$timeouts=[14,5];
+    if(!$checkOnly && $evidenceRescue && $image===null &&
+       $model==='@cf/meta/llama-3.1-8b-instruct-fp8')$timeouts=[12,5];
     foreach($timeouts as $attempt=>$timeout){
         if($attempt===1&&!$checkOnly&&!($retryPrepared??false)){
             // Retry once with strict JSON output after an invalid, empty, or
