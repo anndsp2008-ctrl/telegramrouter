@@ -52,7 +52,7 @@ final class SmartFormatting
     public static function cardHandlesTranslation(array $rule,array $setting): bool
     {
         return !empty($rule['translation_enabled']) && !empty($setting['enabled'])
-            && ($setting['output_mode']??'')==='card';
+            && in_array($setting['output_mode']??'',['card','caption','text'],true);
     }
     public static function shouldTranslateInsideCard(array $rule): bool
     {
@@ -154,6 +154,12 @@ final class SmartFormatting
      */
     public static function cardProviders(array $rule): array
     {
+        // Translation OFF keeps the established Gemini card pipeline, unless
+        // the user explicitly selected the generative Workers AI model.
+        if(empty($rule['translation_enabled'])){
+            return ($rule['translation_provider']??'')==='workers_ai'
+                ?['workers_ai']:['gemini'];
+        }
         [$primary,$fallback]=TranslationService::resolveProviders(
             (string)($rule['translation_provider']??''));
         $providers=[];
@@ -180,6 +186,8 @@ final class SmartFormatting
         $token=WorkersAITranslation::token();
         if($account===''||$token===''){self::diag('WORKERS_AI_CREDENTIALS_MISSING');return null;}
         $hasImage=$image!==null&&is_file($image)&&filesize($image)>0;
+        // A text-only Workers model cannot interpret receipt screenshots.
+        // Cloudflare's documented Vision model accepts an image data URI.
         $model=$hasImage?'@cf/meta/llama-3.2-11b-vision-instruct':WorkersAITranslation::model();
         if(!WorkersAITranslation::validModel($model)){self::diag('WORKERS_AI_MODEL_INVALID');return null;}
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
