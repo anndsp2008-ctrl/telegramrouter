@@ -311,20 +311,30 @@ try{
         ];
     }
     if($image!==null){
-        // Cloudflare's Vision input schema recommends an image_url part inside
-        // the user message. The former top-level image parameter is deprecated
-        // and can return HTTP 200 without generated text for some inputs.
-        // Keep the original data URI unchanged and NEVER expose it in logs.
-        $payload=[
-            'messages'=>[[
-                'role'=>'user',
-                'content'=>[
-                    ['type'=>'text','text'=>$prompt],
-                    ['type'=>'image_url','image_url'=>['url'=>$image]]
-                ]
-            ]],
-            'temperature'=>0,'max_tokens'=>2800,'stream'=>false
-        ];
+        // Cloudflare's current official Llama 3.2 Vision tutorial sends a
+        // plain user message alongside a separate top-level base64 data URI
+        // in "image". The previous OpenAI-style image_url content array can
+        // return a text-only observation and never read the uploaded ticket.
+        // Scope the documented shape to the primary Vision model; Scout's
+        // existing input format remains unchanged. Never log image bytes.
+        if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+            $payload=[
+                'messages'=>[['role'=>'user','content'=>$prompt]],
+                'image'=>$image,
+                'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+            ];
+        } else {
+            $payload=[
+                'messages'=>[[
+                    'role'=>'user',
+                    'content'=>[
+                        ['type'=>'text','text'=>$prompt],
+                        ['type'=>'image_url','image_url'=>['url'=>$image]]
+                    ]
+                ]],
+                'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+            ];
+        }
         if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
             $properties=[];
             foreach($fields as $field)$properties[$field]=['type'=>'string'];
@@ -387,7 +397,12 @@ try{
                 "The first character MUST be { and the final character MUST be }. ".
                 "Every requested field must be a STRING; unknown values are empty strings. ".
                 "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
-            if($image!==null){
+            if($image!==null &&
+               $model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+                // Do not accidentally convert a string user message to an
+                // array on the retry or drop the official top-level image.
+                $payload['messages'][0]['content']=$strictPrompt;
+            } elseif($image!==null){
                 $payload['messages'][0]['content'][0]['text']=$strictPrompt;
             } elseif(isset($payload['messages'][0]['content'])){
                 // Text-only 8B uses chat messages, never mix prompt and messages.
