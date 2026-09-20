@@ -34,9 +34,9 @@ namespace {
        !str_contains($source,"elseif($provider==='gemini')")||
        !str_contains($source,'PROVIDER_NOT_GENERATIVE_')||
        !str_contains($source,'ALL_CONFIGURED_PROVIDERS_FAILED')||
-       !str_contains($source,"$bet=$candidate")||
+       !str_contains($source,'$bet=$candidate')||
        !str_contains($source,'@cf/meta/llama-3.2-11b-vision-instruct')||
-       !str_contains($transport,"$payload['image']=$image")||
+       !str_contains($transport,'$payload[\'image\']=$image')||
        !str_contains($transport,'parseTip($response)')){
         throw new \RuntimeException('Workers AI visual/text extraction or fallback pipeline missing');
     }
