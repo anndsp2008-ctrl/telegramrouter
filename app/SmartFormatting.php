@@ -223,8 +223,7 @@ final class SmartFormatting
      * Do not republish source-channel staking advice or receipt money inside
      * the SPORTS analysis. This is deliberately independent of AI prompts:
      * both providers can repeat source stake amounts in their free-form prose.
-     * Preserve intact sports-only sentences; discard only money/staking clauses
-     * (or the whole sentence if it cannot be separated safely).
+     * Preserve intact sports-only sentences; discard money/staking sentences.
      */
     public static function sanitizeAnalysis(string $analysis): string
     {
@@ -244,21 +243,10 @@ final class SmartFormatting
                     $accepted[]=$sentence;
                     continue;
                 }
-                // Keep a separate sports-only clause if one exists; never
-                // forward a clause that still contains staking or money data.
-                $clauses=preg_split('/(?<=[,;])\h+/u',$sentence);
-                if(!is_array($clauses)||count($clauses)<2)continue;
-                $safeClauses=[];
-                foreach($clauses as $clause){
-                    $clause=trim($clause);
-                    if($clause!==''&&!self::hasFinancialAnalysis($clause)){
-                        $safeClauses[]=rtrim($clause," \t,;");
-                    }
-                }
-                $safe=rtrim(implode(', ',$safeClauses)," \t,;");
-                if($safe===''||self::hasFinancialAnalysis($safe))continue;
-                if(!preg_match('/[.!?]$/u',$safe))$safe.='.';
-                $accepted[]=$safe;
+                // Never leave a misleading fragment of an author sentence
+                // after removing its staking/receipt values. Preserve all
+                // other sports-only sentences and paragraph boundaries.
+                continue;
             }
             if($accepted!==[])$clean[]=implode(' ',$accepted);
         }
