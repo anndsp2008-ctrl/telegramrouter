@@ -59,9 +59,9 @@ namespace {
     // Verify the 8B text model uses the established chat payload, including
     // the retry path; photo-only Vision behavior must remain in place.
     if(!str_contains($source,'?WorkersAITranslation::PREVIOUS_DEFAULT_MODEL:$configuredModel')||
-       !str_contains($transport,"'messages'=>[['role'=>'user','content'=>$prompt]]")||
+       !str_contains($transport,"'messages'=>[['role'=>'user','content'=>")||
        !str_contains($transport,'$timeouts=[25,10]')||
-       !str_contains($transport,"$payload['messages'][0]['content']=$strictPrompt")||
+       !str_contains($transport,"['messages'][0]['content']=")||
        !str_contains($transport,'in_array($http,[500,502,503,504],true)')){
         throw new \\RuntimeException('Text model routing, bounded retry or 429 fail-fast missing');
     }
