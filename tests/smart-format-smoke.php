@@ -388,8 +388,8 @@ foreach([
 }
 if($invokePrivate('sourceOdd',['Odd 1.80 e odd 1.90'])!==null)
     throw new RuntimeException('Ambiguous multiple odds should not be forced');
-if(!$invokePrivate('sourceContainsOddValue',['Mercado over 8.5. Odd 1,85.'],'1.85') ||
-   $invokePrivate('sourceContainsOddValue',['Mercado over 8.5. Horário 19:45.'],'1.85'))
+if(!$invokePrivate('sourceContainsOddValue',['Mercado over 8.5. Odd 1,85.','1.85']) ||
+   $invokePrivate('sourceContainsOddValue',['Mercado over 8.5. Horário 19:45.','1.85']))
     throw new RuntimeException('Odd source grounding confused line/time with quote');
 
 foreach([
