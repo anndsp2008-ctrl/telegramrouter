@@ -1,6 +1,8 @@
 <?php declare(strict_types=1);
 namespace App;
 
+require_once __DIR__.'/LocalTipExtraction.php';
+
 /**
  * Isolated, opt-in AI formatting. Existing forwarding is the only fallback.
  * Never writes raw tips, photos or API keys to application logs.
@@ -102,9 +104,30 @@ final class SmartFormatting
         // when the configured provider is Workers AI or translation-only.
         $bet=null;
         $providers=self::cardProviders($rule);
+        $localBet=null;
+        // For Portuguese-language AI cards, first try an explicit source tip
+        // or a local, bounded OCR result. Never accept an ambiguous screenshot:
+        // its match AND single market/selection must be independently present.
+        // Other destination languages retain their configured AI translation.
+        if($localImage!==null && is_file($localImage) && $translate &&
+           str_starts_with(mb_strtolower($target,'UTF-8'),'pt')){
+            $localBet=LocalTipExtraction::parse($sourceText);
+            if($localBet===null && LocalTipExtraction::ocrAvailable()){
+                $ocr=LocalTipExtraction::readImage($localImage);
+                if($ocr!==null)$localBet=LocalTipExtraction::parse($sourceText."\n".$ocr);
+                unset($ocr);
+            }
+            if($localBet!==null){
+                array_unshift($providers,'local_ocr');
+            } else {
+                self::diag('LOCAL_OCR_NO_UNIQUE_TIP');
+            }
+        }
         foreach($providers as $provider){
             $json=null;
-            if($provider==='workers_ai'){
+            if($provider==='local_ocr'){
+                $json=$localBet;
+            } elseif($provider==='workers_ai'){
                 $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields);
             } elseif($provider==='gemini'){
                 $key=trim(Repository::integration('gemini_api_key'));
