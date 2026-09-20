@@ -152,6 +152,20 @@ namespace {
        !str_contains($transport,"'type'=>'json_schema'")){
         throw new \RuntimeException('Schema-capable image evidence rescue model or text-tip preservation missing');
     }
+    // #1451: the non-FP8 schema-capable model returned HTTP 200 with no
+    // recognized text in 1.3s. Request only the five fields required to
+    // produce a grounded card, accept validated direct result objects and
+    // retry the same model once without schema if JSON Mode has no output.
+    if(!str_contains($source,'$fields=[\'match\',\'market\',\'selection\',\'league\',\'odd\'];') ||
+       !str_contains($transport,'if(isset($result[\'match\'],$result[\'market\'],$result[\'selection\']))') ||
+       !str_contains($transport,'$rawResult=$envelope[\'result\']??null;') ||
+       !str_contains($transport,'in_array($reason,[\'RESPONSE_MISSING_TEXT\',\'RESPONSE_NOT_JSON\',') ||
+       !str_contains($transport,'unset($payload[\'response_format\']);') ||
+       !str_contains($transport,'$retryPrepared=true;') ||
+       !str_contains($source,'if($candidate[\'selection\']===\'\'||$candidate[\'market\']===\'\'||$candidate[\'match\']===\'\')')){
+        throw new \RuntimeException('Missing five-field image evidence JSON rescue or strict validation');
+    }
+    echo "SMART_IMAGE_1451_MINIMAL_SCHEMA_AND_SAFE_RETRY_TESTS_PASSED\n";
     echo "SMART_IMAGE_1449_SUPPORTED_SCHEMA_EVIDENCE_RESCUE_TESTS_PASSED\n";
     echo "SMART_IMAGE_1445_FP8_JSON_SCHEMA_GUARD_TESTS_PASSED\n";
     echo "SMART_IMAGE_1443_STRUCTURED_TEXT_RESCUE_TESTS_PASSED\n";
