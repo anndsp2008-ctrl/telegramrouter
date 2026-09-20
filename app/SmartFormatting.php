@@ -213,12 +213,16 @@ final class SmartFormatting
         $token=WorkersAITranslation::token();
         if($account===''||$token===''){self::diag('WORKERS_AI_CREDENTIALS_MISSING');return null;}
         $hasImage=$image!==null&&is_file($image)&&filesize($image)>0;
-        // The integration model now defaults to Llama 3.2 Vision for BOTH
-        // translation and smart-card extraction. Preserve custom text models
-        // for text tips; receipt images still require a vision-capable model.
+        // Text-only tips must not be sent to the default Vision model:
+        // its multimodal inference can exhaust the full 45s + 30s timeout
+        // while the account's Llama 3.1 8B text model is already supported.
+        // Keep explicitly configured custom text models. Photos still require
+        // the existing Vision model and its separate visual rescue path.
         $configuredModel=WorkersAITranslation::model();
-        $model=$hasImage && $configuredModel!==WorkersAITranslation::VISION_MODEL
-            ?WorkersAITranslation::VISION_MODEL:$configuredModel;
+        $model=$hasImage
+            ?WorkersAITranslation::VISION_MODEL
+            :($configuredModel===WorkersAITranslation::VISION_MODEL
+                ?WorkersAITranslation::PREVIOUS_DEFAULT_MODEL:$configuredModel);
         if(!WorkersAITranslation::validModel($model)){self::diag('WORKERS_AI_MODEL_INVALID');return null;}
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
