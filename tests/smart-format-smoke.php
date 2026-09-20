@@ -431,6 +431,19 @@ if($invokePrivate('applySourceGuards',[
     false
 ])!==null)throw new RuntimeException('Ungrounded opponent was accepted');
 
+if(!$invokePrivate('multipleDistinctMatchesInText',[
+    "Manchester United x Fulham | BTTS @1.50\nArsenal x Chelsea | Over 2.5 @1.80"
+]) || $invokePrivate('multipleDistinctMatchesInText',[
+    "Manchester United x Fulham\nMercado BTTS\nManchester United x Fulham"
+])){
+    throw new RuntimeException('Multiple-event detection regression');
+}
+
+foreach(['AO VIVO','live','in-play','partida em andamento','en directo'] as $statusValue){
+    if(!$invokePrivate('statusLooksLive',[$statusValue]))
+        throw new RuntimeException('Live status synonym escaped source guard: '.$statusValue);
+}
+
 if($invokePrivate('containsAnalysis',["Manchester United x Fulham\nMercado: BTTS\nOdd: 1.50"]) ||
    !$invokePrivate('containsAnalysis',["Manchester United x Fulham\nAnálise: O mercado exige gols dos dois lados. A seleção depende de cada equipe marcar ao menos uma vez."]))
     throw new RuntimeException('Analysis detection regression');
@@ -442,6 +455,31 @@ $technical=$invokePrivate('technicalAnalysis',[
 if(!str_contains($technical,'cada equipe precisa marcar pelo menos um gol') ||
    preg_match('/\b(?:últimos jogos|desfalque|probabilidade|forma recente)\b/iu',$technical))
     throw new RuntimeException('Grounded BTTS technical analysis regression');
+
+$generatedText=SmartFormatting::asText([
+    'match'=>'Manchester United x Fulham',
+    'market'=>'Ambas as equipes marcam',
+    'selection'=>'Sim',
+    'odd'=>'1.50',
+    'stake'=>'10',
+    'analysis'=>$technical,
+    'analysis_generated'=>true
+],true);
+if(!str_contains($generatedText,'Análise inteligente:') ||
+   str_contains($generatedText,'Análise original:'))
+    throw new RuntimeException('Generated analysis provenance label regression');
+
+$sourceAnalysisText=SmartFormatting::asText([
+    'match'=>'Manchester United x Fulham',
+    'market'=>'Ambas as equipes marcam',
+    'selection'=>'Sim',
+    'odd'=>'1.50',
+    'stake'=>'10',
+    'analysis'=>'Comentário esportivo informado pelo autor.',
+    'analysis_generated'=>false
+],true);
+if(!str_contains($sourceAnalysisText,'Análise original:'))
+    throw new RuntimeException('Source analysis provenance label regression');
 
 $overAnalysis=$invokePrivate('technicalAnalysis',[
     ['match'=>'Venezia x Lazio','market'=>'Total de escanteios','selection'=>'Mais de 8,5'],
