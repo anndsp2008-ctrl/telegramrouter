@@ -86,12 +86,12 @@ namespace {
         throw new \RuntimeException('Same-account Vision evidence rescue not wired');
     }
     // #1467: both vision passes observed the image but returned partial fields.
-    // The text rescue must request only the three required extraction fields
-    // and the optional source analysis, not the full 14-field receipt schema.
-    if(!str_contains($source,"\$fields=['match','market','selection','analysis'];") ||
+    // The text rescue must preserve required fields plus source odd/status
+    // and optional analysis, without returning to the full 14-field receipt schema.
+    if(!str_contains($source,"\$fields=['match','market','selection','odd','status','analysis'];") ||
        !str_contains($source,'if($forcedTextModel!==null)') ||
        !str_contains($source,'mb_substr($visionEvidence,0,6500') ||
-       !str_contains($source,'Não invente eventos, odds ou seleções') ||
+       !str_contains($source,'Não invente eventos, odds, status ou seleções') ||
        !str_contains($source,'$candidate[\'selection\']===\'\'') ||
        !str_contains($source,'$candidate[\'market\']===\'\'') ||
        !str_contains($source,'$candidate[\'match\']===\'\'') ||
