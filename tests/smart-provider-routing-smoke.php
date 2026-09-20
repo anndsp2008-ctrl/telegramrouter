@@ -87,6 +87,23 @@ namespace {
        !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
         throw new \RuntimeException('Same-account Vision evidence rescue not wired');
     }
+    // Regression for message #1437: primary Vision returned non-JSON with
+    // image evidence, then Scout timed out before the fallback could finish.
+    // The already observed content must be sent to the same-account text
+    // formatter BEFORE any second Vision inference is attempted.
+    $textFirst=strpos($source,'$textRescueAttempted=true;');
+    $scoutNext=strpos($source,'if($index===0 && isset($models[1]))continue;');
+    if($textFirst===false || $scoutNext===false || $textFirst>$scoutNext ||
+       !str_contains($source,"'evidence_rescue'=>\$forcedTextModel!==null") ||
+       !str_contains($source,'$visionEvidence!==\'\' && !$textRescueAttempted') ||
+       !str_contains($transport,'if($image!==null && $visualEvidence!==\'\'') ||
+       !str_contains($transport,'reply(false,$reason,null,$visualEvidence);') ||
+       !str_contains($transport,'$timeouts=[24,8]') ||
+       !str_contains($transport,'$timeouts=[14,5]') ||
+       !str_contains($transport,'$timeouts=[12,5]')){
+        throw new \RuntimeException('First Vision evidence is not recovered before bounded Scout fallback');
+    }
+    echo "SMART_IMAGE_1437_EVIDENCE_FIRST_AND_TIMEOUT_GUARDS_PASSED\n";
     echo "WORKERS_AI_VISION_EVIDENCE_TEXT_RESCUE_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";

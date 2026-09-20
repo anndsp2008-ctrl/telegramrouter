@@ -206,6 +206,12 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
         throw new RuntimeException('Visual evidence collector failed safe handling');
     if(mb_strlen(collectVisualEvidence(['response'=>str_repeat('A',12000)]),'UTF-8')>10000)
         throw new RuntimeException('Unbounded visual evidence output');
+    // A malformed, but legible Vision reply is evidence for text recovery,
+    // not a reason to retry the same slow multimodal request before recovery.
+    if(tipResponseStatus('Visual: Fulham x United, ambos marcam')!=='RESPONSE_NOT_JSON' ||
+       collectVisualEvidence(['response'=>'Visual: Fulham x United, ambos marcam'])===''){
+        throw new RuntimeException('Legible visual evidence was not preserved');
+    }
     echo "WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED\n";
     exit(0);
 }
@@ -220,6 +226,7 @@ try{
     $prompt=(string)($input['prompt']??'');
     $image=$input['image']??null;
     $checkOnly=($input['check_only']??false)===true;
+    $evidenceRescue=($input['evidence_rescue']??false)===true;
     // Only the rescue vision model uses guided_json; the selected Llama 3.2
     // primary and the existing translation transport remain unchanged.
     $fields=$input['fields']??[];
@@ -282,6 +289,15 @@ try{
     // Do not block the configured provider fallback for up to 75 seconds.
     if(!$checkOnly && $image===null &&
        $model==='@cf/meta/llama-3.1-8b-instruct-fp8')$timeouts=[25,10];
+    // Image rescue must never consume 40+ seconds before the configured
+    // provider fallback. First image inference gets a bounded window; the
+    // auxiliary Scout and evidence-text passes have their own shorter caps.
+    if(!$checkOnly && $image!==null &&
+       $model==='@cf/meta/llama-3.2-11b-vision-instruct')$timeouts=[24,8];
+    if(!$checkOnly && $image!==null &&
+       $model==='@cf/meta/llama-4-scout-17b-16e-instruct')$timeouts=[14,5];
+    if(!$checkOnly && $evidenceRescue && $image===null &&
+       $model==='@cf/meta/llama-3.1-8b-instruct-fp8')$timeouts=[12,5];
     foreach($timeouts as $attempt=>$timeout){
         if($attempt===1&&!$checkOnly&&!($retryPrepared??false)){
             // Retry once with strict JSON output after an invalid, empty, or
@@ -339,6 +355,16 @@ try{
             $reason=is_string($response)?tipResponseStatus($response)
                 :(is_string($description)?tipResponseStatus($description)
                 :($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT'));
+            // When Vision has already observed legible content but failed to
+            // wrap it as JSON, return evidence to its parent immediately. A
+            // second multimodal call often wastes the remaining Telegram
+            // processing window before the same-account text rescue can run.
+            // Never fabricate missing fields here; the parent still validates.
+            if($image!==null && $visualEvidence!=='' &&
+               in_array($reason,['RESPONSE_NOT_JSON','RESPONSE_MISSING_REQUIRED_FIELDS',
+                   'RESPONSE_BAD_FIELD_TYPES','RESPONSE_UNSTRUCTURED_TOOL_CALLS'],true)){
+                reply(false,$reason,null,$visualEvidence);
+            }
             if($attempt===0){
                 if(is_string($description)&&trim($description)!==''){
                     // For ImageTextToText outputs that are descriptive rather
