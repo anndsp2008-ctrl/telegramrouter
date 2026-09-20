@@ -63,7 +63,7 @@ if($globalStart===false)$fail('Missing global provider badge width invariant');
 $global=substr($desktop,$globalStart);
 foreach([$contract,$global] as $scope){
     foreach([
-        '.translation-provider-grid > * > :is(.provider-head,.saas-card-head)>.provider-badge',
+        '.provider-badge',
         'width:max-content!important;',
         'inline-size:max-content!important;',
         'min-width:max-content!important;',
