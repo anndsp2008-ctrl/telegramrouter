@@ -8,6 +8,32 @@ $bet=['match'=>'Venezia × Lazio','league'=>'Itália • Série A',
   'market'=>'Resultado final da partida (1X2)','selection'=>'Vitória da Lazio',
   'odd'=>'2,00','time'=>'19h45','day'=>'Sábado',
   'analysis'=>'A Lazio chega invicta para enfrentar o Venezia, último colocado, buscando manter seu bom início de temporada.'];
+
+// Verify the source is authoritative for ONE explicitly labelled odd.
+// A number in a clock, score, market line or staking unit is not an odd.
+$odds=[ 
+  ['Fulham x Manchester United. Mercado: Ambas marcam SIM. Odd: 1.50; linha 8,5. 19:45.', '1,50','1.50'],
+  ['Fulham x Manchester United. Cuota 1,85. Over 8,5 escanteios.', '', '1,85'],
+  ['Fulham x Manchester United. Cotação: 2.00. 2 unidades de stake.', '2,00','2.00'],
+];
+foreach($odds as [$original,$model,$expected]){
+  $actual=SmartFormatting::reconcileExplicitSourceOdd($original,['odd'=>$model,'market'=>'Teste','selection'=>'Teste']);
+  if(!is_array($actual)||$actual['odd']!==$expected)
+    throw new RuntimeException('Source odd not preserved exactly: '.$expected);
+}
+foreach(['Odd: 1.50','Cotação 2,00','Cuota: 1,85'] as $original){
+  if(SmartFormatting::reconcileExplicitSourceOdd($original,['odd'=>'3,10'])!==null)
+    throw new RuntimeException('Model/source odd contradiction accepted');
+}
+$noOdd=SmartFormatting::reconcileExplicitSourceOdd(
+ 'Jogo às 19:45. Mais de 8,5 escanteios; Stake 10.', ['odd'=>'','market'=>'Escanteios']);
+if(!is_array($noOdd)||$noOdd['odd']!=='')
+  throw new RuntimeException('Clock or market line became an invented odd');
+$multi=SmartFormatting::reconcileExplicitSourceOdd(
+ 'Jogo A odd 1.50; Jogo B odd 2,00', ['odd'=>'2,00','market'=>'Apostas múltiplas']);
+if(!is_array($multi)||$multi['odd']!=='2,00')
+  throw new RuntimeException('Source odd resolver silently reassigned a multi-selection quote');
+echo "SMART_SOURCE_ODD_CONSISTENCY_TESTS_PASSED\n";
 $text=SmartFormatting::asText($bet,true);
 foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $required){
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
