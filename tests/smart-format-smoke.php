@@ -368,6 +368,138 @@ foreach(['1','0'] as $rendererMode){
     foreach([$standard,$live,$openTicket,$withoutReceipt] as $generated)@unlink($generated);
 }
 echo "SMART_FORMAT_LIVE_SPORT_BADGES_TESTS_PASSED\n";
+
+/* Source-grounding regression suite: odds, live status, match identity and
+ * generated technical analysis are validated independently from providers. */
+$invokePrivate=static function(string $name,array $args=[]){
+    $method=new ReflectionMethod(SmartFormatting::class,$name);
+    $method->setAccessible(true);
+    return $method->invokeArgs(null,$args);
+};
+
+foreach([
+    ['Odd: 1.50','1.50'],
+    ['ODD = 1,85','1,85'],
+    ['Corners O8.5 @ 1.91','1.91'],
+    ['cuota 2,05','2,05'],
+] as [$source,$expectedOdd]){
+    $actual=$invokePrivate('sourceOdd',[$source]);
+    if($actual!==$expectedOdd)throw new RuntimeException('Source odd extraction mismatch: '.$source);
+}
+if($invokePrivate('sourceOdd',['Odd 1.80 e odd 1.90'])!==null)
+    throw new RuntimeException('Ambiguous multiple odds should not be forced');
+if(!$invokePrivate('sourceContainsOddValue',['Mercado over 8.5. Odd 1,85.','1.85']) ||
+   $invokePrivate('sourceContainsOddValue',['Mercado over 8.5. Horário 19:45.','1.85']))
+    throw new RuntimeException('Odd source grounding confused line/time with quote');
+
+foreach([
+    ['AO VIVO - Arsenal x Chelsea',true],
+    ['In-play Arsenal x Chelsea',true],
+    ['pré-jogo Arsenal x Chelsea',false],
+    ['não está ao vivo',false],
+    ["Placar mostrado no post: 1-0, 67'",false],
+] as [$source,$expected]){
+    if($invokePrivate('explicitLiveInText',[$source])!==$expected)
+        throw new RuntimeException('Live evidence classification regression: '.$source);
+}
+if(!$invokePrivate('explicitPreMatchInText',['TIP PRÉ-JOGO - Arsenal x Chelsea']))
+    throw new RuntimeException('Pre-match evidence not detected');
+
+if(!$invokePrivate('matchGrounded',['Manchester United x Fulham','Tip: Manchester United x Fulham. Mercado BTTS']) ||
+   $invokePrivate('matchGrounded',['Manchester United x Chelsea','Tip: Manchester United x Fulham. Mercado BTTS']))
+    throw new RuntimeException('Match grounding did not distinguish opponent identity');
+
+$guard=$invokePrivate('applySourceGuards',[
+    ['match'=>'Manchester United x Fulham','market'=>'BTTS','selection'=>'Sim','odd'=>'1.55','status'=>'AO VIVO','analysis'=>''],
+    "Manchester United x Fulham\nMercado: Ambas marcam - Sim\nOdd: 1.50",
+    false
+]);
+if(!is_array($guard)||($guard['odd']??'')!=='1.50'||($guard['status']??'')!=='')
+    throw new RuntimeException('Source guard failed exact odd/live correction');
+
+$guardLive=$invokePrivate('applySourceGuards',[
+    ['match'=>'Arsenal x Chelsea','market'=>'Mais de 2,5 gols','selection'=>'Mais de 2,5','odd'=>'1.90','status'=>'','analysis'=>''],
+    "AO VIVO - Arsenal x Chelsea\nMercado: Mais de 2,5 gols\nOdd: 1.90",
+    false
+]);
+if(!is_array($guardLive)||($guardLive['status']??'')!=='AO VIVO')
+    throw new RuntimeException('Explicit source live status was not preserved');
+
+if($invokePrivate('applySourceGuards',[
+    ['match'=>'Manchester United x Chelsea','market'=>'BTTS','selection'=>'Sim','odd'=>'1.50','status'=>'','analysis'=>''],
+    "Manchester United x Fulham\nMercado: Ambas marcam - Sim\nOdd: 1.50",
+    false
+])!==null)throw new RuntimeException('Ungrounded opponent was accepted');
+
+if(!$invokePrivate('multipleDistinctMatchesInText',[
+    "Manchester United x Fulham | BTTS @1.50\nArsenal x Chelsea | Over 2.5 @1.80"
+]) || $invokePrivate('multipleDistinctMatchesInText',[
+    "Manchester United x Fulham\nMercado BTTS\nManchester United x Fulham"
+])){
+    throw new RuntimeException('Multiple-event detection regression');
+}
+
+foreach(['AO VIVO','live','in-play','partida em andamento','en directo'] as $statusValue){
+    if(!$invokePrivate('statusLooksLive',[$statusValue]))
+        throw new RuntimeException('Live status synonym escaped source guard: '.$statusValue);
+}
+
+if($invokePrivate('containsAnalysis',["Manchester United x Fulham\nMercado: BTTS\nOdd: 1.50"]) ||
+   !$invokePrivate('containsAnalysis',["Manchester United x Fulham\nAnálise: O mercado exige gols dos dois lados. A seleção depende de cada equipe marcar ao menos uma vez."]))
+    throw new RuntimeException('Analysis detection regression');
+
+$technical=$invokePrivate('technicalAnalysis',[
+    ['match'=>'Manchester United x Fulham','market'=>'Ambas as equipes marcam','selection'=>'Sim'],
+    'pt-BR'
+]);
+if(!str_contains($technical,'cada equipe precisa marcar pelo menos um gol') ||
+   preg_match('/\b(?:últimos jogos|desfalque|probabilidade|forma recente)\b/iu',$technical))
+    throw new RuntimeException('Grounded BTTS technical analysis regression');
+
+$generatedText=SmartFormatting::asText([
+    'match'=>'Manchester United x Fulham',
+    'market'=>'Ambas as equipes marcam',
+    'selection'=>'Sim',
+    'odd'=>'1.50',
+    'stake'=>'10',
+    'analysis'=>$technical,
+    'analysis_generated'=>true
+],true);
+if(!str_contains($generatedText,'Análise inteligente:') ||
+   str_contains($generatedText,'Análise original:'))
+    throw new RuntimeException('Generated analysis provenance label regression');
+
+$sourceAnalysisText=SmartFormatting::asText([
+    'match'=>'Manchester United x Fulham',
+    'market'=>'Ambas as equipes marcam',
+    'selection'=>'Sim',
+    'odd'=>'1.50',
+    'stake'=>'10',
+    'analysis'=>'Comentário esportivo informado pelo autor.',
+    'analysis_generated'=>false
+],true);
+if(!str_contains($sourceAnalysisText,'Análise original:'))
+    throw new RuntimeException('Source analysis provenance label regression');
+
+$overAnalysis=$invokePrivate('technicalAnalysis',[
+    ['match'=>'Venezia x Lazio','market'=>'Total de escanteios','selection'=>'Mais de 8,5'],
+    'pt-BR'
+]);
+if(!str_contains($overAnalysis,'linha 8,5')||!str_contains($overAnalysis,'acima'))
+    throw new RuntimeException('Grounded totals technical analysis regression');
+
+$smartSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+foreach([
+    "['match','market','selection','odd','status','analysis']",
+    'Preserve a odd exatamente como aparece na origem',
+    'Retorne um objeto JSON com match, market, selection, odd, status e analysis'
+] as $requiredSourceGuard){
+    if(!str_contains($smartSource,$requiredSourceGuard))
+        throw new RuntimeException('Smart-format source grounding code missing: '.$requiredSourceGuard);
+}
+
+echo "SMART_FORMAT_SOURCE_GROUNDING_TESTS_PASSED\n";
+
 // Regression: enabling both intelligent card and legacy translation performs
 // one AI formatting+translation pass, not two Gemini translation calls.
 $translatedRule=['id'=>16,'translation_enabled'=>1,'translation_target_language'=>'pt-BR'];
