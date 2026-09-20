@@ -103,10 +103,15 @@ function parseTip(string $response): ?array {
  * Ignore names, destinations, URLs and any other proposed tool behavior.
  */
 function parsedVisionBet(array $result): ?array {
-    $response=$result['response']??null;
-    if(is_string($response)){
-        $data=parseTip($response);
-        if(is_array($data)&&tipResponseStatus($response)==='OK')return $data;
+    // Cloudflare's ImageTextToText REST result uses "description", not
+    // necessarily the TextGeneration "response" field. Accept either ONLY
+    // when it contains validated structured bet data (never free-form prose).
+    foreach(['response','description'] as $textField){
+        $response=$result[$textField]??null;
+        if(is_string($response)){
+            $data=parseTip($response);
+            if(is_array($data)&&tipResponseStatus($response)==='OK')return $data;
+        }
     }
     $calls=$result['tool_calls']??null;
     if(!is_array($calls))return null;
@@ -157,6 +162,12 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     $structured=['response'=>null,'tool_calls'=>[['name'=>'unknown_model_generated_name','arguments'=>$base]]];
     if(parsedVisionBet($structured)!==$base)
         throw new RuntimeException('Structured Vision data was ignored');
+    $visionDescription=['description'=>$json,'response'=>null];
+    if(parsedVisionBet($visionDescription)!==$base)
+        throw new RuntimeException('ImageTextToText description JSON not parsed');
+    $visionNarrative=['description'=>'Observações do comprovante, sem JSON','response'=>null];
+    if(parsedVisionBet($visionNarrative)!==null)
+        throw new RuntimeException('Non-JSON image description was treated as a bet');
     $stringArgs=['response'=>null,'tool_calls'=>[['arguments'=>$json]]];
     if(parsedVisionBet($stringArgs)!==$base)
         throw new RuntimeException('String-encoded Vision data was ignored');
@@ -214,7 +225,7 @@ try{
     // an independent, larger timeout and one bounded transient retry.
     $timeouts=$checkOnly?[30,20]:[45,30];
     foreach($timeouts as $attempt=>$timeout){
-        if($attempt===1&&!$checkOnly){
+        if($attempt===1&&!$checkOnly&&!($retryPrepared??false)){
             // Retry once with strict JSON output after an invalid, empty, or
             // transient response. Preserve the original image part in-place.
             $strictPrompt="Return ONLY one COMPLETE valid JSON object. ".
@@ -256,11 +267,39 @@ try{
             $result=(array)($envelope['result']??[]);
             $bet=parsedVisionBet($result);
             if($bet!==null)reply(true,'OK',$bet);
+            $description=$result['description']??null;
             $hasTools=is_array($result['tool_calls']??null)&&count($result['tool_calls'])>0;
-            $reason=!is_string($response)
-                ?($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT')
-                :tipResponseStatus($response);
-            if($attempt===0){usleep(250000);continue;}
+            $reason=is_string($response)?tipResponseStatus($response)
+                :(is_string($description)?tipResponseStatus($description)
+                :($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT'));
+            if($attempt===0){
+                if(is_string($description)&&trim($description)!==''){
+                    // For ImageTextToText outputs that are descriptive rather
+                    // than JSON, use the SAME selected Workers AI model once
+                    // more on text: combine original prompt + observed image
+                    // description. Do not fabricate or overwrite source data.
+                    $payload=[
+                        'prompt'=>$prompt."\nEVIDÊNCIA EXTRAÍDA DA IMAGEM (não inventar nem ampliar):\n".
+                            mb_substr(trim($description),0,8000,'UTF-8'),
+                        'temperature'=>0,'max_tokens'=>1800,'stream'=>false
+                    ];
+                    $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+                    if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
+                    $encoded=$retryBody;
+                    $retryPrepared=true;
+                } elseif($image!==null){
+                    // The model can return HTTP 200 with no generated text for
+                    // a multimodal message in some runtime versions. Retry
+                    // once using the documented prompt + image input schema.
+                    $payload=['prompt'=>$strictPrompt??$prompt,'image'=>$image,
+                        'temperature'=>0,'max_tokens'=>1800,'stream'=>false];
+                    $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+                    if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
+                    $encoded=$retryBody;
+                    $retryPrepared=true;
+                }
+                usleep(250000);continue;
+            }
             reply(false,$reason);
         }
         if($attempt===0&&(in_array($http,[429,500,502,503,504],true)||
