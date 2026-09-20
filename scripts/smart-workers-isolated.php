@@ -162,6 +162,12 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     $structured=['response'=>null,'tool_calls'=>[['name'=>'unknown_model_generated_name','arguments'=>$base]]];
     if(parsedVisionBet($structured)!==$base)
         throw new RuntimeException('Structured Vision data was ignored');
+    $visionDescription=['description'=>$json,'response'=>null];
+    if(parsedVisionBet($visionDescription)!==$base)
+        throw new RuntimeException('ImageTextToText description JSON not parsed');
+    $visionNarrative=['description'=>'Observações do comprovante, sem JSON','response'=>null];
+    if(parsedVisionBet($visionNarrative)!==null)
+        throw new RuntimeException('Non-JSON image description was treated as a bet');
     $stringArgs=['response'=>null,'tool_calls'=>[['arguments'=>$json]]];
     if(parsedVisionBet($stringArgs)!==$base)
         throw new RuntimeException('String-encoded Vision data was ignored');
