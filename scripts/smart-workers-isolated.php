@@ -209,6 +209,17 @@ try{
     // short prompt with 2800 max output tokens can exceed a Vision timeout.
     // Full cards retain their current output allowance and validation.
     $payload=['prompt'=>$prompt,'temperature'=>0,'max_tokens'=>$checkOnly?12:2800];
+    // Llama 3.1 8B accepts chat messages; this is the same proven schema used
+    // by the working Workers AI text-translation transport. A short text tip
+    // does not need the Vision endpoint or a 2800-token completion allowance.
+    if(!$checkOnly && $image===null &&
+       $model==='@cf/meta/llama-3.1-8b-instruct-fp8'){
+        $payload=[
+            'messages'=>[['role'=>'user','content'=>$prompt]],
+            'temperature'=>0,'max_tokens'=>strlen($prompt)>4500?2800:1600,
+            'stream'=>false
+        ];
+    }
     if($image!==null){
         // Cloudflare's Vision input schema recommends an image_url part inside
         // the user message. The former top-level image parameter is deprecated
@@ -237,6 +248,10 @@ try{
     // Only test requests use small output; production card requests have
     // an independent, larger timeout and one bounded transient retry.
     $timeouts=$checkOnly?[30,20]:[45,30];
+    // Text cards on the lightweight model have their own bounded window.
+    // Do not block the configured provider fallback for up to 75 seconds.
+    if(!$checkOnly && $image===null &&
+       $model==='@cf/meta/llama-3.1-8b-instruct-fp8')$timeouts=[25,10];
     foreach($timeouts as $attempt=>$timeout){
         if($attempt===1&&!$checkOnly&&!($retryPrepared??false)){
             // Retry once with strict JSON output after an invalid, empty, or
@@ -315,7 +330,7 @@ try{
             }
             reply(false,$reason);
         }
-        if($attempt===0&&(in_array($http,[429,500,502,503,504],true)||
+        if($attempt===0&&(in_array($http,[500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}
         reply(false,cloudflareFailureReason($http,$body,$errno));
     }
