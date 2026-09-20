@@ -85,6 +85,20 @@ namespace {
        !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
         throw new \RuntimeException('Same-account Vision evidence rescue not wired');
     }
+    // #1467: both vision passes observed the image but returned partial fields.
+    // The text rescue must request only the three required extraction fields
+    // and the optional source analysis, not the full 14-field receipt schema.
+    if(!str_contains($source,"\$fields=['match','market','selection','analysis'];") ||
+       !str_contains($source,'if($forcedTextModel!==null)') ||
+       !str_contains($source,'mb_substr($visionEvidence,0,6500') ||
+       !str_contains($source,'Não invente eventos, odds ou seleções') ||
+       !str_contains($source,'$candidate[\'selection\']===\'\'') ||
+       !str_contains($source,'$candidate[\'market\']===\'\'') ||
+       !str_contains($source,'$candidate[\'match\']===\'\'') ||
+       !str_contains($source,'$candidate[\'stake\']=self::FIXED_STAKE;')){
+        throw new \RuntimeException('Minimum-field rescue / mandatory validation or Stake 10 guard missing');
+    }
+    echo "SMART_IMAGE_1467_MINIMAL_EVIDENCE_RESCUE_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_EVIDENCE_TEXT_RESCUE_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";
