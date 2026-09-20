@@ -165,6 +165,26 @@ namespace {
        !str_contains($source,'if($candidate[\'selection\']===\'\'||$candidate[\'market\']===\'\'||$candidate[\'match\']===\'\')')){
         throw new \RuntimeException('Missing five-field image evidence JSON rescue or strict validation');
     }
+    // #1453: Llama 3.2 Vision now receives a data URI under top-level
+    // "image" plus a plain text user message, per Cloudflare's tutorial.
+    // Unlike the previous OpenAI-style content array, the official primary
+    // image input should not silently become a text-only inference. Scout's
+    // legacy input and text cards continue to use their existing format.
+    if(!str_contains($transport,"if(\$model==='@cf/meta/llama-3.2-11b-vision-instruct'){") ||
+       !str_contains($transport,"'image'=>\$image,") ||
+       !str_contains($transport,"'messages'=>[['role'=>'user','content'=>\$prompt]]") ||
+       !str_contains($transport,"\$payload['messages'][0]['content']=\$strictPrompt;") ||
+       !str_contains($transport,'$result=normalizeCloudflareResult($rawResult);') ||
+       !str_contains($transport,'function normalizeCloudflareResult(mixed $rawResult): array') ||
+       !str_contains($transport,'$result=is_array($rawResult)?$rawResult:')){
+        // The original cast-based parser must not be reintroduced.
+        if(!str_contains($transport,"'image'=>\$image,") ||
+           !str_contains($transport,'$result=normalizeCloudflareResult($rawResult);') ||
+           str_contains($transport,'$result=(array)($envelope[\'result\']??[]);')){
+            throw new \RuntimeException('Official Vision image input or Cloudflare result-string normalization missing');
+        }
+    }
+    echo "SMART_IMAGE_1453_OFFICIAL_VISION_AND_RESULT_STRING_TESTS_PASSED\n";
     echo "SMART_IMAGE_1451_MINIMAL_SCHEMA_AND_SAFE_RETRY_TESTS_PASSED\n";
     echo "SMART_IMAGE_1449_SUPPORTED_SCHEMA_EVIDENCE_RESCUE_TESTS_PASSED\n";
     echo "SMART_IMAGE_1445_FP8_JSON_SCHEMA_GUARD_TESTS_PASSED\n";
