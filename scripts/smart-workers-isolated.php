@@ -539,6 +539,34 @@ try{
             }
             reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null);
         }
+        // The primary Llama Vision REST endpoint can reject prompt+image
+        // when its deployed schema expects an image_url part instead. A
+        // request-shape HTTP 400 (but NOT missing model 5007) receives exactly
+        // ONE compatibility request with the same image, prompt and model.
+        // Previous production versions received HTTP 200 in this format.
+        // No provider, account, credential or betting data is changed.
+        $imageShapeReason=$http===400?
+            cloudflareFailureReason($http,$body,$errno):'';
+        if($image!==null && !$checkOnly && $attempt===0 &&
+           $model==='@cf/meta/llama-3.2-11b-vision-instruct' &&
+           isset($payload['prompt'],$payload['image']) &&
+           $imageShapeReason!=='MODEL_NOT_FOUND_5007'){
+            $payload=[
+                'messages'=>[[
+                    'role'=>'user',
+                    'content'=>[
+                        ['type'=>'text','text'=>$prompt],
+                        ['type'=>'image_url','image_url'=>['url'=>$image]]
+                    ]
+                ]],
+                'temperature'=>0,'max_tokens'=>strlen($prompt)>6500?2300:1700,
+                'stream'=>false
+            ];
+            $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+            if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
+            $retryPrepared=true;
+            continue;
+        }
         // An unsupported JSON schema is not a credential/authentication
         // failure. Only 5025 (or malformed schema HTTP 400) permits one
         // compatible retry of the SAME model without response_format.
