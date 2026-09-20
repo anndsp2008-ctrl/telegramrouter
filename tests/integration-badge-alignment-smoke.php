@@ -17,7 +17,7 @@ $required=[
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
     ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&workers-dot=5'],
-    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=14']
+    ['responsive cache v15', $installer, '/assets/brand/mobile-visual-audit.css?v=15']
 ];
 foreach($required as [$label,$source,$token]){
     if(!str_contains($source,$token))$fail('Integration badge alignment regression: '.$label);
@@ -167,3 +167,30 @@ if(substr_count($workersMarkup,'<span class="provider-badge">')!==1 ||
     $fail('Workers AI badge is not identical to the other provider badges');
 }
 echo "INTEGRATION_WORKERS_EXACT_SHARED_CLASS_TESTS_PASSED\n";
+
+// Check the actual visual discrepancy from the phone screenshot: three green,
+// dot-free badges, but the injected Workers AI status was grey with a dot.
+// The final Workers AI override must NOT depend on translation-provider-grid,
+// so it applies even when the injected card is outside that grid.
+$workerParityStart=strrpos($mobile,'/* Workers AI badge parity:');
+if($workerParityStart===false)$fail('No directly scoped Workers AI parity rule');
+$workerParity=substr($mobile,$workerParityStart);
+if(str_contains($workerParity,'.translation-provider-grid'))
+    $fail('Workers AI badge parity still depends on uncertain container nesting');
+foreach([
+  'html body .workers-ai-provider-card > .provider-head > :is(.provider-badge,.form-status)',
+  'background:#152a29!important;',
+  'color:#79e9be!important;',
+  'border:1px solid #284840!important;',
+  'font-weight:500!important;',
+  'font-size:11px!important;',
+  'font-size:10px!important;',
+  'padding:5px 7px!important;',
+  'content:none!important;',
+  'display:none!important;'
+] as $token){
+  if(!str_contains($workerParity,$token))$fail('Workers AI still differs from reference badges: '.$token);
+}
+if(!str_contains($workerParity,'@media (max-width:400px)'))
+    $fail('Workers AI tiny-phone sizing parity is not implemented');
+echo "INTEGRATION_WORKERS_GRID_INDEPENDENT_VISUAL_PARITY_TESTS_PASSED\n";
