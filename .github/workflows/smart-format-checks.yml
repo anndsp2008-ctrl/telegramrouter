@@ -57,6 +57,17 @@ jobs:
           php -l /tmp/tmr-smart-fixture/app/TelegramRouter.php
           WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_ALREADY_APPLIED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php | grep SMART_FORMAT_ALREADY_APPLIED
+      - name: Inspect sanitized legacy translation migration (temporary)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/tmr-smart-fixture/scripts/translation-migrate.php')
+          if not p.exists(): raise SystemExit('legacy migration file missing')
+          lines=p.read_text().splitlines()
+          for i,line in enumerate(lines):
+              if any(key in line.lower() for key in ('translation_provider', 'enum(', 'modify', 'alter table', 'column_type')):
+                  print('MIGRATION',i+1,':',line[:500])
+          PY
       - name: Assert isolated single-pass routing patch
         run: |
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
