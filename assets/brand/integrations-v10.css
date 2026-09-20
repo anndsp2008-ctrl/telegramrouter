@@ -1010,7 +1010,7 @@ body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-pr
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  gap:0!important;
+  gap:6px!important;
   box-sizing:border-box!important;
   width:max-content!important;
   inline-size:max-content!important;
@@ -1033,7 +1033,20 @@ body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-pr
   box-shadow:none!important;
   white-space:nowrap!important;
 }
-body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)::before,
+/* The other integration statuses show a coloured dot before the label.
+   Restore it ONLY for Workers AI, preserving the already matched pill styling. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)::before{
+  content:""!important;
+  display:block!important;
+  flex:0 0 6px!important;
+  width:6px!important;
+  height:6px!important;
+  border-radius:50%!important;
+  background:#79e9be!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge.is-empty::before{
+  background:#facc15!important;
+}
 body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)::after{
   content:none!important;
   display:none!important;

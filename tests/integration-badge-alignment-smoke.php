@@ -16,7 +16,7 @@ $required=[
     ['mobile/touch badge', $mobile, 'justify-self:end!important;'],
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
-    ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&workers-pill=4'],
+    ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&workers-dot=5'],
     ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=13']
 ];
 foreach($required as [$label,$source,$token]){
@@ -152,6 +152,11 @@ foreach([
   'font-size:11px!important;',
   'font-weight:500!important;',
   'text-shadow:none!important;',
+  'content:""!important;',
+  'display:block!important;',
+  'gap:6px!important;',
+  'background:#79e9be!important;',
+  'background:#facc15!important;',
   'content:none!important;',
   'display:none!important;'
 ] as $token){
@@ -161,3 +166,11 @@ $workersMarkup=(string)file_get_contents($root.'/app/workers-ai-card.php');
 if(!str_contains($workersMarkup,"\$workersAIConfigured?'Configurado':'Não configurado'"))
     $fail('Workers AI state must remain driven by actual credentials');
 echo "INTEGRATION_WORKERS_PILL_VISUAL_PARITY_TESTS_PASSED\n";
+
+// Check selectors independently: ::before must provide the coloured dot
+// while ::after stays hidden. An old joint selector hid both.
+$badJoint=preg_match('/::before\s*,\s*body:has\(\.translation-provider-grid\).*?::after\s*\{\s*content:none!important;/s',$style);
+if($badJoint) $fail('Workers AI status dot was hidden by a joint pseudo-element selector');
+if(substr_count($style,'.form-status.provider-badge.is-empty::before')!==1)
+   $fail('Workers AI non-configured status is missing its yellow dot');
+echo "INTEGRATION_WORKERS_MOBILE_DOT_PARITY_TESTS_PASSED\n";
