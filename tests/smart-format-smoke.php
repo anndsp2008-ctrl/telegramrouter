@@ -150,8 +150,8 @@ if(!str_contains($overAnalysis,'Mais de 2,5') ||
    !SmartFormatting::usableSportsAnalysis($overAnalysis))
     throw new RuntimeException('Over-market fallback analysis missing explicit market condition');
 
-// A missing authored analysis now produces a detailed, conservative market
-// explanation instead of the previous two-line template or fake team metrics.
+// A missing authored analysis must produce detailed, grounded market
+// interpretation rather than generic filler or invented team metrics.
 foreach([
     [$noAnalysisBet,true,['Fulham × Manchester United','Premier League','duas equipes precisam marcar']],
     [$overBet,true,['Arsenal × Chelsea','Mais de 2,5','superar a linha indicada']],
@@ -161,7 +161,7 @@ foreach([
         ['A No selection wins','at least one team finishes without scoring']]
 ] as [$fixture,$portuguese,$fragments]){
     $detailed=SmartFormatting::ensureSportsAnalysis($fixture,$portuguese);
-    $sentences=preg_split('/(?<=[.!?])\s+(?=\p{Lu})/u',$detailed);
+    $sentences=preg_split('/(?<=[.!?])\\s+(?=\\p{Lu})/u',$detailed);
     if(!is_array($sentences)||count($sentences)<3||count($sentences)>5||
        mb_strlen($detailed,'UTF-8')<230){
         throw new RuntimeException('Intelligent tip analysis must contain 3-5 substantive sentences');
@@ -171,7 +171,18 @@ foreach([
             throw new RuntimeException('Intelligent tip analysis omitted selected market or match context');
         }
     }
-    foreach(['stake','retorno financeiro','€','R
+    foreach(['stake','retorno financeiro','€','R$','66,67%','invicto','lesionado','últimos cinco jogos'] as $forbidden){
+        if(mb_stripos($detailed,$forbidden,0,'UTF-8')!==false){
+            throw new RuntimeException('Intelligent tip analysis introduced finance or unsupported statistics');
+        }
+    }
+}
+if(!str_contains(SmartFormatting::asText($noAnalysisBet,true),'Análise Inteligente da Tip')||
+   !str_contains(SmartFormatting::asText($noAnalysisBet,false),'Intelligent Tip Analysis')){
+    throw new RuntimeException('Intelligent tip heading is missing from captions');
+}
+echo "SMART_FORMAT_DETAILED_INTELLIGENT_ANALYSIS_TESTS_PASSED\\n";
+echo "SMART_FORMAT_AUTO_ANALYSIS_WHEN_SOURCE_MISSING_TESTS_PASSED\\n";
 
 // Every AI-formatted tip publishes Stake 10, even if it was absent, malformed
 // or supplied as a different suggested unit amount by the source channel.
