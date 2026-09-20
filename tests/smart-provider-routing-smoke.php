@@ -63,14 +63,14 @@ namespace {
        !str_contains($transport,'$timeouts=[25,10]')||
        !str_contains($transport,"['messages'][0]['content']=")||
        !str_contains($transport,'in_array($http,[500,502,503,504],true)')){
-        throw new \\RuntimeException('Text model routing, bounded retry or 429 fail-fast missing');
+        throw new \RuntimeException('Text model routing, bounded retry or 429 fail-fast missing');
     }
     $geminiTransport=(string)file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
     if(!str_contains($geminiTransport,'in_array($http,[500,502,503,504],true)')||
        str_contains($geminiTransport,'in_array($http,[429,500,502,503,504],true)')){
-        throw new \\RuntimeException('Gemini HTTP 429 is still retried immediately');
+        throw new \RuntimeException('Gemini HTTP 429 is still retried immediately');
     }
-    echo "SMART_TEXT_8B_TIMEOUT_AND_429_TESTS_PASSED\\n";
+    echo "SMART_TEXT_8B_TIMEOUT_AND_429_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";
 }
