@@ -91,18 +91,25 @@ try{
            !preg_match('~^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=\r\n]+$~D',$image)))||
        !function_exists('curl_init'))reply(false,'INPUT_INVALID');
     $endpoint='https://api.cloudflare.com/client/v4/accounts/'.$account.'/ai/run/'.$model;
-    $payload=['prompt'=>$prompt,'temperature'=>0,'max_tokens'=>2800];
+    // A connection probe must not request a full card-length answer: even a
+    // short prompt with 2800 max output tokens can exceed a Vision timeout.
+    // Full cards retain their current output allowance and validation.
+    $payload=['prompt'=>$prompt,'temperature'=>0,'max_tokens'=>$checkOnly?12:2800];
     if($image!==null)$payload['image']=$image;
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
-    foreach([16,8] as $attempt=>$timeout){
+    // Vision inference may need more than the former 16s/8s windows.
+    // Only test requests use small output; production card requests have
+    // an independent, larger timeout and one bounded transient retry.
+    $timeouts=$checkOnly?[30,20]:[45,30];
+    foreach($timeouts as $attempt=>$timeout){
         $ch=curl_init($endpoint);
         if($ch===false)reply(false,'CURL_INIT');
         curl_setopt_array($ch,[
             CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$encoded,
             CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$token,'Content-Type: application/json','Accept: application/json'],
             CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
-            CURLOPT_CONNECTTIMEOUT=>4,CURLOPT_TIMEOUT=>$timeout,
+            CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>$timeout,
             CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2
         ]);
         $body=curl_exec($ch);
