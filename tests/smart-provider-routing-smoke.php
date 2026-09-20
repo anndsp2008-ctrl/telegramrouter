@@ -117,6 +117,20 @@ namespace {
        !str_contains($transport,'$payload[\'max_tokens\']=strlen($prompt)>6500?1650:1150;')){
         throw new \RuntimeException('Message #1441 bounded image extraction / fallback guards missing');
     }
+    // #1443: the first multimodal response and the text rescue returned
+    // non-JSON, then Scout timed out and Gemini reported 503. Assert that
+    // only text rescue now requests native schema-constrained JSON output.
+    // Regular text tips and other providers must remain unchanged.
+    if(!str_contains($transport,'$structuredEvidence=$evidenceRescue') ||
+       !str_contains($transport,"'response_format'") ||
+       !str_contains($transport,"'type'=>'json_schema'") ||
+       !str_contains($transport,"'required'=>['match','market','selection']") ||
+       !str_contains($transport,'$structuredResponse=$result[\'response\']??null;') ||
+       !str_contains($transport,'if($structuredEvidence && $attempt===0 && $http===400') ||
+       !str_contains($transport,"unset($payload['response_format']);")){
+        throw new \RuntimeException('Image evidence JSON Mode or compatibility fallback missing');
+    }
+    echo "SMART_IMAGE_1443_STRUCTURED_TEXT_RESCUE_TESTS_PASSED\n";
     echo "SMART_IMAGE_1441_EXTRACTION_FIRST_AND_FALLBACK_GUARDS_PASSED\n";
     echo "SMART_IMAGE_1437_EVIDENCE_FIRST_AND_TIMEOUT_GUARDS_PASSED\n";
     echo "WORKERS_AI_VISION_EVIDENCE_TEXT_RESCUE_TESTS_PASSED\n";
