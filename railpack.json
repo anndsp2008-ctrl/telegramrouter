@@ -2,11 +2,16 @@
   "$schema": "https://schema.railpack.com",
   "deploy": {
     "aptPackages": [
-      "...",
+      "ca-certificates",
+      "fonts-dejavu-core",
+      "fonts-liberation",
+      "git",
+      "unzip",
+      "zip",
       "tesseract-ocr",
+      "tesseract-ocr-eng",
       "tesseract-ocr-por",
-      "tesseract-ocr-spa",
-      "tesseract-ocr-eng"
+      "tesseract-ocr-spa"
     ]
   }
 }
