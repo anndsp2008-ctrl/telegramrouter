@@ -212,7 +212,7 @@ final class SmartFormatting
     public static function capitalizeSentences(string $text): string
     {
         $normalized=preg_replace_callback(
-            '/(^|[.!?][ \\t]+|(?:[.!?][ \\t]*)?\\R+)([\\p{Zs}\\t\\p{Pi}\\p{Ps}\\p{Pd}\\p{So}]*)((?!https?:\\/\\/|www\\.)(?:\\p{Ll}))/mu',
+            '/(^|[.!?][\\p{Pf}\\p{Pe}\\x{22}\\x{27}]*[ \\t]+|(?:[.!?][\\p{Pf}\\p{Pe}\\x{22}\\x{27}]*[ \\t]*)?\\R+)([\\p{Zs}\\t\\p{Pi}\\p{Ps}\\p{Pd}\\p{So}]*)((?!https?:\\/\\/|www\\.)(?:\\p{Ll}))/mu',
             static fn(array $match): string=>$match[1].$match[2].mb_strtoupper($match[3],'UTF-8'),
             $text
         );
