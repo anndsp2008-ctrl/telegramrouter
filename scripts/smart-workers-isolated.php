@@ -40,6 +40,25 @@ function cloudflareFailureReason(int $http,string|false $body,int $errno): strin
     if($errno===28)return 'TIMEOUT';
     return 'NETWORK';
 }
+// Offline regression test: fake Cloudflare status/envelopes, never call the API.
+if(getenv('SMART_WORKERS_CLASSIFIER_TEST')==='1'){
+    foreach([
+        [403,5016,'MODEL_LICENSE_REQUIRED_5016'],
+        [403,5035,'WORKERS_PAID_REQUIRED_5035'],
+        [403,5018,'MODEL_ACCESS_DENIED_5018'],
+        [403,3023,'ACCOUNT_BLOCKED_3023'],
+        [403,0,'HTTP_403_FORBIDDEN'],
+        [401,0,'HTTP_401_UNAUTHORIZED'],
+        [429,3036,'DAILY_QUOTA_EXHAUSTED_3036'],
+        [400,5004,'IMAGE_INPUT_INVALID_5004']
+    ] as [$status,$code,$expected]){
+        $body=$code>0?json_encode(['errors'=>[['code'=>$code,'message'=>'REDACTED']]]):'{}';
+        if(cloudflareFailureReason($status,$body,0)!==$expected)
+            throw new RuntimeException('Workers AI classification mismatch '.$status.'/'.$code);
+    }
+    echo "WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED\n";
+    exit(0);
+}
 function parseTip(string $response): ?array {
     $response=trim($response);
     $parsed=json_decode($response,true);
