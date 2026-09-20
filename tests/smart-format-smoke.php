@@ -13,6 +13,46 @@ foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $req
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+// Sentence initials, not Title Case: keep internal case, proper names, numeric
+// odds, URLs and paragraph structure intact. Format card text and image identically.
+$caseExamples=[
+    ['o real madrid enfrenta o barcelona. a equipe busca a vitória.',
+     'O real madrid enfrenta o barcelona. A equipe busca a vitória.'],
+    ["  “uma análise.” outra frase!\n• próxima linha? sim.",
+     "  “Uma análise.” Outra frase!\n• Próxima linha? Sim."],
+    ['odd 1.5 e mercado over 8,5. a tip é de R$ 100,00. https://site.com/a?odd=1.5',
+     'Odd 1.5 e mercado over 8,5. A tip é de R$ 100,00. https://site.com/a?odd=1.5'],
+    ['a GPT não altera NBA, PIX, @tipster nem https://site.com/URL.',
+     'A GPT não altera NBA, PIX, @tipster nem https://site.com/URL.'],
+    ["⚽ futebol\n\n📝 análise original.",
+     "⚽ Futebol\n\n📝 Análise original."]
+];
+foreach($caseExamples as [$original,$expected]){
+    $actual=SmartFormatting::capitalizeSentences($original);
+    if($actual!==$expected||SmartFormatting::capitalizeSentences($actual)!==$expected)
+        throw new RuntimeException('Sentence case regression: '.bin2hex($original));
+}
+$lowerTip=array_merge($bet,[
+    'match'=>'real madrid x barcelona',
+    'market'=>'resultado final. vitória ou empate',
+    'selection'=>'vitória do real madrid',
+    'analysis'=>"o time chega motivado. a odd é 1.75 e a seleção segue a mesma.\nnovo parágrafo.",
+    'odd'=>'1.75', 'stake'=>'5', 'stake_amount'=>'R$ 200,00'
+]);
+$lowerOriginal=$lowerTip;
+$lowerCard=SmartFormatting::cardView($lowerTip);
+$lowerText=SmartFormatting::asText($lowerCard,true);
+foreach(['Real madrid x barcelona','Resultado final. Vitória ou empate',
+    'Vitória do real madrid','O time chega motivado. A odd é 1.75',
+    "\nNovo parágrafo.",'Odd: 1.75','Stake: 10'] as $fragment){
+    if(!str_contains($lowerText,$fragment))
+        throw new RuntimeException('AI tip sentence formatting missing expected fragment: '.$fragment);
+}
+if($lowerCard['analysis']!=="O time chega motivado. A odd é 1.75 e a seleção segue a mesma.\nNovo parágrafo." ||
+   $lowerCard['stake']!=='10' || $lowerTip!==$lowerOriginal ||
+   $lowerTip['stake_amount']!=='R$ 200,00')
+    throw new RuntimeException('Sentence normalization changed source or betting values');
+echo "SMART_FORMAT_SENTENCE_CASE_TESTS_PASSED\n";
 // Every AI-formatted tip publishes Stake 10, even if it was absent, malformed
 // or supplied as a different suggested unit amount by the source channel.
 foreach([[],['stake'=>''],['stake'=>'2'],['stake'=>'6/10'],['stake'=>'999']] as $input){

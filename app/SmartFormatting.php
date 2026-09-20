@@ -133,7 +133,7 @@ final class SmartFormatting
                 self::diag('ANALYSIS_ABSENT_'.$provider);
                 continue;
             }
-            $bet=$candidate;
+            $bet=self::sentenceCaseBet($candidate);
             error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
                 'provider'=>$provider,'fallback'=>$provider!==$providers[0]
             ]));
@@ -143,7 +143,7 @@ final class SmartFormatting
         // Keep the underlying extraction untouched. Only card-mode presentation
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
-        $presentedBet=$mode==='card'?self::cardView($bet):$bet;
+        $presentedBet=$mode==='card'?self::cardView($bet):self::sentenceCaseBet($bet);
         $presentedBet['stake']=self::FIXED_STAKE;
         if($mode==='card'){
             // Privacy-safe diagnostics: never log message content, competition,
@@ -204,6 +204,32 @@ final class SmartFormatting
             'RESPONSE_BAD_FIELD_TYPES'
         ],true);
     }
+    /**
+     * Capitalize the first letter of each prose sentence and paragraph, without
+     * title-casing every word or changing odds, amounts, handles and URLs.
+     * Operates only on AI-formatted output; the untouched source is never edited.
+     */
+    public static function capitalizeSentences(string $text): string
+    {
+        $normalized=preg_replace_callback(
+            '/(^|[.!?][\\p{Pf}\\p{Pe}\\x{22}\\x{27}]*[ \\t]+|(?:[.!?][\\p{Pf}\\p{Pe}\\x{22}\\x{27}]*[ \\t]*)?\\R+)([\\p{Zs}\\t\\p{Pi}\\p{Ps}\\p{Pd}\\p{So}\\x{2022}]*)((?!https?:\\/\\/|www\\.)(?:\\p{Ll}))/mu',
+            static fn(array $match): string=>$match[1].$match[2].mb_strtoupper($match[3],'UTF-8'),
+            $text
+        );
+        return is_string($normalized)?$normalized:$text;
+    }
+
+    /** Only human-readable tip fields are sentence-cased; values remain exact. */
+    private static function sentenceCaseBet(array $bet): array
+    {
+        foreach(['sport','match','league','market','selection','analysis'] as $field){
+            if(isset($bet[$field])&&is_string($bet[$field])){
+                $bet[$field]=self::capitalizeSentences($bet[$field]);
+            }
+        }
+        return $bet;
+    }
+
     private static function containsAnalysis(string $text): bool
     {
         return mb_strlen(trim($text),'UTF-8')>=180;
@@ -387,6 +413,7 @@ final class SmartFormatting
     /** Card-mode only. Never alter the extracted source or the original analysis. */
     public static function cardView(array $bet): array
     {
+        $bet=self::sentenceCaseBet($bet);
         // Apply at the renderer boundary as well; a caller cannot bring back
         // the source stake after extraction or when the source leaves it blank.
         $bet['stake']=self::FIXED_STAKE;
@@ -425,6 +452,7 @@ final class SmartFormatting
     }
     public static function asText(array $bet,bool $translated): string
     {
+        $bet=self::sentenceCaseBet($bet);
         // Every AI-formatted mode shows exactly one Stake 10 field, regardless
         // of the value returned by either provider.
         $bet['stake']=self::FIXED_STAKE;
