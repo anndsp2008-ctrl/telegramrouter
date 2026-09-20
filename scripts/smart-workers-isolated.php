@@ -112,6 +112,27 @@ function tipResponseStatus(string $response): string {
     return 'OK';
 }
 
+
+if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
+    $base=['match'=>'Venezia x Lazio','market'=>'Total de escanteios','selection'=>'Mais de 8,5',
+        'analysis'=>'Dado do autor: {não altera mercado} e "citação"'];
+    $json=json_encode($base,JSON_UNESCAPED_UNICODE);
+    if(!is_string($json)||tipResponseStatus($json)!=='OK')
+        throw new RuntimeException('Valid tip was rejected');
+    $fence=str_repeat(chr(96),3);
+    foreach([$json,"Aqui está o JSON:\n".$json."\n", "~~~\n".$json."\n~~~",
+       $fence."json\n".$json."\n".$fence] as $value){
+        if(parseTip($value)!==$base||tipResponseStatus($value)!=='OK')
+            throw new RuntimeException('Valid wrapped JSON parsing regression');
+    }
+    foreach(['Um relato sem JSON','{"match":"Venezia"', '{"match":"Venezia","market":"","selection":"Mais de 8,5"}',
+             '{"match":{"untrusted":true},"market":"Escanteios","selection":"Mais de 8,5"}'] as $value){
+        if(tipResponseStatus($value)==='OK')throw new RuntimeException('Invalid JSON accepted');
+    }
+    echo "WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED\n";
+    exit(0);
+}
+
 try{
     $raw=stream_get_contents(STDIN,7500000);
     $input=is_string($raw)?json_decode($raw,true):null;
