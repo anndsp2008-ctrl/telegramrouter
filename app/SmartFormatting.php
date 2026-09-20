@@ -422,6 +422,14 @@ final class SmartFormatting
             :($forcedTextModel??($configuredModel===WorkersAITranslation::VISION_MODEL
                 ?WorkersAITranslation::PREVIOUS_DEFAULT_MODEL:$configuredModel));
         if(!WorkersAITranslation::validModel($model)){self::diag('WORKERS_AI_MODEL_INVALID');return null;}
+        // The Vision models have already read the receipt by this stage.
+        // A second text model needs only the essential fields for a safe
+        // card, not a 15-field schema with monetary amounts and long analysis.
+        // The presentation layer supplies Stake 10 and a contextual sports
+        // analysis after match, market and selection have been validated.
+        if($forcedTextModel!==null){
+            $fields=['match','market','selection','league','odd'];
+        }
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
