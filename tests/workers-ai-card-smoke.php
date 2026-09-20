@@ -42,16 +42,13 @@ namespace {
         throw new \RuntimeException('Provider card exposed secret');
     if(substr_count($output,'class="saas-card translation-provider-card')!==1)
         throw new \RuntimeException('Provider layout differs from existing cards');
-    // The first three provider cards use provider-badge directly. Workers
-    // AI must not add form-status: its independent font/padding/pseudo-element
-    // overrides caused the last status to differ across breakpoints.
-    if(!preg_match('/<div class="provider-head">\s*<div>.*?<p class="workers-ai-observation">.*?<\/p><\/div>\s*<span class="provider-badge">\s*Configurado\s*<\/span>\s*<\/div>/s',$output))
-        throw new \RuntimeException('Workers AI must render the exact shared provider-badge markup');
-    if(str_contains($output,'class="provider-badge is-configured"') ||
-       str_contains($output,'class="provider-badge is-empty"') ||
-       str_contains($output,'class="form-status provider-badge"') ||
-       str_contains($output,'class="form-status provider-badge '))
-        throw new \RuntimeException('Legacy form-status reintroduced on Workers AI provider badge');
+    // Live production inspection confirmed Google Cloud, Azure and Gemini use
+    // the SAME status markup: form-status + state class + child <i> dot.
+    // Workers AI must render that exact contract, with no provider-badge class.
+    if(!preg_match('/<div class="provider-head">\s*<div>.*?<p class="workers-ai-observation">.*?<\/p><\/div>\s*<span class="form-status is-configured"><i><\/i>Configurado<\/span>\s*<\/div>/s',$output))
+        throw new \RuntimeException('Workers AI status markup does not match Google/Azure/Gemini');
+    if(str_contains($output,'provider-badge'))
+        throw new \RuntimeException('Workers AI must not use provider-badge status markup');
     if(substr_count($output,'Se o Llama 3.2 Vision retornar uma imagem')!==1 ||
        str_contains($output,'<p class="field-help">Se o Llama 3.2 Vision'))
         throw new \RuntimeException('Workers AI observation is duplicated or outside the content column');
@@ -60,21 +57,20 @@ namespace {
     $css=(string)file_get_contents(__DIR__.'/../assets/brand/workers-ai-provider.css');
     if(!str_contains($css,'content:"CF"!important') || !str_contains($css,'--provider-accent:#f48120!important'))
         throw new \RuntimeException('Workers AI provider icon or color absent');
-    $installer=(string)file_get_contents(__DIR__.'/../runtime-workers-ai.php');
-    if(!str_contains($installer,'workers-ai-provider.css?v=4') ||
-       !str_contains($css,'> .form-status') ||
-       str_contains($css,'.provider-badge.is-configured') ||
-       str_contains($css,'.provider-badge.is-configured::before')){
-        throw new \RuntimeException('Workers AI provider cache or status styling may be stale');
+    if(str_contains($css,'> .form-status{') ||
+       str_contains($css,'> .form-status {') ||
+       str_contains($css,'@media(max-width:640px)')){
+        throw new \RuntimeException('Workers AI has provider-specific status overrides instead of shared status styling');
     }
+    $installer=(string)file_get_contents(__DIR__.'/../runtime-workers-ai.php');
+    if(!str_contains($installer,'workers-ai-provider.css?v=5'))
+        throw new \RuntimeException('Workers AI provider stylesheet cache is stale');
     $layout=(string)file_get_contents(__DIR__.'/../assets/brand/integrations-v10.css');
     $responsive=(string)file_get_contents(__DIR__.'/../assets/brand/mobile-visual-audit.css');
     if(!str_contains($layout,'> div > .workers-ai-observation') ||
-       !str_contains($layout,'> .provider-badge') ||
-       !str_contains($responsive,'grid-column:3 / 4!important;') ||
-       !str_contains($responsive,'grid-row:1 / 2!important;') ||
-       !str_contains($responsive,'> .workers-ai-provider-card > .provider-head > div > .workers-ai-observation')){
-        throw new \RuntimeException('Workers AI shared text column or compact tablet/mobile status alignment missing');
+       !str_contains($layout,'.translation-provider-grid .form-status') ||
+       !str_contains($responsive,':is(.provider-badge,.form-status)')){
+        throw new \RuntimeException('Shared integration status styling is missing');
     }
     if(!str_contains($css,'> .provider-test.bad > em') ||
        !str_contains($css,'display:block!important;') ||
