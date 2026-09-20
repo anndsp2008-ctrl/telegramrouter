@@ -95,6 +95,12 @@ final class SmartFormatting
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
+        // The current card schema represents one event. Never let an AI merge
+        // two explicitly different textual matches into one synthetic bet.
+        if(($localImage===null||!is_file($localImage)) && self::multipleDistinctMatchesInText($sourceText)){
+            self::diag('MULTIPLE_EVENTS_UNSUPPORTED');
+            return null;
+        }
         // Use the EXACT primary/fallback resolution from the translation rule.
         // Every attempt must translate AND extract; no invisible Gemini call
         // when the configured provider is Workers AI or translation-only.
@@ -141,15 +147,18 @@ final class SmartFormatting
             }
 
             $sourceHasAnalysis=self::containsAnalysis($sourceText);
-            if($candidate['analysis']==='' && $sourceHasAnalysis){
-                self::diag('ANALYSIS_ABSENT_'.$provider);
-                continue;
-            }
-            if($candidate['analysis']===''){
-                // Generate only a rules-based market explanation. Never create
-                // team form, statistics, injuries, probabilities or narratives
-                // that do not exist in the source.
+            if($sourceHasAnalysis){
+                if($candidate['analysis']===''){
+                    self::diag('ANALYSIS_ABSENT_'.$provider);
+                    continue;
+                }
+                $candidate['analysis_generated']=false;
+            } else {
+                // Never accept free-form model prose as source analysis when
+                // the source itself contains none. Build a deterministic market
+                // explanation from the already validated structured fields.
                 $candidate['analysis']=self::technicalAnalysis($candidate,$target);
+                $candidate['analysis_generated']=$candidate['analysis']!=='';
             }
             $bet=self::sentenceCaseBet($candidate);
             error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
@@ -395,7 +404,33 @@ final class SmartFormatting
         return true;
     }
 
-    /** @return array<string,string>|null */
+    private static function statusLooksLive(string $status): bool
+    {
+        $status=mb_strtolower(trim($status),'UTF-8');
+        return in_array($status,[
+            'ao vivo','live','livebet','in play','in-play','em jogo',
+            'partida em andamento','jogo em andamento','em andamento',
+            'en vivo','en directo','partido en curso','match live',
+            'match in progress','en direct'
+        ],true);
+    }
+
+    private static function multipleDistinctMatchesInText(string $text): bool
+    {
+        $pairs=[];
+        $lines=preg_split('/\\R+/u',$text);
+        if(!is_array($lines))return false;
+        foreach($lines as $line){
+            if(!preg_match('/(.{2,70}?)\\s+(?:x|×|vs\\.?|v)\\s+(.{2,70}?)(?:\\s*[|•]|$)/iu',trim($line),$m))continue;
+            $left=self::normalizedEvidence((string)$m[1]);
+            $right=self::normalizedEvidence((string)$m[2]);
+            if($left===''||$right==='')continue;
+            $pairs[$left.'|'.$right]=true;
+        }
+        return count($pairs)>1;
+    }
+
+    /** @return array<string,mixed>|null */
     private static function applySourceGuards(array $candidate,string $sourceText,bool $hasImage): ?array
     {
         $sourceText=trim($sourceText);
@@ -424,7 +459,7 @@ final class SmartFormatting
             $candidate['status']='';
         } elseif(self::explicitLiveInText($sourceText)){
             $candidate['status']='AO VIVO';
-        } elseif(!$hasImage && mb_strtoupper(trim((string)($candidate['status']??'')),'UTF-8')==='AO VIVO'){
+        } elseif(!$hasImage && self::statusLooksLive((string)($candidate['status']??''))){
             self::diag('LIVE_STATUS_UNGROUNDED');
             $candidate['status']='';
         }
@@ -758,7 +793,14 @@ final class SmartFormatting
           'potential_profit'=>['💵','Lucro potencial','Potential profit']] as $field=>$labels){
             if(!empty($bet[$field]))$lines[]=$labels[0].' '.$label($labels[1],$labels[2]).': '.$bet[$field];
         }
-        if(!empty($bet['analysis'])){$lines[]='';$lines[]='📝 '.$label('Análise original','Original analysis').':';$lines[]=$bet['analysis'];}
+        if(!empty($bet['analysis'])){
+            $lines[]='';
+            $analysisLabel=!empty($bet['analysis_generated'])
+                ?$label('Análise inteligente','Intelligent analysis')
+                :$label('Análise original','Original analysis');
+            $lines[]='📝 '.$analysisLabel.':';
+            $lines[]=$bet['analysis'];
+        }
         return implode("\n",$lines);
     }
     /**
