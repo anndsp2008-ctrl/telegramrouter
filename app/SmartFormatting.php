@@ -185,6 +185,18 @@ final class SmartFormatting
         }
         return $providers;
     }
+    private const WORKERS_VISION_RESCUE_MODEL='@cf/meta/llama-4-scout-17b-16e-instruct';
+    /** A same-provider visual rescue is only for malformed MODEL output,
+     * never for missing credentials, authentication failures, or exhausted quota.
+     */
+    public static function workerVisualRescueEligible(string $reason): bool
+    {
+        return in_array($reason,[
+            'RESPONSE_MISSING_TEXT','RESPONSE_NOT_JSON','RESPONSE_EMPTY',
+            'RESPONSE_UNSTRUCTURED_TOOL_CALLS','RESPONSE_MISSING_REQUIRED_FIELDS',
+            'RESPONSE_BAD_FIELD_TYPES'
+        ],true);
+    }
     private static function containsAnalysis(string $text): bool
     {
         return mb_strlen(trim($text),'UTF-8')>=180;
@@ -232,8 +244,19 @@ final class SmartFormatting
         if(!function_exists('proc_open')||!is_file($transport)){
             self::diag('WORKERS_AI_TRANSPORT_MISSING');return null;
         }
-        $input=json_encode(['account'=>$account,'token'=>$token,'model'=>$model,
-            'prompt'=>$prompt,'image'=>$photo],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        // The primary remains the selected Llama 3.2 Vision model. If its
+        // HTTP-200 output contains no usable structured bet, make ONE rescue
+        // attempt with another vision-capable model on the SAME Cloudflare
+        // account. Never switch the user's configured provider or global
+        // fallback; never retry auth/quota failures via a second model.
+        $models=[$model];
+        if($hasImage && $model===WorkersAITranslation::VISION_MODEL){
+            $models[]=self::WORKERS_VISION_RESCUE_MODEL;
+        }
+        foreach($models as $index=>$activeModel){
+            if($index>0)self::diag('WORKERS_AI_VISION_RESCUE_STARTED');
+            $input=json_encode(['account'=>$account,'token'=>$token,'model'=>$activeModel,
+                'prompt'=>$prompt,'image'=>$photo,'fields'=>$fields],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if(!is_string($input)){self::diag('WORKERS_AI_INPUT_ERROR');return null;}
         $pipes=[];$process=@proc_open(['php',$transport],
             [0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']],
@@ -262,9 +285,15 @@ final class SmartFormatting
             $reason=(string)($result['reason']??'PROCESS_FAILED');
             if(!preg_match('/^[A-Z0-9_]{1,40}$/D',$reason))$reason='PROCESS_FAILED';
             self::diag('WORKERS_AI_'.$reason);
+            if($index===0 && isset($models[1]) && self::workerVisualRescueEligible($reason)){
+                continue;
+            }
             return null;
         }
+        if($index>0)self::diag('WORKERS_AI_VISION_RESCUE_SUCCEEDED');
         return $result['data'];
+        }
+        return null;
     }
     /** @param list<string> $fields */
     private static function request(string $key,string $text,?string $image,string $language,array $fields): ?array

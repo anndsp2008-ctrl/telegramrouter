@@ -44,6 +44,7 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
     </div>
     <p class="field-help">O teste verifica o modelo de texto e o modelo Vision utilizado nos cards com imagens. Para usar o Llama 3.2 Vision, é necessário aceitar separadamente os termos da Meta na Cloudflare. <a href="https://developers.cloudflare.com/workers-ai/models/llama-3.2-11b-vision-instruct/" target="_blank" rel="noopener noreferrer">Ver instruções do modelo</a>.</p>
   </form>
+  <p class="field-help">Se o Llama 3.2 Vision retornar uma imagem sem dados estruturados, o Workers AI fará uma tentativa de recuperação com o Llama 4 Scout, usando a mesma conta Cloudflare, antes do fallback de tradução configurado. O modelo secundário pode consumir recursos adicionais da conta; as mensagens sem os campos essenciais continuarão pendentes de correção, sem envio do original.</p>
   <div class="provider-test <?=$workersAITest?((int)$workersAITest['last_test_ok']?'ok':'bad'):'neutral'?>">
     <b>Último teste</b><span><?=$workersAITest?((int)$workersAITest['last_test_ok']?'Conexão válida':'Falha'):'Ainda não testado'?></span>
     <small><?=$workersAITest?sh(dataHoraBrasil($workersAITest['last_test_at'])).' · '.(int)$workersAITest['last_test_latency_ms'].' ms':'—'?></small>

@@ -191,6 +191,13 @@ try{
     $prompt=(string)($input['prompt']??'');
     $image=$input['image']??null;
     $checkOnly=($input['check_only']??false)===true;
+    // Only the rescue vision model uses guided_json; the selected Llama 3.2
+    // primary and the existing translation transport remain unchanged.
+    $fields=$input['fields']??[];
+    if(!is_array($fields)||count($fields)>24)$fields=[];
+    $fields=array_values(array_filter($fields,static fn($field): bool =>
+        is_string($field)&&preg_match('/^[a-z_]{2,30}$/D',$field)===1));
+
     if(!preg_match('/^[a-f0-9]{32}$/Di',$account)||
        !preg_match('~^@cf/[A-Za-z0-9._-]+/[A-Za-z0-9._-]{2,100}$~D',$model)||
        $token===''||$prompt===''||strlen($prompt)>300000||
@@ -217,6 +224,12 @@ try{
             ]],
             'temperature'=>0,'max_tokens'=>2800,'stream'=>false
         ];
+        if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
+            $properties=[];
+            foreach($fields as $field)$properties[$field]=['type'=>'string'];
+            $payload['guided_json']=['type'=>'object','properties'=>$properties,
+                'additionalProperties'=>false];
+        }
     }
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
