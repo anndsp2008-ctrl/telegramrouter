@@ -16,8 +16,8 @@ $required=[
     ['mobile/touch badge', $mobile, 'justify-self:end!important;'],
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
-    ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&badge-right=1'],
-    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=11']
+    ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&badge-compact=2'],
+    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=12']
 ];
 foreach($required as [$label,$source,$token]){
     if(!str_contains($source,$token))$fail('Integration badge alignment regression: '.$label);
@@ -50,3 +50,39 @@ if(preg_match('/> \.provider-badge\s*\{[^}]*grid-row\s*:\s*2\s*!important/s',$in
     $fail('Mobile badge would leave the chevron row');
 }
 echo "INTEGRATION_BADGE_SAME_ROW_ALL_VIEWPORTS_TESTS_PASSED\n";
+
+// Regression for the screenshot: the first three provider pills were
+// stretched across the entire header, while the final provider was compact.
+// Apply the same intrinsic-size contract to ALL provider cards, irrespective
+// of which input or form the provider happens to contain.
+$contractStart=strrpos($mobile,'/* FINAL provider badge sizing:');
+if($contractStart===false)$fail('Missing final compact badge override');
+$contract=substr($mobile,$contractStart);
+$globalStart=strrpos($desktop,'/* Global status badge size contract');
+if($globalStart===false)$fail('Missing global provider badge width invariant');
+$global=substr($desktop,$globalStart);
+foreach([$contract,$global] as $scope){
+    foreach([
+        '.translation-provider-grid > * > :is(.provider-head,.saas-card-head)>.provider-badge',
+        'width:max-content!important;',
+        'inline-size:max-content!important;',
+        'min-width:max-content!important;',
+        'max-width:none!important;',
+        'flex:0 0 auto!important;',
+        'justify-self:end!important;'
+    ] as $token){
+        if(!str_contains($scope,$token))$fail('Provider badge expands or varies across cards: '.$token);
+    }
+    if(str_contains($scope,'width:100%!important;') ||
+       str_contains($scope,'grid-column:2 / 4!important;') ||
+       str_contains($scope,'justify-self:stretch!important;'))
+        $fail('Provider badge may stretch across header');
+}
+foreach([
+    'grid-column:3 / 4!important;',
+    'grid-row:1 / 2!important;',
+    'grid-column:4!important;grid-row:1!important;'
+] as $token){
+    if(!str_contains($contract,$token))$fail('Badge and chevron no longer share header row: '.$token);
+}
+echo "INTEGRATION_BADGE_COMPACT_ALL_PROVIDERS_TESTS_PASSED\n";
