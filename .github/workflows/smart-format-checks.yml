@@ -64,9 +64,8 @@ jobs:
           p=Path('/tmp/tmr-smart-fixture/scripts/translation-migrate.php')
           if not p.exists(): raise SystemExit('legacy migration file missing')
           lines=p.read_text().splitlines()
-          for i,line in enumerate(lines):
-              if any(key in line.lower() for key in ('translation_provider', 'enum(', 'modify', 'alter table', 'column_type')):
-                  print('MIGRATION',i+1,':',line[:500])
+          for i,line in enumerate(lines[:120]):
+              print('MIGRATION_CONTEXT',i+1,':',line[:700])
           PY
       - name: Assert isolated single-pass routing patch
         run: |
