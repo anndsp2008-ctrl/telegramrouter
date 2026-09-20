@@ -429,24 +429,23 @@ try{
         unset($ch);
         if($http===200&&is_string($body)&&strlen($body)<=450000){
             $envelope=json_decode($body,true);
-            $response=is_array($envelope)?($envelope['result']['response']??null):null;
             if(!is_array($envelope)||empty($envelope['success'])){
                 reply(false,'CF_ENVELOPE_INVALID');
             }
+            // Cloudflare may return result.response, a JSON object directly
+            // under result, OR a bare result string. Do not cast a bare string
+            // to an array: that silently erases the visual observation and
+            // misclassifies the reply as RESPONSE_MISSING_TEXT.
+            $rawResult=$envelope['result']??null;
+            $result=is_array($rawResult)?$rawResult:
+                (is_string($rawResult)?['response'=>$rawResult]:[]);
+            $response=$result['response']??null;
             if($checkOnly){
                 if(is_string($response)&&trim($response)!=='')reply(true,'OK',[]);
                 reply(false,'PROBE_MISSING_TEXT');
             }
-            $result=(array)($envelope['result']??[]);
             $bet=parsedVisionBet($result);
             if($bet!==null)reply(true,'OK',$bet);
-            // A successful REST envelope may contain a bare JSON string as
-            // result (rather than result.response); validate it identically.
-            $rawResult=$envelope['result']??null;
-            if(is_string($rawResult) && tipResponseStatus($rawResult)==='OK'){
-                $parsed=parseTip($rawResult);
-                if(is_array($parsed))reply(true,'OK',$parsed);
-            }
             // Llama Vision can describe the ticket or return incomplete JSON.
             // Keep only bounded model observations for the SAME Cloudflare
             // account's text model. The parent never logs these strings.
