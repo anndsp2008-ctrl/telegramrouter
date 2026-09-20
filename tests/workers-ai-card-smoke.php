@@ -45,9 +45,11 @@ namespace {
     // The first three provider cards use provider-badge directly. Workers
     // AI must not add form-status: its independent font/padding/pseudo-element
     // overrides caused the last status to differ across breakpoints.
-    if(!preg_match('/<div class="provider-head">\s*<div>.*?<p class="workers-ai-observation">.*?<\/p><\/div>\s*<span class="provider-badge is-configured">\s*Configurado\s*<\/span>\s*<\/div>/s',$output))
+    if(!preg_match('/<div class="provider-head">\s*<div>.*?<p class="workers-ai-observation">.*?<\/p><\/div>\s*<span class="provider-badge">\s*Configurado\s*<\/span>\s*<\/div>/s',$output))
         throw new \RuntimeException('Workers AI must render the exact shared provider-badge markup');
-    if(str_contains($output,'class="form-status provider-badge"') ||
+    if(str_contains($output,'class="provider-badge is-configured"') ||
+       str_contains($output,'class="provider-badge is-empty"') ||
+       str_contains($output,'class="form-status provider-badge"') ||
        str_contains($output,'class="form-status provider-badge '))
         throw new \RuntimeException('Legacy form-status reintroduced on Workers AI provider badge');
     if(substr_count($output,'Se o Llama 3.2 Vision retornar uma imagem')!==1 ||
