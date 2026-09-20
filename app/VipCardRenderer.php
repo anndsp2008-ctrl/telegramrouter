@@ -114,7 +114,7 @@ final class VipCardRenderer
         self::txt($im,565,490,$stake,$stakeSize,$green,$bold);
 
         self::roundRect($im,53,$analysisY,1027,$analysisY+$analysisHeight,17,$analysisBg);
-        self::txt($im,72,$analysisY+35,'ANÁLISE ORIGINAL',16,$muted,$font);
+        self::txt($im,72,$analysisY+35,'ANÁLISE DA APOSTA',16,$muted,$font);
         $cursor=$analysisY+72;
         foreach($analysisLines as $part){
             self::txt($im,72,$cursor,$part,19,$white,$font);
