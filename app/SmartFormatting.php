@@ -347,7 +347,7 @@ final class SmartFormatting
                 return self::capitalizeSentences(
                     'O confronto '.$match.$context.' está associado à seleção '.$selection.' no mercado '.$market.'. '.
                     'A leitura técnica desse mercado envolve a capacidade de cada lado transformar as suas oportunidades em gols, sem pressupor desempenho recente que não foi informado. '.
-                    'Um gol de apenas uma equipe não é suficiente para a seleção Sim: as duas precisam marcar ao menos uma vez. '.
+                    'Um gol de apenas uma equipe não é suficiente para a seleção Sim: as duas equipes precisam marcar ao menos uma vez. '.
                     'O cenário contrário é uma partida em que pelo menos um dos times termine sem marcar, independentemente de quantos gols o adversário faça.'
                 );
             }
@@ -355,7 +355,7 @@ final class SmartFormatting
                 return self::capitalizeSentences(
                     'No confronto '.$match.$context.', a seleção '.$selection.' foi indicada no mercado '.$market.'. '.
                     'O foco técnico está na quantidade total de ocorrências do evento especificado pela aposta, e não necessariamente no resultado final da partida. '.
-                    'Para a seleção vencer, o total registrado precisa superar a linha definida no mercado, conforme as regras de liquidação aplicáveis. '.
+                    'Para a seleção vencer, o total registrado precisa superar a linha indicada no mercado, conforme as regras de liquidação aplicáveis. '.
                     'Um ritmo de jogo que produza menos ocorrências do que essa linha representa o cenário desfavorável para a seleção.'
                 );
             }
