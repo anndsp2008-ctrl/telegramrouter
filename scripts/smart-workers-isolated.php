@@ -202,6 +202,16 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
         if(tipResponseStatus($value)==='OK')throw new RuntimeException('Invalid JSON accepted');
     }
 
+    // Some REST endpoints return JSON fields directly under result instead
+    // of wrapping them as result.response. Never accept incomplete fields.
+    $minimal=['match'=>'Fulham x Manchester United','market'=>'Ambos marcam',
+        'selection'=>'Sim','league'=>'Premier League','odd'=>'1.50'];
+    if(parsedVisionBet($minimal)!==$minimal ||
+       parsedVisionBet(['match'=>'Fulham x Manchester United',
+           'market'=>'Ambos marcam','selection'=>''])!==null ||
+       parsedVisionBet(['match'=>'Fulham x Manchester United',
+           'market'=>'Ambos marcam','selection'=>['Sim']])!==null)
+        throw new RuntimeException('Direct structured result validation failed');
     // Cloudflare JSON Mode returns result.response as an object rather
     // than a JSON-encoded string on some routes.
     if(parsedVisionBet(['response'=>$base])!==$base ||
