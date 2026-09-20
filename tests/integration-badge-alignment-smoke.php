@@ -16,7 +16,7 @@ $required=[
     ['mobile/touch badge', $mobile, 'justify-self:end!important;'],
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
-    ['stylesheet cache v10', $installer, '/assets/brand/integrations-v10.css?v=9'],
+    ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&badge-right=1'],
     ['responsive cache v10', $installer, '/assets/brand/mobile-visual-audit.css?v=10']
 ];
 foreach($required as [$label,$source,$token]){
