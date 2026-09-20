@@ -17,7 +17,7 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
     <div><span class="saas-kicker">CLOUDFLARE AI</span><h2>Workers AI</h2>
       <p>Tradução e interpretação de apostas com texto e imagem.</p>
       <p class="workers-ai-observation">Se o Llama 3.2 Vision retornar uma imagem sem dados estruturados, o Workers AI fará uma tentativa de recuperação com o Llama 4 Scout, usando a mesma conta Cloudflare, antes do fallback de tradução configurado. O modelo secundário pode consumir recursos adicionais da conta; as mensagens sem os campos essenciais continuarão pendentes de correção, sem envio do original.</p></div>
-    <span class="provider-badge">
+    <span class="form-status <?=$workersAIConfigured?'is-configured':'is-empty'?>">
       <?=$workersAIConfigured?'Configurado':'Não configurado'?></span>
   </div>
   <form method="post" class="provider-form">
