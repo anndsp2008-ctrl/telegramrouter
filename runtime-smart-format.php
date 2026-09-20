@@ -61,7 +61,7 @@ try {
       <option value="text" <?=$smartMode==='text'?'selected':''?>>Somente texto formatado</option>
     </select>
   </label>
-  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Se a IA ou o card falhar, a mensagem NÃO será encaminhada sem formatação; a falha será registrada para nova tentativa.</p>
+  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Se a IA ou o card falhar, a mensagem NÃO será encaminhada sem formatação; a falha será registrada no histórico, sem encaminhar o conteúdo original.</p>
 </section>
 HTML;
     $index=$replaceOne($index,
