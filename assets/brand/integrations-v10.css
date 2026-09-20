@@ -970,3 +970,35 @@ body:has(.translation-provider-grid) .translation-provider-grid > * > :is(.provi
   margin:0!important;
   white-space:nowrap!important;
 }
+
+/* Workers AI uses the same content column as every other integration.
+   Its longer explanatory text is inside the header text wrapper rather than
+   a full-bleed sibling between the header and connection-test strip. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > div > .workers-ai-observation{
+  display:block!important;
+  margin:12px 0 0!important;
+  padding:0!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:720px!important;
+  color:rgba(203,213,225,.65)!important;
+  font-size:11px!important;
+  line-height:1.55!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  text-align:left!important;
+}
+/* All four providers use content-sized status pills, including Workers AI
+   whose original status element was a form-status span rather than a badge. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge{
+  display:inline-flex!important;
+  width:max-content!important;
+  inline-size:max-content!important;
+  min-width:max-content!important;
+  max-width:none!important;
+  flex:0 0 auto!important;
+  justify-self:end!important;
+  align-self:center!important;
+  margin:0!important;
+  white-space:nowrap!important;
+}
