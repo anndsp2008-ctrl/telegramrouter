@@ -330,37 +330,67 @@ final class SmartFormatting
         $selection=trim((string)($bet['selection']??''));
         if($match===''||$market===''||$selection==='')return '';
 
+        $league=trim((string)($bet['league']??''));
+        $context=$league!==''?' pela competição '.$league:'';
         $haystack=mb_strtolower($market.' '.$selection,'UTF-8');
+        $negativeBtts=preg_match('/^(?:não|nao|no|not|false)$/u',mb_strtolower($selection,'UTF-8'))===1;
         if($portuguese){
             if(preg_match('/\b(ambos.*marcam|ambas.*marcam|both teams.*score|btts)\b/u',$haystack)){
+                if($negativeBtts){
+                    return self::capitalizeSentences(
+                        'O confronto '.$match.$context.' está associado à seleção '.$selection.' no mercado '.$market.'. '.
+                        'A leitura técnica desse mercado trata de quantas equipes conseguem marcar ao menos um gol, sem presumir seu rendimento prévio. '.
+                        'Para a seleção Não vencer, pelo menos uma equipe deve terminar sem marcar durante a partida. '.
+                        'O cenário contrário ocorre quando as duas equipes marcam ao menos uma vez.'
+                    );
+                }
                 return self::capitalizeSentences(
-                    'A seleção considera gols dos dois lados no confronto '.$match.'. '.
-                    'Para a aposta ser vencedora, as duas equipes precisam marcar pelo menos um gol.'
+                    'O confronto '.$match.$context.' está associado à seleção '.$selection.' no mercado '.$market.'. '.
+                    'A leitura técnica desse mercado envolve a capacidade de cada lado transformar as suas oportunidades em gols, sem pressupor desempenho recente que não foi informado. '.
+                    'Um gol de apenas uma equipe não é suficiente para a seleção Sim: as duas equipes precisam marcar ao menos uma vez. '.
+                    'O cenário contrário é uma partida em que pelo menos um dos times termine sem marcar, independentemente de quantos gols o adversário faça.'
                 );
             }
             if(preg_match('/\b(over|mais de|acima de)\b/u',$haystack)){
                 return self::capitalizeSentences(
-                    'A aposta está concentrada em '.$selection.' no mercado '.$market.' para '.$match.'. '.
-                    'A seleção será vencedora se o total observado superar a linha indicada.'
+                    'No confronto '.$match.$context.', a seleção '.$selection.' foi indicada no mercado '.$market.'. '.
+                    'O foco técnico está na quantidade total de ocorrências do evento especificado pela aposta, e não necessariamente no resultado final da partida. '.
+                    'Para a seleção vencer, o total registrado precisa superar a linha indicada no mercado, conforme as regras de liquidação aplicáveis. '.
+                    'Um ritmo de jogo que produza menos ocorrências do que essa linha representa o cenário desfavorável para a seleção.'
                 );
             }
             if(preg_match('/\b(under|menos de|abaixo de)\b/u',$haystack)){
                 return self::capitalizeSentences(
-                    'A aposta está concentrada em '.$selection.' no mercado '.$market.' para '.$match.'. '.
-                    'A seleção será vencedora se o total observado permanecer abaixo da linha indicada.'
+                    'No confronto '.$match.$context.', a seleção '.$selection.' foi indicada no mercado '.$market.'. '.
+                    'A leitura técnica se concentra na quantidade total de ocorrências do evento escolhido, e não apenas em qual equipe vence a partida. '.
+                    'Para a seleção vencer, esse total precisa permanecer abaixo da linha definida, conforme as regras de liquidação aplicáveis. '.
+                    'Uma sequência de eventos que faça o total ultrapassar a linha é o cenário desfavorável para essa escolha.'
                 );
             }
             return self::capitalizeSentences(
-                'A seleção '.$selection.' foi indicada no mercado '.$market.' para o confronto '.$match.'. '.
-                'A resolução da aposta depende do cumprimento dessa condição específica de mercado.'
+                'O confronto '.$match.$context.' tem como referência a seleção '.$selection.' no mercado '.$market.'. '.
+                'A análise desta tip deve distinguir o evento exigido pela seleção de outros acontecimentos que não determinam diretamente a liquidação do mercado. '.
+                'O cenário favorável depende de a condição específica da seleção ser cumprida durante a partida, de acordo com as regras do mercado. '.
+                'Um desfecho que não atenda a essa condição representa o principal risco da aposta; não há dados adicionais nesta tip que permitam estimar sua frequência.'
             );
         }
-        if(preg_match('/\b(both teams.*score|btts)\b/u',$haystack)){
-            return 'The selection expects both sides to score in '.$match.'. '.
-                'For the bet to win, each team must score at least once.';
+        $englishContext=$league!==''?' in '.$league:'';
+        if(preg_match('/\b(both teams.*score|btts|ambos.*marcam|ambas.*marcam)\b/u',$haystack)){
+            if($negativeBtts){
+                return 'The match '.$match.$englishContext.' is associated with the '.$selection.' selection in the '.$market.' market. '.
+                    'This market asks whether both teams will score, without implying any unreported prior performance. '.
+                    'A No selection wins if at least one team finishes without scoring. '.
+                    'The opposite scenario occurs when both teams score at least once.';
+            }
+            return 'The match '.$match.$englishContext.' is associated with the '.$selection.' selection in the '.$market.' market. '.
+                'This market concerns whether both teams convert at least one scoring opportunity, without assuming any unreported recent performance. '.
+                'For a Yes selection to win, each team must score at least once; a goal by just one side is insufficient. '.
+                'The opposite scenario is that at least one team finishes without scoring, regardless of the other team’s total.';
         }
-        return 'The selection '.$selection.' is placed in the '.$market.' market for '.$match.'. '.
-            'The bet is settled according to that specific market condition.';
+        return 'The match '.$match.$englishContext.' is linked to the '.$selection.' selection in the '.$market.' market. '.
+            'The relevant question is whether the specific event described by that selection occurs, rather than unrelated match outcomes. '.
+            'Settlement depends on the market’s stated conditions and the actual match events. '.
+            'An outcome that does not meet those conditions is the main risk; this tip supplies no additional verified data to estimate its frequency.';
     }
 
     private static function containsAnalysis(string $text): bool
@@ -393,7 +423,8 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            "No campo analysis: se a origem trouxer uma análise esportiva real, preserve seus fatos relevantes; se NÃO trouxer análise esportiva, CRIE uma análise curta de 1 a 3 frases baseada SOMENTE em match, league, market e selection extraídos. Explique o que a seleção significa e qual condição esportiva precisa ocorrer para ela vencer, sem frases genéricas. ".
+            "No campo analysis, produza uma ANÁLISE INTELIGENTE DA TIP detalhada e objetiva em 3 a 5 frases: contexto real do confronto/competição quando informado; interpretação técnica do mercado; justificativa condicional da seleção; condição de acerto e principal cenário contrário. Se a origem trouxer análise esportiva, preserve integralmente os fatos esportivos relevantes e acrescente apenas explicações fundamentadas no mercado e na seleção; se não trouxer, desenvolva essas frases exclusivamente com os campos extraídos match, league, market e selection. Não repita informações nem produza resumo vazio ou genérico. ".
+            "Só inclua números estatísticos, forma recente, retrospecto, dados ofensivos ou defensivos se estiverem explicitamente documentados em fonte identificável e período claro nos dados fornecidos; não trate informações da origem como verificadas externamente e não consulte nem simule bases de dados externas. Sem dados, ofereça análise técnica condicional sem afirmar que uma equipe criará chances, vencerá ou tem vantagem. ".
             "Nunca use apenas frases como 'Aposta feita com responsabilidade'. Omita stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não invente probabilidade, estatísticas, forma recente, lesões, escalações, motivação, favoritismo ou fatos externos. ".
             "Status AO VIVO somente se a PARTIDA estiver explicitamente em andamento; bilhete aberto não basta. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
@@ -531,7 +562,8 @@ final class SmartFormatting
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
             "Odd é cotação, não probabilidade: não invente porcentagens de acerto nem prometa resultado vencedor. ".
-            "No campo analysis: se houver análise esportiva real na origem, preserve seus fatos relevantes; se NÃO houver, CRIE uma análise curta de 1 a 3 frases usando SOMENTE match, league, market e selection extraídos, explicando a condição esportiva necessária para a seleção vencer. ".
+            "No campo analysis, produza uma ANÁLISE INTELIGENTE DA TIP aprofundada, com 3 a 5 frases de contexto factual disponível, interpretação técnica do mercado, fundamento condicional da seleção, condição de acerto e cenário contrário. Se a origem trouxer análise esportiva, preserve seus fatos relevantes; se não trouxer, use somente match, league, market e selection extraídos. Evite paráfrase redundante ou resumo genérico. ".
+            "Inclua estatísticas, forma recente, desempenho ofensivo/defensivo e histórico apenas quando presentes nos dados fornecidos com fonte identificável e período; atribua-os à fonte de origem, sem afirmar verificação externa. Sem fontes, não invente tendências, chances esperadas ou vantagem das equipes; mantenha análise contextual condicional. ".
             "Não use frases genéricas como 'Aposta feita com responsabilidade'. Não invente probabilidade, estatísticas, forma recente, lesões, escalações, motivação, favoritismo ou fatos externos. ".
             "Não reproduza stake original, unidades, quantia apostada, banca, retorno financeiro, lucro ou valores monetários no campo analysis. ".
             "O campo analysis deve ser preenchido sempre que match, market e selection estiverem disponíveis. ".
@@ -654,7 +686,7 @@ final class SmartFormatting
           'potential_profit'=>['💵','Lucro potencial','Potential profit']] as $field=>$labels){
             if(!empty($bet[$field]))$lines[]=$labels[0].' '.$label($labels[1],$labels[2]).': '.$bet[$field];
         }
-        if(!empty($bet['analysis'])){$lines[]='';$lines[]='📝 '.$label('Análise original','Original analysis').':';$lines[]=$bet['analysis'];}
+        if(!empty($bet['analysis'])){$lines[]='';$lines[]='📝 '.$label('Análise Inteligente da Tip','Intelligent Tip Analysis').':';$lines[]=$bet['analysis'];}
         return implode("\n",$lines);
     }
     /**
