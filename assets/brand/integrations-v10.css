@@ -543,8 +543,22 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
     height:38px!important;
     border-radius:11px!important;
   }
+  /* Keep the configuration badge visible and right-aligned on phones.
+     The chevron remains in the top-right track and the badge may wrap
+     beneath the title without changing its horizontal side. */
   .translation-provider-grid .provider-badge{
-    display:none!important;
+    display:inline-flex!important;
+    grid-column:2 / 4!important;
+    grid-row:2!important;
+    justify-self:end!important;
+    margin-left:auto!important;
+    margin-right:0!important;
+    max-width:100%!important;
+  }
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head::after,
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head::after{
+    grid-column:3!important;
+    grid-row:1!important;
   }
   .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test{
     grid-template-columns:1fr auto!important;
