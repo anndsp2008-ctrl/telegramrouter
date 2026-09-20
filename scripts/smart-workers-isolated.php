@@ -153,6 +153,19 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
              '{"match":{"untrusted":true},"market":"Escanteios","selection":"Mais de 8,5"}'] as $value){
         if(tipResponseStatus($value)==='OK')throw new RuntimeException('Invalid JSON accepted');
     }
+
+    $structured=['response'=>null,'tool_calls'=>[['name'=>'unknown_model_generated_name','arguments'=>$base]]];
+    if(parsedVisionBet($structured)!==$base)
+        throw new RuntimeException('Structured Vision data was ignored');
+    $stringArgs=['response'=>null,'tool_calls'=>[['arguments'=>$json]]];
+    if(parsedVisionBet($stringArgs)!==$base)
+        throw new RuntimeException('String-encoded Vision data was ignored');
+    $unsafe=['response'=>null,'tool_calls'=>[['name'=>'arbitrary_action',
+        'arguments'=>['action'=>'send','destination'=>'unknown']]]];
+    if(parsedVisionBet($unsafe)!==null)
+        throw new RuntimeException('Unstructured model tool action was accepted as a bet');
+    if(parsedVisionBet(['response'=>'Not a bet','tool_calls'=>[['arguments'=>['match'=>'Venezia']]]])!==null)
+        throw new RuntimeException('Incomplete model output was accepted');
     echo "WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED\n";
     exit(0);
 }
