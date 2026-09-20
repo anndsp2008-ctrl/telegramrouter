@@ -103,6 +103,21 @@ namespace {
        !str_contains($transport,'$timeouts=[12,5]')){
         throw new \RuntimeException('First Vision evidence is not recovered before bounded Scout fallback');
     }
+    // Regression for message #1441: image extraction must not request a
+    // lengthy, newly invented analysis before match/market/selection are known.
+    // If SAME-account text evidence recovery times out, stop serial Vision
+    // rescues and reach the configured Gemini fallback without a raw send.
+    if(!str_contains($source,'if($hasImage || $forcedTextModel!==null)') ||
+       !str_contains($source,'Não crie nova análise neste passo') ||
+       !str_contains($source,'$textTimedOut=end(self::$failureCodes)') ||
+       !str_contains($source,'WORKERS_AI_VISION_RESCUE_SKIPPED_AFTER_TEXT_TIMEOUT') ||
+       !str_contains($source,'if($textTimedOut){') ||
+       !str_contains($source,'return null;') ||
+       !str_contains($transport,'$payload[\'max_tokens\']=strlen($prompt)>6500?2300:1700;') ||
+       !str_contains($transport,'$payload[\'max_tokens\']=strlen($prompt)>6500?1650:1150;')){
+        throw new \RuntimeException('Message #1441 bounded image extraction / fallback guards missing');
+    }
+    echo "SMART_IMAGE_1441_EXTRACTION_FIRST_AND_FALLBACK_GUARDS_PASSED\n";
     echo "SMART_IMAGE_1437_EVIDENCE_FIRST_AND_TIMEOUT_GUARDS_PASSED\n";
     echo "WORKERS_AI_VISION_EVIDENCE_TEXT_RESCUE_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
