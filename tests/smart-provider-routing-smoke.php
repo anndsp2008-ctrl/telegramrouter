@@ -41,5 +41,14 @@ namespace {
        !str_contains($transport,'parseTip($response)')){
         throw new \RuntimeException('Workers AI visual/text extraction or fallback pipeline missing');
     }
+    foreach(['RESPONSE_MISSING_TEXT','RESPONSE_NOT_JSON'] as $reason){
+        if(!\App\SmartFormatting::workerVisualRescueEligible($reason))
+            throw new \RuntimeException('Expected visual rescue eligibility');
+    }
+    foreach(['HTTP_401_UNAUTHORIZED','HTTP_429','MODEL_LICENSE_REQUIRED_5016'] as $reason){
+        if(\App\SmartFormatting::workerVisualRescueEligible($reason))
+            throw new \RuntimeException('Visual rescue must not bypass provider access errors');
+    }
+    echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";
 }
