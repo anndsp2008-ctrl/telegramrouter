@@ -8,6 +8,8 @@ namespace App;
 final class SmartFormatting
 {
     private const SIGNATURE='⚡ TelegramRouter • Aposta encaminhada';
+    /** Stake is a fixed publishing recommendation, not the monetary bet amount. */
+    public const FIXED_STAKE='10';
     /** Sanitized per-tip codes only: never store message content, photos or keys. */
     private static array $failureCodes=[];
     private static function diag(string $code): void
@@ -117,6 +119,10 @@ final class SmartFormatting
             }
             $candidate=[];
             foreach($fields as $field)$candidate[$field]=trim((string)($json[$field]??''));
+            // Never forward the source channel's suggested stake. This applies
+            // even when the source has no stake or the model omits the field.
+            // Keep stake_amount (the receipt's real money amount) untouched.
+            $candidate['stake']=self::FIXED_STAKE;
             $candidate['potential_profit']=self::calculatePotentialProfit(
                 $candidate['stake_amount'],$candidate['potential_return']);
             if($candidate['selection']===''||$candidate['market']===''||$candidate['match']===''){
@@ -138,6 +144,7 @@ final class SmartFormatting
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
         $presentedBet=$mode==='card'?self::cardView($bet):$bet;
+        $presentedBet['stake']=self::FIXED_STAKE;
         if($mode==='card'){
             // Privacy-safe diagnostics: never log message content, competition,
             // extracted text, dates, channel handles or bookmaker details.
@@ -380,6 +387,9 @@ final class SmartFormatting
     /** Card-mode only. Never alter the extracted source or the original analysis. */
     public static function cardView(array $bet): array
     {
+        // Apply at the renderer boundary as well; a caller cannot bring back
+        // the source stake after extraction or when the source leaves it blank.
+        $bet['stake']=self::FIXED_STAKE;
         foreach(['time','day','bookmaker','stake_amount','potential_return','potential_profit'] as $key){
             unset($bet[$key]);
         }
@@ -415,6 +425,9 @@ final class SmartFormatting
     }
     public static function asText(array $bet,bool $translated): string
     {
+        // Every AI-formatted mode shows exactly one Stake 10 field, regardless
+        // of the value returned by either provider.
+        $bet['stake']=self::FIXED_STAKE;
         $label=static fn(string $pt,string $en): string=>$translated?$pt:$en;
         $lines=['⚽ '.($bet['match']??'')];
         if(!empty($bet['league']))$lines[]='🏆 '.$bet['league'];
