@@ -276,7 +276,8 @@ try{
     // by the working Workers AI text-translation transport. A short text tip
     // does not need the Vision endpoint or a 2800-token completion allowance.
     if(!$checkOnly && $image===null &&
-       $model==='@cf/meta/llama-3.1-8b-instruct-fp8'){
+       in_array($model,['@cf/meta/llama-3.1-8b-instruct-fp8',
+           '@cf/meta/llama-3.1-8b-instruct'],true)){
         $payload=[
             'messages'=>[['role'=>'user','content'=>$prompt]],
             'temperature'=>0,'max_tokens'=>strlen($prompt)>4500?2800:1600,
@@ -311,7 +312,8 @@ try{
     if(!$checkOnly && $image!==null){
         $payload['max_tokens']=strlen($prompt)>6500?2300:1700;
     } elseif(!$checkOnly && $evidenceRescue &&
-             $model==='@cf/meta/llama-3.1-8b-instruct-fp8'){
+             in_array($model,['@cf/meta/llama-3.1-8b-instruct-fp8',
+                 '@cf/meta/llama-3.1-8b-instruct'],true)){
         $payload['max_tokens']=strlen($prompt)>6500?1650:1150;
     }
     // The model supports Cloudflare JSON Mode: requesting a schema is more
@@ -349,7 +351,8 @@ try{
     if(!$checkOnly && $image!==null &&
        $model==='@cf/meta/llama-4-scout-17b-16e-instruct')$timeouts=[14,5];
     if(!$checkOnly && $evidenceRescue && $image===null &&
-       $model==='@cf/meta/llama-3.1-8b-instruct-fp8')$timeouts=[12,5];
+       in_array($model,['@cf/meta/llama-3.1-8b-instruct-fp8',
+           '@cf/meta/llama-3.1-8b-instruct'],true))$timeouts=[12,5];
     foreach($timeouts as $attempt=>$timeout){
         if($attempt===1&&!$checkOnly&&!($retryPrepared??false)){
             // Retry once with strict JSON output after an invalid, empty, or

@@ -81,7 +81,7 @@ namespace {
        !str_contains($source,'WORKERS_AI_TEXT_RESCUE_FAILED')||
        !str_contains($source,'$visionEvidence!==\'\'')||
        !str_contains($source,'$forcedTextModel')||
-       !str_contains($source,'WorkersAITranslation::PREVIOUS_DEFAULT_MODEL);')||
+       !str_contains($source,'self::WORKERS_TEXT_SCHEMA_RESCUE_MODEL);')||
        !str_contains($transport,'collectVisualEvidence($result,$visualEvidence)')||
        !str_contains($transport,"'evidence'=>")||
        !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
@@ -140,6 +140,19 @@ namespace {
        str_contains($transport,'$image===null && $model===\'@cf/meta/llama-3.1-8b-instruct-fp8\' &&')){
         throw new \RuntimeException('FP8 JSON schema unsupported guard / exact 5025 retry missing');
     }
+    // #1449: repeated FP8 text rescue was not JSON, even after removing
+    // unsupported response_format. Switch only image-evidence recovery to the
+    // Cloudflare-documented schema-capable 8B (non-FP8), retaining FP8 for
+    // ordinary text tips and never silently changing provider or credentials.
+    if(!str_contains($source,"WORKERS_TEXT_SCHEMA_RESCUE_MODEL='@cf/meta/llama-3.1-8b-instruct'") ||
+       substr_count($source,'self::WORKERS_TEXT_SCHEMA_RESCUE_MODEL);')!==2 ||
+       !str_contains($source,'?WorkersAITranslation::PREVIOUS_DEFAULT_MODEL:$configuredModel') ||
+       !str_contains($transport,"'@cf/meta/llama-3.1-8b-instruct'],true)") ||
+       !str_contains($transport,'$structuredEvidence=$evidenceRescue') ||
+       !str_contains($transport,"'type'=>'json_schema'")){
+        throw new \RuntimeException('Schema-capable image evidence rescue model or text-tip preservation missing');
+    }
+    echo "SMART_IMAGE_1449_SUPPORTED_SCHEMA_EVIDENCE_RESCUE_TESTS_PASSED\n";
     echo "SMART_IMAGE_1445_FP8_JSON_SCHEMA_GUARD_TESTS_PASSED\n";
     echo "SMART_IMAGE_1443_STRUCTURED_TEXT_RESCUE_TESTS_PASSED\n";
     echo "SMART_IMAGE_1441_EXTRACTION_FIRST_AND_FALLBACK_GUARDS_PASSED\n";
