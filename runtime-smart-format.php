@@ -227,7 +227,12 @@ HTML;
                 'rule_id'=>(int)($rule['id']??0),
                 'mode'=>(string)($setting['output_mode']??'unknown')
             ]));
-            throw new \RuntimeException('SMART_FORMAT_REQUIRED_UNAVAILABLE');
+            // The history previously collapsed all AI failures to an unhelpful
+            // SMART_FORMAT_REQUIRED_UNAVAILABLE code. Include only sanitized
+            // per-message reason codes; never source text or credentials.
+            $reason=SmartFormatting::failureSummary();
+            throw new \RuntimeException('SMART_FORMAT_REQUIRED_UNAVAILABLE'.
+                ($reason!==''?' ['.$reason.']':''));
         }
         // Legacy delivery is allowed ONLY if smart formatting is OFF.
         if($deliveryMedia===null){
