@@ -13,6 +13,29 @@ foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $req
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+// Every AI-formatted tip publishes Stake 10, even if it was absent, malformed
+// or supplied as a different suggested unit amount by the source channel.
+foreach([[],['stake'=>''],['stake'=>'2'],['stake'=>'6/10'],['stake'=>'999']] as $input){
+    $fixture=array_merge($bet,$input);
+    foreach([true,false] as $translated){
+        $formatted=SmartFormatting::asText($fixture,$translated);
+        if(substr_count($formatted,"Stake: 10")!==1 ||
+           str_contains($formatted,"Stake: 6/10") ||
+           str_contains($formatted,"Stake: 999"))
+            throw new RuntimeException('Fixed stake missing or original stake was forwarded');
+    }
+    $view=SmartFormatting::cardView($fixture);
+    if(($view['stake']??'')!=='10' || ($view['match']??'')!==$bet['match'])
+        throw new RuntimeException('Card view did not apply fixed Stake 10');
+}
+$moneyFixture=array_merge($bet,['stake'=>'3','stake_amount'=>'R$ 200,00',
+    'potential_return'=>'R$ 400,00','odd'=>'2,00']);
+$moneyText=SmartFormatting::asText($moneyFixture,true);
+if(!str_contains($moneyText,'Stake: 10') ||
+   !str_contains($moneyText,'Valor apostado: R$ 200,00') ||
+   !str_contains($moneyText,'Odd: 2,00'))
+    throw new RuntimeException('Fixed stake overwrote receipt money or odds');
+echo "SMART_FORMAT_FIXED_STAKE_10_TESTS_PASSED\\n";
 // Regression: the author's complete long analysis must never be reduced to 480 chars.
 $longBet=$bet;
 $longBet['analysis']=str_repeat('Análise completa do autor, mantida na mensagem sem cortes. ',32).'FIM_DA_ANALISE_ORIGINAL';
@@ -76,14 +99,15 @@ $cardFixture['bookmaker']='WINAMAX';
 $cardFixture['day']='Sábado';
 $cardView=SmartFormatting::cardView($cardFixture);
 $cardText=SmartFormatting::asText($cardView,true);
-foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1,60','6/10',
+foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1,60','Stake: 10',
          'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
     if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
 }
 foreach(['WINAMAX','2.000,00 €','3.200,00 €','1.200,00 €','16h15','Sábado'] as $forbidden){
     if(str_contains($cardText,$forbidden))throw new RuntimeException('Forbidden receipt detail in card text: '.$forbidden);
 }
-if(($cardFixture['bookmaker']??'')!=='WINAMAX'||($cardFixture['analysis']??'')!==$cardView['analysis']){
+if(($cardFixture['bookmaker']??'')!=='WINAMAX'||($cardFixture['analysis']??'')!==$cardView['analysis'] ||
+   $cardFixture['stake']!=='6/10' || ($cardView['stake']??'')!=='10'){
     throw new RuntimeException('Card view mutated the original bet or its analysis');
 }
 if(!str_contains(SmartFormatting::asText($cardFixture,true),'WINAMAX')){
