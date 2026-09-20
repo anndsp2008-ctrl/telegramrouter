@@ -266,6 +266,8 @@ final class SmartFormatting
             .'|\b(?:potencial|estimad\p{L}*|possible|expected|potential)\b.{0,25}\b(?:retorno|lucro|ganho|payout|profit|return)\b'
             .'|\b(?:valor|quantia|montante)\s+(?:a\s+ser\s+)?apostad\p{L}*\b'
             .'|(?:R\$|US\$|€|£|\$)\s*\d'
+            .'|\b(?:USD|BRL|EUR|GBP)\s*\d'
+            .'|\b\d+(?:[.,]\d+)?\s*(?:reais?|euros?|d[oó]lares?|pounds?)\b'
             .')~iu',
             $text
         )===1;
