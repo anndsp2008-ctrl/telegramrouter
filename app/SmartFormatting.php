@@ -219,12 +219,77 @@ final class SmartFormatting
         return is_string($normalized)?$normalized:$text;
     }
 
+    /**
+     * Do not republish source-channel staking advice or receipt money inside
+     * the SPORTS analysis. This is deliberately independent of AI prompts:
+     * both providers can repeat source stake amounts in their free-form prose.
+     * Preserve intact sports-only sentences; discard only money/staking clauses
+     * (or the whole sentence if it cannot be separated safely).
+     */
+    public static function sanitizeAnalysis(string $analysis): string
+    {
+        $analysis=trim($analysis);
+        if($analysis==='')return '';
+        $paragraphs=preg_split('/\R+/u',$analysis);
+        if(!is_array($paragraphs))return '';
+        $clean=[];
+        foreach($paragraphs as $paragraph){
+            $sentences=preg_split('/(?<=[.!?])\h+(?=[\p{L}\p{Pi}\p{Ps}\p{So}\x{22}\x{27}])/u',trim($paragraph));
+            if(!is_array($sentences))continue;
+            $accepted=[];
+            foreach($sentences as $sentence){
+                $sentence=trim($sentence);
+                if($sentence==='')continue;
+                if(!self::hasFinancialAnalysis($sentence)){
+                    $accepted[]=$sentence;
+                    continue;
+                }
+                // Keep a separate sports-only clause if one exists; never
+                // forward a clause that still contains staking or money data.
+                $clauses=preg_split('/(?<=[,;])\h+/u',$sentence);
+                if(!is_array($clauses)||count($clauses)<2)continue;
+                $safeClauses=[];
+                foreach($clauses as $clause){
+                    $clause=trim($clause);
+                    if($clause!==''&&!self::hasFinancialAnalysis($clause)){
+                        $safeClauses[]=rtrim($clause," \t,;");
+                    }
+                }
+                $safe=rtrim(implode(', ',$safeClauses)," \t,;");
+                if($safe===''||self::hasFinancialAnalysis($safe))continue;
+                if(!preg_match('/[.!?]$/u',$safe))$safe.='.';
+                $accepted[]=$safe;
+            }
+            if($accepted!==[])$clean[]=implode(' ',$accepted);
+        }
+        return implode("\n",$clean);
+    }
+
+    /** Money/stake cues are checked only inside analysis, not in the bet fields. */
+    private static function hasFinancialAnalysis(string $text): bool
+    {
+        return preg_match(
+            '~(?:\b(?:stakes?|staking|bankroll|banca)\b'
+            .'|\b(?:unidades?|units?)\s*(?:de\s+stake|\d+(?:[.,]\d+)?)\b'
+            .'|\b\d+(?:[.,]\d+)?\s*(?:u|units?|unidades?)\b'
+            .'|\b(?:valor|quantia|montante|amount)\b.{0,40}\b(?:apost\p{L}*|bet|wager|invest\p{L}*)\b'
+            .'|\b(?:apost\p{L}*|bet|wager)\b.{0,40}\b(?:valor|quantia|montante|amount)\b'
+            .'|\b(?:retorno|lucro|ganho|payout|profit|return)\b.{0,25}\b(?:potencial|estimad\p{L}*|possible|expected|potential|valor|amount)\b'
+            .'|\b(?:potencial|estimad\p{L}*|possible|expected|potential)\b.{0,25}\b(?:retorno|lucro|ganho|payout|profit|return)\b'
+            .'|\b(?:valor|quantia|montante)\s+(?:a\s+ser\s+)?apostad\p{L}*\b'
+            .'|(?:R\$|US\$|€|£|\$)\s*\d'
+            .')~iu',
+            $text
+        )===1;
+    }
+
     /** Only human-readable tip fields are sentence-cased; values remain exact. */
     private static function sentenceCaseBet(array $bet): array
     {
         foreach(['sport','match','league','market','selection','analysis'] as $field){
             if(isset($bet[$field])&&is_string($bet[$field])){
-                $bet[$field]=self::capitalizeSentences($bet[$field]);
+                $value=$field==='analysis'?self::sanitizeAnalysis($bet[$field]):$bet[$field];
+                $bet[$field]=self::capitalizeSentences($value);
             }
         }
         return $bet;
@@ -260,7 +325,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            "Preserve toda a análise original (exceto publicidade e links), sem resumir ou alterar o sentido. ".
+            "No campo analysis, preserve apenas a análise esportiva; omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
             "Status AO VIVO somente se a PARTIDA estiver explicitamente em andamento; bilhete aberto não basta. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
             "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
@@ -349,8 +414,10 @@ final class SmartFormatting
             "Identifique o esporte específico quando explícito ou inequívoco pelo confronto e campeonato (ex.: La Liga = futebol). Não use o valor genérico esporte se houver evidência clara. ".
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
-            "O campo analysis deve preservar integralmente o conteúdo analítico relevante do autor, ".
-            "sem resumir fatos, sem publicidade, links ou dados inventados. ".
+            "Odd é cotação, não probabilidade: não invente porcentagens de acerto nem prometa resultado vencedor. ".
+            "O campo analysis deve conter exclusivamente a análise esportiva relevante do autor, ".
+            "sem resumir fatos esportivos, sem publicidade, links ou dados inventados. ".
+            "Não reproduza stake original, unidades, quantia apostada, banca, retorno financeiro, lucro ou valores monetários no campo analysis. ".
             "Omitir analysis é permitido SOMENTE quando não há análise de fato. ".
             "Não mencione o nome do roteador no JSON. ".$language." ".
             "TEXTO ORIGINAL:\n".$text;
