@@ -91,8 +91,8 @@ foreach (['login.php','index.php','connect.php','reset.php','install.php'] as $p
                 '$rulesPage=min($rulesPage,max(1,(int)ceil($rulesTotal/6)));',
             'Repository::rules($rulesPage,5)' =>
                 'Repository::rules($rulesPage,6)',
-            "paginas($rulesPage,$rulesTotal,'rules_page',5)" =>
-                "paginas($rulesPage,$rulesTotal,'rules_page',6)",
+            "paginas(\$rulesPage,\$rulesTotal,'rules_page',5)" =>
+                "paginas(\$rulesPage,\$rulesTotal,'rules_page',6)",
         ];
         foreach ($rulesPaginationPatches as $legacy => $target) {
             if (str_contains($html, $legacy)) {
