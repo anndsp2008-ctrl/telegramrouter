@@ -18,10 +18,10 @@ set_error_handler(static function(int $severity,string $message): never {
     throw new ErrorException($message,0,$severity);
 });
 try {
-    $backoffActive=new ReflectionMethod(SmartFormatting::class,'geminiBackoffActive');
+    $backoffActive=new ReflectionMethod(\\App\\SmartFormatting::class,'geminiBackoffActive');
     if($backoffActive->invoke(null)!==false)
         throw new RuntimeException('Missing Gemini backoff marker was treated as active');
-    $activateBackoff=new ReflectionMethod(SmartFormatting::class,'activateGeminiBackoff');
+    $activateBackoff=new ReflectionMethod(\\App\\SmartFormatting::class,'activateGeminiBackoff');
     $activateBackoff->invoke(null,30);
     if($backoffActive->invoke(null)!==true)
         throw new RuntimeException('Gemini backoff marker was not activated');
