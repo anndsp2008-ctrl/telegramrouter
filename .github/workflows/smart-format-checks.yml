@@ -81,8 +81,10 @@ jobs:
         run: |
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationRule' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq 'SMART_FORMAT_REQUIRED_UNAVAILABLE' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq 'TMR_SMART_FORMAT_REQUIRED_FAILED' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'TMR_SMART_FORMAT_ORIGINAL_FALLBACK' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq '⚠️ [Formatação Automática Indisponível]' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq "sendMediaWithSafeCaption(\$peer,\$deliveryMedia,\$text,\$entities)" /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          ! grep -Fq 'SMART_FORMAT_REQUIRED_UNAVAILABLE' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           ! grep -Fq 'TMR_SMART_CARD_TRANSLATION_FALLBACK' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           ! grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
       - name: Assert Workers AI additive provider wiring
