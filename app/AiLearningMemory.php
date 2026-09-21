@@ -36,7 +36,7 @@ final class AiLearningMemory
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     }
 
-    public static function fields(array $input): array
+    public static function fields(array $input,bool $requireComplete=true): array
     {
         $allowed=['sport','status','match','league','market','selection','odd','time','day',
             'bookmaker','analysis'];
@@ -46,7 +46,7 @@ final class AiLearningMemory
             if(strlen($value)>($key==='analysis'?3000:220))throw new RuntimeException('Campo excede limite: '.$key);
             $out[$key]=$value;
         }
-        if($out['match']==='' || $out['market']==='' || $out['selection']===''){
+        if($requireComplete && ($out['match']==='' || $out['market']==='' || $out['selection']==='')){
             throw new RuntimeException('Informe confronto, mercado e seleção.');
         }
         return $out;
@@ -58,9 +58,9 @@ final class AiLearningMemory
         if($source==='' && !$imageName)throw new RuntimeException('Informe uma tip ou imagem.');
         if(strlen($source)>12000)throw new RuntimeException('Mensagem original muito extensa.');
         if($ruleId!==null && $ruleId<=0)throw new RuntimeException('ID de regra inválido.');
-        if($imageName!==null && !preg_match('/^[a-f0-9]{32}\.(?:png|jpg|webp)$/D',$imageName))
+        if($imageName!==null && !preg_match('/^[a-f0-9]{32}\.(?:png|jpg|webp)\\.enc$/D',$imageName))
             throw new RuntimeException('Nome de imagem inválido.');
-        $label=self::fields($label);
+        $label=self::fields($label,false) // Pending examples may be labeled later.;
         $statement=$this->pdo->prepare('INSERT INTO tmr_ai_learning_examples
             (rule_id,source_text,image_name,expected_json,status) VALUES(?,?,?,?,?)');
         $statement->execute([$ruleId,$source,$imageName,
