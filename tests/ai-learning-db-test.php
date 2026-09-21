@@ -55,7 +55,7 @@ if($context!=='')throw new RuntimeException('Rejected example leaked into prompt
 $store->review($id,'approved',$before);
 $context=AiLearningMemory::contextFor('Liverpool Aston Villa Over 10,5 corners',25);
 if(!str_contains($context,'EXEMPLOS ANTERIORES APROVADOS') ||
-   !str_contains($context,'Escanteios totais'))
+   !str_contains($context,'Total de escanteios'))
     throw new RuntimeException('Approved example was not injected into context');
 $cross=AiLearningMemory::contextFor('Liverpool Aston Villa Over 10,5 corners',26);
 if($cross!=='')throw new RuntimeException('Cross-rule example leaked into context');
