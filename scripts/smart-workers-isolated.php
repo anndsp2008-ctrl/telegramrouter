@@ -210,6 +210,52 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     exit(0);
 }
 
+/** Model-specific Vision payloads; keep source image data only inside the API request. */
+function smartVisionPayload(string $model,string $prompt,string $image,bool $checkOnly,array $fields): array {
+    // Llama 3.2 Vision REST supports prompt + image; the multimodal
+    // image_url chat payload may yield HTTP 200 without a usable text response.
+    // Scout retains its supported image_url chat schema and guided JSON.
+    if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+        return ['prompt'=>$prompt,'image'=>$image,'temperature'=>0,
+            'max_tokens'=>$checkOnly?12:2800,'stream'=>false];
+    }
+    $payload=[
+        'messages'=>[[
+            'role'=>'user',
+            'content'=>[
+                ['type'=>'text','text'=>$prompt],
+                ['type'=>'image_url','image_url'=>['url'=>$image]]
+            ]
+        ]],
+        'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+    ];
+    if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
+        $properties=[];
+        foreach($fields as $field)$properties[$field]=['type'=>'string'];
+        $payload['guided_json']=['type'=>'object','properties'=>$properties,
+            'additionalProperties'=>false];
+    }
+    return $payload;
+}
+// Offline contract test: never calls Cloudflare or reads production credentials.
+if(getenv('SMART_WORKERS_VISION_PAYLOAD_TEST')==='1'){
+    $image='data:image/png;base64,'.base64_encode('offline-test-image');
+    $vision=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct','Test prompt',$image,false,['match']);
+    if(($vision['prompt']??null)!=='Test prompt' || ($vision['image']??null)!==$image ||
+        isset($vision['messages']) || ($vision['max_tokens']??null)!==2800)
+        throw new RuntimeException('Primary Vision image payload regression');
+    $probe=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct','Probe',$image,true,[]);
+    if(($probe['max_tokens']??null)!==12 || !isset($probe['image']))
+        throw new RuntimeException('Vision probe payload regression');
+    $scout=smartVisionPayload('@cf/meta/llama-4-scout-17b-16e-instruct','Scout',$image,false,['match','odd']);
+    $parts=$scout['messages'][0]['content']??[];
+    if(($parts[0]['text']??null)!=='Scout' || ($parts[1]['image_url']['url']??null)!==$image ||
+        isset($scout['image']) || ($scout['guided_json']['properties']['odd']['type']??null)!=='string')
+        throw new RuntimeException('Scout Vision rescue payload regression');
+    echo "WORKERS_VISION_PAYLOAD_TESTS_PASSED\n";
+    exit(0);
+}
+
 try{
     $raw=stream_get_contents(STDIN,7500000);
     $input=is_string($raw)?json_decode($raw,true):null;
@@ -249,33 +295,7 @@ try{
             'stream'=>false
         ];
     }
-    if($image!==null){
-        // Llama 3.2 Vision's REST image input is prompt + image (data URI).
-        // The chat image_url payload can return HTTP 200 without response text
-        // for this model. Scout retains its own supported multimodal chat schema.
-        // Never log the original image or the generated model observations.
-        if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
-            $payload=['prompt'=>$prompt,'image'=>$image,
-                'temperature'=>0,'max_tokens'=>$checkOnly?12:2800,'stream'=>false];
-        } else {
-            $payload=[
-                'messages'=>[[
-                    'role'=>'user',
-                    'content'=>[
-                        ['type'=>'text','text'=>$prompt],
-                        ['type'=>'image_url','image_url'=>['url'=>$image]]
-                    ]
-                ]],
-                'temperature'=>0,'max_tokens'=>2800,'stream'=>false
-            ];
-        }
-        if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
-            $properties=[];
-            foreach($fields as $field)$properties[$field]=['type'=>'string'];
-            $payload['guided_json']=['type'=>'object','properties'=>$properties,
-                'additionalProperties'=>false];
-        }
-    }
+    if($image!==null)$payload=smartVisionPayload($model,$prompt,$image,$checkOnly,$fields);
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
     $visualEvidence=''; // Local-only, bounded image observation for text structuring.
