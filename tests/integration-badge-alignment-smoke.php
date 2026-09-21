@@ -17,7 +17,7 @@ $required=[
     ['tiny phone alignment', $mobile, 'grid-column:2 / 4!important;'],
     ['tablet right margin', $mobile, 'margin:0 0 0 auto!important;'],
     ['stylesheet cache and Railway startup compatibility', $installer, '/assets/brand/integrations-v10.css?v=8&workers-dot=5'],
-    ['responsive cache v11', $installer, '/assets/brand/mobile-visual-audit.css?v=14']
+    ['responsive cache v15', $installer, '/assets/brand/mobile-visual-audit.css?v=15']
 ];
 foreach($required as [$label,$source,$token]){
     if(!str_contains($source,$token))$fail('Integration badge alignment regression: '.$label);
