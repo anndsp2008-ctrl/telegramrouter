@@ -22,6 +22,36 @@ $id=$store->savePending(
     ['match'=>'Liverpool x Aston Villa','market'=>'Escanteios totais',
         'selection'=>'Mais de 10,5','odd'=>'1.72'],null,25
 );
+// An encrypted screenshot can be saved first and labeled later.
+$imageName=str_repeat('a',32).'.png.enc';
+$pendingImageId=$store->savePending('',[],$imageName,null);
+$pendingImage=$store->get($pendingImageId);
+if(($pendingImage['status']??'')!=='pending' ||
+   ($pendingImage['image_name']??'')!==$imageName)
+    throw new RuntimeException('Encrypted image-only pending registration failed');
+$pendingLabel=json_decode((string)$pendingImage['expected_json'],true);
+if(($pendingLabel['match']??'NOT_NULL')!=='')
+    throw new RuntimeException('Incomplete pending image invented labels');
+try {
+    $store->review($pendingImageId,'approved',$pendingLabel);
+    throw new RuntimeException('Image-only draft approved without labels');
+} catch(RuntimeException $e) {
+    if($e->getMessage()!=='Informe confronto, mercado e seleção.')
+        throw $e;
+}
+$pendingLabel['match']='Liverpool x Aston Villa';
+$pendingLabel['market']='Escanteios totais';
+$pendingLabel['selection']='Mais de 10,5';
+$store->review($pendingImageId,'approved',$pendingLabel);
+if(($store->get($pendingImageId)['status']??'')!=='approved')
+    throw new RuntimeException('Completed screenshot draft could not be approved');
+try {
+    $store->savePending('',[],'invalid.png',null);
+    throw new RuntimeException('Raw/invalid uploaded screenshot filename was accepted');
+} catch(RuntimeException $e) {
+    if($e->getMessage()!=='Nome de imagem inválido.')throw $e;
+}
+
 if($id<=0)throw new RuntimeException('No example created');
 $row=$store->get($id);
 if(($row['status']??'')!=='pending')throw new RuntimeException('Example auto-approved');
