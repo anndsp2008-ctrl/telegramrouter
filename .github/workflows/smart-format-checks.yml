@@ -112,7 +112,9 @@ jobs:
           code=Path('scripts/smart-workers-isolated.php').read_text()
           assert "foreach(['response','description'] as $textField)" in code
           assert 'EVIDÊNCIA EXTRAÍDA DA IMAGEM' in code
-          assert "'image'=>$base64" in code
+          assert "'type'=>'text','text'=>$prompt" in code
+          assert "'type'=>'image_url','image_url'=>['url'=>$image]" in code
+          assert "Primary Vision unified content payload regression" in code
           assert "smartVisionCompatPayload($prompt,$image)" in code
           PY
           grep -Fq 'if($attempt===0){' scripts/smart-workers-isolated.php
