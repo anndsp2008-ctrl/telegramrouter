@@ -58,9 +58,9 @@ final class AiLearningMemory
         if($source==='' && !$imageName)throw new RuntimeException('Informe uma tip ou imagem.');
         if(strlen($source)>12000)throw new RuntimeException('Mensagem original muito extensa.');
         if($ruleId!==null && $ruleId<=0)throw new RuntimeException('ID de regra inválido.');
-        if($imageName!==null && !preg_match('/^[a-f0-9]{32}\.(?:png|jpg|webp)\\.enc$/D',$imageName))
+        if($imageName!==null && !preg_match('/^[a-f0-9]{32}\.(?:png|jpg|webp)\.enc$/D',$imageName))
             throw new RuntimeException('Nome de imagem inválido.');
-        $label=self::fields($label,false) // Pending examples may be labeled later.;
+        $label=self::fields($label,false); // Pending examples may be labeled later.
         $statement=$this->pdo->prepare('INSERT INTO tmr_ai_learning_examples
             (rule_id,source_text,image_name,expected_json,status) VALUES(?,?,?,?,?)');
         $statement->execute([$ruleId,$source,$imageName,
