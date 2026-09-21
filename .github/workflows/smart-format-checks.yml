@@ -107,11 +107,16 @@ jobs:
           ! grep -R -F "cfut_" app scripts runtime-workers-ai.php assets tests || exit 1
       - name: Verify approved integration card and badge alignment
         run: php tests/integration-badge-alignment-smoke.php
-      - name: Verify activity skipped badge styling
+      - name: Verify activity status badge styling
         run: |
           grep -Fq '.saas-badge.Ignorada' assets/brand/activity-status-badges.css
           grep -Fq '.activity-badge.Ignorada' assets/brand/activity-status-badges.css
-          grep -Fq 'activity-status-badges.css?v=3' runtime-brand.php
+          grep -Fq '.saas-badge.Processando' assets/brand/activity-status-badges.css
+          grep -Fq '.activity-badge.Processando' assets/brand/activity-status-badges.css
+          grep -Fq 'color:#88BC47 !important;' assets/brand/activity-status-badges.css
+          grep -Fq 'tmr-processing-blink' assets/brand/activity-status-badges.css
+          grep -Fq 'prefers-reduced-motion:reduce' assets/brand/activity-status-badges.css
+          grep -Fq 'activity-status-badges.css?v=4' runtime-brand.php
       - name: Verify configured rules pagination
         run: |
           grep -Fq '$rulesPerPage=6;$eventsPerPage=20;' index.php
