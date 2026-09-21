@@ -10,6 +10,7 @@ final class SmartFormatting
     private const SIGNATURE='⚡ TelegramRouter • Aposta encaminhada';
     /** Stake is a fixed publishing recommendation, not the monetary bet amount. */
     public const FIXED_STAKE='10';
+    private const GEMINI_BACKOFF_FILE='/tmp/tmr-smart-gemini-backoff-until';
     /** Sanitized per-tip codes only: never store message content, photos or keys. */
     private static array $failureCodes=[];
     private static function diag(string $code): void
@@ -28,6 +29,32 @@ final class SmartFormatting
                 && $code!=='ALL_CONFIGURED_PROVIDERS_FAILED'
         )));
         return implode('; ',array_slice($causes,-4));
+    }
+    public static function providerUnavailable(): bool
+    {
+        return in_array('GEMINI_HTTP_429',self::$failureCodes,true)
+            || in_array('GEMINI_BACKOFF_ACTIVE',self::$failureCodes,true);
+    }
+    private static function geminiBackoffActive(): bool
+    {
+        // Missing marker is normal. MadelineProto promotes PHP warnings to
+        // exceptions, so never call file_get_contents before existence check.
+        if(!is_file(self::GEMINI_BACKOFF_FILE))return false;
+        try {
+            $raw=file_get_contents(self::GEMINI_BACKOFF_FILE);
+        } catch(\Throwable $error) {
+            return false;
+        }
+        return is_string($raw) && ctype_digit(trim($raw)) && (int)trim($raw)>time();
+    }
+    private static function activateGeminiBackoff(int $seconds): void
+    {
+        $seconds=max(30,min(900,$seconds));
+        try {
+            file_put_contents(self::GEMINI_BACKOFF_FILE,(string)(time()+$seconds),LOCK_EX);
+        } catch(\Throwable $error) {
+            // Optimization only: never block the forwarding path.
+        }
     }
 
     public static function migrate(): void
@@ -105,9 +132,13 @@ final class SmartFormatting
             if($provider==='workers_ai'){
                 $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields);
             } elseif($provider==='gemini'){
-                $key=trim(Repository::integration('gemini_api_key'));
-                if($key!=='')$json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
-                else self::diag('GEMINI_KEY_MISSING');
+                if(self::geminiBackoffActive()){
+                    self::diag('GEMINI_BACKOFF_ACTIVE');
+                } else {
+                    $key=trim(Repository::integration('gemini_api_key'));
+                    if($key!=='')$json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
+                    else self::diag('GEMINI_KEY_MISSING');
+                }
             } else {
                 // Azure Translator/Google Cloud Translation translate text but
                 // cannot extract structured tip data from source photos.
@@ -129,7 +160,7 @@ final class SmartFormatting
                 self::diag('REQUIRED_FIELDS_INCOMPLETE_'.$provider);
                 continue;
             }
-            if($candidate['analysis']==='' && self::containsAnalysis($sourceText)){
+            if($candidate['analysis']==='' && self::sourceHasAnalysis($sourceText)){
                 self::diag('ANALYSIS_ABSENT_'.$provider);
                 continue;
             }
@@ -285,9 +316,25 @@ final class SmartFormatting
         return $bet;
     }
 
-    private static function containsAnalysis(string $text): bool
+    public static function sourceHasAnalysis(string $text): bool
     {
-        return mb_strlen(trim($text),'UTF-8')>=180;
+        $plain=trim(preg_replace('/https?:\/\/\S+/iu',' ',strip_tags($text))??$text);
+        if(mb_strlen($plain,'UTF-8')<180)return false;
+        $lines=preg_split('/\R+/u',$plain)?:[$plain];
+        $prose=[];
+        foreach($lines as $line){
+            $line=trim($line);
+            if($line==='')continue;
+            if(preg_match('/^(?:odd|odds|mercado|market|sele[cç][aã]o|selection|stake|aposta|retorno|bookmaker|liga|league|hor[aá]rio|time|jogo|match)\s*[:\-]/iu',$line))continue;
+            if(preg_match('/^(?:\p{So}|\p{Sk}|\p{S}|\d|[\-–—:;,.])+$/u',$line))continue;
+            if(mb_strlen($line,'UTF-8')>=70)$prose[]=$line;
+        }
+        $joined=implode(' ',$prose);
+        if(mb_strlen($joined,'UTF-8')<120)return false;
+        $words=preg_match_all('/\p{L}{3,}/u',$joined,$matches);
+        $sentences=preg_match_all('/[.!?](?:\s|$)/u',$joined,$dummy);
+        $analytical=preg_match('/\b(?:porque|devido|tend[eê]ncia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia)\b/iu',$joined)===1;
+        return $words>=20 && ($sentences>=2 || $analytical);
     }
     /**
      * Workers AI may use a text model for text-only tips; when a receipt image
@@ -459,8 +506,14 @@ final class SmartFormatting
         if(!function_exists('proc_open')){self::diag('PROCESS_EXTENSION_MISSING');return null;}
         $transport=dirname(__DIR__).'/scripts/smart-gemini-isolated.php';
         if(!is_file($transport)){self::diag('ISOLATED_TRANSPORT_MISSING');return null;}
-        $input=json_encode(['model'=>$model,'key'=>$key,'payload'=>$payload],
-            JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        // Keep the configured model first. If that model is throttled or
+        // capacity-limited, the isolated transport may try one stable
+        // multimodal Gemini model with the same key and exact same payload.
+        $fallbackModel=$model==='gemini-2.5-flash-lite'?'':'gemini-2.5-flash-lite';
+        $input=json_encode([
+            'model'=>$model,'fallback_model'=>$fallbackModel,
+            'key'=>$key,'payload'=>$payload
+        ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if(!is_string($input))return null;
         $spec=[0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']];
         $process=@proc_open(['php',$transport],$spec,$pipes,dirname(__DIR__));
@@ -487,10 +540,16 @@ final class SmartFormatting
         }
         if($exit!==0||$output===''){self::diag('ISOLATED_PROCESS_EMPTY_OR_ERROR');return null;}
         $response=json_decode($output,true);
+        if(!empty($response['ok']) && !empty($response['model_fallback_used'])){
+            error_log('TMR_SMART_FORMAT_GEMINI_MODEL_FALLBACK');
+        }
         if(empty($response['ok'])||!isset($response['data'])||!is_array($response['data'])){
             $reason=(string)($response['reason']??'UNCLASSIFIED');
             if(!preg_match('/^[A-Z0-9_]{1,48}$/D',$reason))$reason='UNCLASSIFIED';
-            self::diag('GEMINI_'. $reason);
+            if($reason==='HTTP_429'){
+                self::activateGeminiBackoff((int)($response['retry_after']??60));
+            }
+            self::diag('GEMINI_'.$reason);
             return null;
         }
         return $response['data'];
