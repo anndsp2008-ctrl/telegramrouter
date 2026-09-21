@@ -222,23 +222,24 @@ HTML;
         // providers fail or formatting cannot produce a complete deliverable.
         // Do not retry after a successful Telegram send: the normal successful
         // card/text/caption paths above return before this branch.
-        if(!empty($setting['enabled'])){
+        $originalFallback=!empty($setting['enabled']);
+        if($originalFallback){
             error_log('TMR_SMART_FORMAT_ORIGINAL_FALLBACK '.json_encode([
                 'rule_id'=>(int)($rule['id']??0),
                 'mode'=>(string)($setting['output_mode']??'unknown'),
                 'reason'=>SmartFormatting::failureSummary()
             ]));
             $text.="\n\n⚠️ [Formatação Automática Indisponível]";
-            // Added footer does not shift pre-existing Telegram entity offsets.
-            // Use the same original media, caption and entities delivery path.
-            $this->deliveryMethod='smart_original_fallback';
+            // Appending the footer leaves the original Telegram entity offsets
+            // unchanged. Reuse the existing safe media-caption delivery path.
         }
-        // When smart formatting is disabled, preserve untouched legacy delivery.
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
         } else {
             $this->sendMediaWithSafeCaption($peer,$deliveryMedia,$text,$entities);
         }
+        // A failed Telegram send must never be recorded as a successful fallback.
+        if($originalFallback)$this->deliveryMethod='smart_original_fallback';
     }
 
 CODE;
