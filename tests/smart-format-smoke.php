@@ -9,6 +9,27 @@ if($productionHealth){
 require __DIR__.'/../app/PurePngVipCardRenderer.php';
 require __DIR__.'/../app/VipCardRenderer.php';
 require __DIR__.'/../app/SmartFormatting.php';
+
+// Regression: MadelineProto promotes PHP warnings to exceptions. A missing
+// /tmp backoff marker is normal and must not abort SmartFormatting::prepare().
+$backoffFile='/tmp/tmr-smart-gemini-backoff-until';
+if(is_file($backoffFile))unlink($backoffFile);
+set_error_handler(static function(int $severity,string $message): never {
+    throw new ErrorException($message,0,$severity);
+});
+try {
+    $backoffActive=new ReflectionMethod(SmartFormatting::class,'geminiBackoffActive');
+    if($backoffActive->invoke(null)!==false)
+        throw new RuntimeException('Missing Gemini backoff marker was treated as active');
+    $activateBackoff=new ReflectionMethod(SmartFormatting::class,'activateGeminiBackoff');
+    $activateBackoff->invoke(null,30);
+    if($backoffActive->invoke(null)!==true)
+        throw new RuntimeException('Gemini backoff marker was not activated');
+} finally {
+    restore_error_handler();
+    if(is_file($backoffFile))unlink($backoffFile);
+}
+echo "SMART_FORMAT_BACKOFF_WARNING_TESTS_PASSED\n";
 use App\VipCardRenderer;
 use App\SmartFormatting;
 $bet=['match'=>'Venezia × Lazio','league'=>'Itália • Série A',
