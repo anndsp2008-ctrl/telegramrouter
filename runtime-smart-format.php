@@ -316,6 +316,9 @@ foreach($paths as $dest=>$content){
 foreach($temps as $dest=>$temp){
     if(!@rename($temp,$dest)){fwrite(STDERR,"SMART_FORMAT_REPLACE_FAILED\n");exit(1);}
 }
+// Apply the opt-in learning overlay only after the original smart-format runtime is verified.
+// Failure leaves the previous formatter and forwarding behavior unchanged.
+if(is_file(__DIR__.'/runtime-ai-learning.php'))require __DIR__.'/runtime-ai-learning.php';
 $installerSucceeded=true;
 $routerHash=@hash_file('sha256',$routerPath);
 $smartHash=@hash_file('sha256',__DIR__.'/app/SmartFormatting.php');
