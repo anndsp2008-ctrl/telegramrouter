@@ -70,6 +70,8 @@ jobs:
           cp assets/brand/mark-maskable.svg /tmp/tmr-smart-fixture/assets/brand/mark-maskable.svg
           WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_INSTALLED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          grep -Fq 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php
+          test "$(grep -o 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php | wc -l)" -eq 1
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
           php -l /tmp/tmr-smart-fixture/index.php
           php -l /tmp/tmr-smart-fixture/app/Repository.php
