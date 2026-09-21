@@ -210,6 +210,52 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     exit(0);
 }
 
+/** Model-specific Vision payloads; keep source image data only inside the API request. */
+function smartVisionPayload(string $model,string $prompt,string $image,bool $checkOnly,array $fields): array {
+    // Llama 3.2 Vision REST supports prompt + image; the multimodal
+    // image_url chat payload may yield HTTP 200 without a usable text response.
+    // Scout retains its supported image_url chat schema and guided JSON.
+    if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+        return ['prompt'=>$prompt,'image'=>$image,'temperature'=>0,
+            'max_tokens'=>$checkOnly?12:2800,'stream'=>false];
+    }
+    $payload=[
+        'messages'=>[[
+            'role'=>'user',
+            'content'=>[
+                ['type'=>'text','text'=>$prompt],
+                ['type'=>'image_url','image_url'=>['url'=>$image]]
+            ]
+        ]],
+        'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+    ];
+    if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
+        $properties=[];
+        foreach($fields as $field)$properties[$field]=['type'=>'string'];
+        $payload['guided_json']=['type'=>'object','properties'=>$properties,
+            'additionalProperties'=>false];
+    }
+    return $payload;
+}
+// Offline contract test: never calls Cloudflare or reads production credentials.
+if(getenv('SMART_WORKERS_VISION_PAYLOAD_TEST')==='1'){
+    $image='data:image/png;base64,'.base64_encode('offline-test-image');
+    $vision=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct','Test prompt',$image,false,['match']);
+    if(($vision['prompt']??null)!=='Test prompt' || ($vision['image']??null)!==$image ||
+        isset($vision['messages']) || ($vision['max_tokens']??null)!==2800)
+        throw new RuntimeException('Primary Vision image payload regression');
+    $probe=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct','Probe',$image,true,[]);
+    if(($probe['max_tokens']??null)!==12 || !isset($probe['image']))
+        throw new RuntimeException('Vision probe payload regression');
+    $scout=smartVisionPayload('@cf/meta/llama-4-scout-17b-16e-instruct','Scout',$image,false,['match','odd']);
+    $parts=$scout['messages'][0]['content']??[];
+    if(($parts[0]['text']??null)!=='Scout' || ($parts[1]['image_url']['url']??null)!==$image ||
+        isset($scout['image']) || ($scout['guided_json']['properties']['odd']['type']??null)!=='string')
+        throw new RuntimeException('Scout Vision rescue payload regression');
+    echo "WORKERS_VISION_PAYLOAD_TESTS_PASSED\n";
+    exit(0);
+}
+
 try{
     $raw=stream_get_contents(STDIN,7500000);
     $input=is_string($raw)?json_decode($raw,true):null;
@@ -249,28 +295,7 @@ try{
             'stream'=>false
         ];
     }
-    if($image!==null){
-        // Cloudflare's Vision input schema recommends an image_url part inside
-        // the user message. The former top-level image parameter is deprecated
-        // and can return HTTP 200 without generated text for some inputs.
-        // Keep the original data URI unchanged and NEVER expose it in logs.
-        $payload=[
-            'messages'=>[[
-                'role'=>'user',
-                'content'=>[
-                    ['type'=>'text','text'=>$prompt],
-                    ['type'=>'image_url','image_url'=>['url'=>$image]]
-                ]
-            ]],
-            'temperature'=>0,'max_tokens'=>2800,'stream'=>false
-        ];
-        if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
-            $properties=[];
-            foreach($fields as $field)$properties[$field]=['type'=>'string'];
-            $payload['guided_json']=['type'=>'object','properties'=>$properties,
-                'additionalProperties'=>false];
-        }
-    }
+    if($image!==null)$payload=smartVisionPayload($model,$prompt,$image,$checkOnly,$fields);
     $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     if(!is_string($encoded))reply(false,'PAYLOAD_INVALID');
     $visualEvidence=''; // Local-only, bounded image observation for text structuring.
@@ -278,6 +303,10 @@ try{
     // Only test requests use small output; production card requests have
     // an independent, larger timeout and one bounded transient retry.
     $timeouts=$checkOnly?[30,20]:[45,30];
+    // Limit the optional Scout rescue so an unresponsive vision model does not
+    // consume the whole message-processing window before the configured fallback.
+    if(!$checkOnly && $image!==null &&
+       $model==='@cf/meta/llama-4-scout-17b-16e-instruct')$timeouts=[22,8];
     // Text cards on the lightweight model have their own bounded window.
     // Do not block the configured provider fallback for up to 75 seconds.
     if(!$checkOnly && $image===null &&
@@ -290,7 +319,7 @@ try{
                 "The first character MUST be { and the final character MUST be }. ".
                 "Every requested field must be a STRING; unknown values are empty strings. ".
                 "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
-            if($image!==null){
+            if($image!==null && isset($payload['messages'][0]['content'][0]['text'])){
                 $payload['messages'][0]['content'][0]['text']=$strictPrompt;
             } elseif(isset($payload['messages'][0]['content'])){
                 // Text-only 8B uses chat messages, never mix prompt and messages.
@@ -339,6 +368,12 @@ try{
             $reason=is_string($response)?tipResponseStatus($response)
                 :(is_string($description)?tipResponseStatus($description)
                 :($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT'));
+            // A 200 response with no usable text and no visual evidence cannot
+            // be repaired by an identical request. Pass control to the existing
+            // same-account Vision rescue without spending another 30-45 seconds.
+            if($image!==null && $reason==='RESPONSE_MISSING_TEXT' && $visualEvidence===''){
+                reply(false,$reason);
+            }
             if($attempt===0){
                 if(is_string($description)&&trim($description)!==''){
                     // For ImageTextToText outputs that are descriptive rather
@@ -350,16 +385,6 @@ try{
                             mb_substr(trim($description),0,8000,'UTF-8'),
                         'temperature'=>0,'max_tokens'=>1800,'stream'=>false
                     ];
-                    $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
-                    if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
-                    $encoded=$retryBody;
-                    $retryPrepared=true;
-                } elseif($image!==null){
-                    // The model can return HTTP 200 with no generated text for
-                    // a multimodal message in some runtime versions. Retry
-                    // once using the documented prompt + image input schema.
-                    $payload=['prompt'=>$strictPrompt??$prompt,'image'=>$image,
-                        'temperature'=>0,'max_tokens'=>1800,'stream'=>false];
                     $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
                     if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
                     $encoded=$retryBody;

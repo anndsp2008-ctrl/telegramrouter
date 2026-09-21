@@ -106,6 +106,7 @@ jobs:
           printf '{}' | php scripts/smart-workers-isolated.php | grep -Fq 'INPUT_INVALID'
           SMART_WORKERS_CLASSIFIER_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED'
           SMART_WORKERS_JSON_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED'
+          SMART_WORKERS_VISION_PAYLOAD_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_VISION_PAYLOAD_TESTS_PASSED'
           python3 - <<'PY'
           from pathlib import Path
           code=Path('scripts/smart-workers-isolated.php').read_text()
