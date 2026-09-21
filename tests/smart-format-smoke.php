@@ -1,7 +1,35 @@
 <?php declare(strict_types=1);
+$productionHealth=is_file(__DIR__.'/../health');
+$smokePassed=false;
+if($productionHealth){
+    register_shutdown_function(static function() use (&$smokePassed): void {
+        if(!$smokePassed)@unlink(__DIR__.'/../health');
+    });
+}
 require __DIR__.'/../app/PurePngVipCardRenderer.php';
 require __DIR__.'/../app/VipCardRenderer.php';
 require __DIR__.'/../app/SmartFormatting.php';
+
+// PR #77 regression: MadelineProto promotes PHP warnings to exceptions.
+// A missing /tmp backoff marker must be a normal first-run state.
+$backoffFile='/tmp/tmr-smart-gemini-backoff-until';
+if(is_file($backoffFile))unlink($backoffFile);
+set_error_handler(static function(int $severity,string $message): never {
+    throw new ErrorException($message,0,$severity);
+});
+try {
+    $backoffActive=new ReflectionMethod(\App\SmartFormatting::class,'geminiBackoffActive');
+    if($backoffActive->invoke(null)!==false)
+        throw new RuntimeException('Missing Gemini backoff marker was treated as active');
+    $activateBackoff=new ReflectionMethod(\App\SmartFormatting::class,'activateGeminiBackoff');
+    $activateBackoff->invoke(null,30);
+    if($backoffActive->invoke(null)!==true)
+        throw new RuntimeException('Gemini backoff marker was not activated');
+} finally {
+    restore_error_handler();
+    if(is_file($backoffFile))unlink($backoffFile);
+}
+echo "SMART_FORMAT_BACKOFF_WARNING_TESTS_PASSED\n";
 use App\VipCardRenderer;
 use App\SmartFormatting;
 $bet=['match'=>'Venezia × Lazio','league'=>'Itália • Série A',
@@ -13,6 +41,14 @@ foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $req
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+$structuredLong=str_repeat("Mercado: Resultado final\nSeleção: Lazio\nOdd: 2.00\nStake: 2/10\n",8);
+if(SmartFormatting::sourceHasAnalysis($structuredLong))
+    throw new RuntimeException('Structured receipt text was misclassified as analysis');
+$proseAnalysis='A Lazio chega em bom momento porque mantém sequência consistente. '.
+    'O confronto favorece sua organização defensiva e o desempenho recente sustenta a leitura. '.
+    'Por isso, o autor acredita que a seleção tem valor para este mercado.';
+if(!SmartFormatting::sourceHasAnalysis($proseAnalysis))
+    throw new RuntimeException('Real analytical prose was not detected');
 // Sentence initials, not Title Case: keep internal case, proper names, numeric
 // odds, URLs and paragraph structure intact. Format card text and image identically.
 $caseExamples=[
@@ -403,25 +439,33 @@ if(SmartFormatting::failureSummary()!=='SOURCE_EMPTY')
 $runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($runtimeSource)
    ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
-   ||!str_contains($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE')
-   ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_REQUIRED_FAILED')
-   ||!str_contains($runtimeSource,'SmartFormatting::failureSummary()')
-   ||!str_contains($runtimeSource,"if(!empty(\$setting['enabled']))")
-   ||str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
-   ||str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK'))
-    throw new RuntimeException('Mandatory opt-in formatting or single-pass translation missing');
-$failGuard=strpos($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE');
-$rawDelivery=strpos($runtimeSource,"if(\$deliveryMedia===null){", $failGuard?:0);
-if($failGuard===false||$rawDelivery===false||$failGuard>$rawDelivery)
-    throw new RuntimeException('Unformatted legacy send reachable before mandatory AI guard');
-$transportSource=file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
-if(!is_string($transportSource)||!str_contains($transportSource,'$curlErr===28')||
-   !str_contains($transportSource,'[500,502,503,504]')||
-   str_contains($transportSource,'[429,500,502,503,504]'))
-    throw new RuntimeException('Transient AI timeout/network retry is not installed');
-echo "SMART_FORMAT_REQUIRED_NO_RAW_FALLBACK_TESTS_PASSED\n";
+   ||!str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
+   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK')
+   ||!str_contains($runtimeSource,'providerUnavailable()')
+   ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF')
+   ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_FAILED')
+   ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_ORIGINAL_FALLBACK')
+   ||!str_contains($runtimeSource,"deliveryMethod='ai_vip_card_partial'")
+   ||!str_contains($runtimeSource,'$installerSucceeded')
+   ||!str_contains($runtimeSource,"@unlink(__DIR__.'/health')")
+   ||str_contains($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE'))
+    throw new RuntimeException('PR39 + PR75 production hardening hooks missing');
+$geminiTransport=file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
+$smartSource=file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+if(!is_string($geminiTransport)
+   ||!str_contains($geminiTransport,'CURLOPT_HEADERFUNCTION')
+   ||!str_contains($geminiTransport,'retry_after')
+   ||!str_contains($geminiTransport,'model_fallback_used')
+   ||!str_contains($geminiTransport,'fallback_model')
+   ||!str_contains($geminiTransport,'[500,502,503,504]')
+   ||str_contains($geminiTransport,'[429,500,502,503,504]')
+   ||!is_string($smartSource)
+   ||!str_contains($smartSource,'gemini-2.5-flash-lite')
+   ||!str_contains($smartSource,'geminiBackoffActive()'))
+    throw new RuntimeException('PR76-77 Gemini resilience regression');
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
+$smokePassed=true;
 echo "SMART_FORMAT_TESTS_PASSED\n";
