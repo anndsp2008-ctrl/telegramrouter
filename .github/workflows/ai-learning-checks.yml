@@ -6,17 +6,31 @@ on:
       - 'app/SmartFormatting.php'
       - 'ai-learning.php'
       - 'tests/ai-learning-memory-test.php'
+      - 'tests/ai-learning-db-test.php'
       - '.github/workflows/ai-learning-checks.yml'
   workflow_dispatch:
 jobs:
   verify:
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-not-production
+          MYSQL_DATABASE: ai_learning_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest-only-not-production"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install PHP CLI and mbstring
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y php-cli php-mbstring
+          sudo apt-get install -y php-cli php-mbstring php-mysql
       - name: Compare repository and sanitized runtime snapshot hashes
         run: |
           mkdir -p /tmp/ai-learning-runtime-fixture
@@ -31,7 +45,9 @@ jobs:
           php -l app/SmartFormatting.php
           php -l ai-learning.php
           php -l tests/ai-learning-memory-test.php
+          php -l tests/ai-learning-db-test.php
           php tests/ai-learning-memory-test.php
+          php tests/ai-learning-db-test.php
       - name: Verify production-safe defaults and rendering ownership
         run: |
           grep -q "getenv('AI_LEARNING_ENABLED')==='1'" app/AiLearningMemory.php
