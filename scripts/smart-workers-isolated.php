@@ -250,20 +250,25 @@ try{
         ];
     }
     if($image!==null){
-        // Cloudflare's Vision input schema recommends an image_url part inside
-        // the user message. The former top-level image parameter is deprecated
-        // and can return HTTP 200 without generated text for some inputs.
-        // Keep the original data URI unchanged and NEVER expose it in logs.
-        $payload=[
-            'messages'=>[[
-                'role'=>'user',
-                'content'=>[
-                    ['type'=>'text','text'=>$prompt],
-                    ['type'=>'image_url','image_url'=>['url'=>$image]]
-                ]
-            ]],
-            'temperature'=>0,'max_tokens'=>2800,'stream'=>false
-        ];
+        // Llama 3.2 Vision's REST image input is prompt + image (data URI).
+        // The chat image_url payload can return HTTP 200 without response text
+        // for this model. Scout retains its own supported multimodal chat schema.
+        // Never log the original image or the generated model observations.
+        if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+            $payload=['prompt'=>$prompt,'image'=>$image,
+                'temperature'=>0,'max_tokens'=>$checkOnly?12:2800,'stream'=>false];
+        } else {
+            $payload=[
+                'messages'=>[[
+                    'role'=>'user',
+                    'content'=>[
+                        ['type'=>'text','text'=>$prompt],
+                        ['type'=>'image_url','image_url'=>['url'=>$image]]
+                    ]
+                ]],
+                'temperature'=>0,'max_tokens'=>2800,'stream'=>false
+            ];
+        }
         if($model==='@cf/meta/llama-4-scout-17b-16e-instruct' && !$checkOnly && $fields!==[]){
             $properties=[];
             foreach($fields as $field)$properties[$field]=['type'=>'string'];
@@ -278,6 +283,10 @@ try{
     // Only test requests use small output; production card requests have
     // an independent, larger timeout and one bounded transient retry.
     $timeouts=$checkOnly?[30,20]:[45,30];
+    // Limit the optional Scout rescue so an unresponsive vision model does not
+    // consume the whole message-processing window before the configured fallback.
+    if(!$checkOnly && $image!==null &&
+       $model==='@cf/meta/llama-4-scout-17b-16e-instruct')$timeouts=[22,8];
     // Text cards on the lightweight model have their own bounded window.
     // Do not block the configured provider fallback for up to 75 seconds.
     if(!$checkOnly && $image===null &&
@@ -290,7 +299,7 @@ try{
                 "The first character MUST be { and the final character MUST be }. ".
                 "Every requested field must be a STRING; unknown values are empty strings. ".
                 "No headings, explanations, tools, markdown, or additional text.\n".$prompt;
-            if($image!==null){
+            if($image!==null && isset($payload['messages'][0]['content'][0]['text'])){
                 $payload['messages'][0]['content'][0]['text']=$strictPrompt;
             } elseif(isset($payload['messages'][0]['content'])){
                 // Text-only 8B uses chat messages, never mix prompt and messages.
@@ -339,6 +348,12 @@ try{
             $reason=is_string($response)?tipResponseStatus($response)
                 :(is_string($description)?tipResponseStatus($description)
                 :($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT'));
+            // A 200 response with no usable text and no visual evidence cannot
+            // be repaired by an identical request. Pass control to the existing
+            // same-account Vision rescue without spending another 30-45 seconds.
+            if($image!==null && $reason==='RESPONSE_MISSING_TEXT' && $visualEvidence===''){
+                reply(false,$reason);
+            }
             if($attempt===0){
                 if(is_string($description)&&trim($description)!==''){
                     // For ImageTextToText outputs that are descriptive rather
@@ -350,16 +365,6 @@ try{
                             mb_substr(trim($description),0,8000,'UTF-8'),
                         'temperature'=>0,'max_tokens'=>1800,'stream'=>false
                     ];
-                    $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
-                    if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
-                    $encoded=$retryBody;
-                    $retryPrepared=true;
-                } elseif($image!==null){
-                    // The model can return HTTP 200 with no generated text for
-                    // a multimodal message in some runtime versions. Retry
-                    // once using the documented prompt + image input schema.
-                    $payload=['prompt'=>$strictPrompt??$prompt,'image'=>$image,
-                        'temperature'=>0,'max_tokens'=>1800,'stream'=>false];
                     $retryBody=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
                     if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
                     $encoded=$retryBody;
