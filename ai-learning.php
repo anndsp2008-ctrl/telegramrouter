@@ -15,15 +15,20 @@ if(isset($_GET['image'])){
     $record=$memory->get((int)$_GET['image']);
     if(!$record||empty($record['image_name'])){http_response_code(404);exit;}
     $name=(string)$record['image_name'];
-    if(!preg_match('/^[a-f0-9]{32}\.(?:png|jpg|webp)$/D',$name)){http_response_code(404);exit;}
+    if(!preg_match('/^[a-f0-9]{32}\.(?:png|jpg|webp)\.enc$/D',$name)){http_response_code(404);exit;}
     $path=$directory.'/'.$name;
     if(!is_file($path)){http_response_code(404);exit;}
-    $mime=(new finfo(FILEINFO_MIME_TYPE))->file($path);
-    if(!in_array($mime,['image/jpeg','image/png','image/webp'],true)){http_response_code(404);exit;}
+    try {
+        $sealed=file_get_contents($path);
+        if(!is_string($sealed))throw new RuntimeException('Imagem indisponível.');
+        $plaintext=\App\AiLearningMemory::decryptImage($sealed);
+        $mime=(new finfo(FILEINFO_MIME_TYPE))->buffer($plaintext);
+        if(!in_array($mime,['image/jpeg','image/png','image/webp'],true))throw new RuntimeException('Imagem inválida.');
+    }catch(Throwable $e){http_response_code(404);exit;}
     header('Content-Type: '.$mime);
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, no-store');
-    readfile($path);
+    echo $plaintext;
     exit;
 }
 if($_SERVER['REQUEST_METHOD']==='POST'){
@@ -44,10 +49,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 if(!$ext)throw new RuntimeException('Aceitos apenas JPG, PNG e WebP.');
                 if(!is_dir($directory)&&!mkdir($directory,0700,true)&&!is_dir($directory))
                     throw new RuntimeException('Não foi possível preparar armazenamento.');
-                $filename=bin2hex(random_bytes(16)).'.'.$ext;
-                if(!move_uploaded_file($tmp,$directory.'/'.$filename))
-                    throw new RuntimeException('Não foi possível salvar a imagem.');
-                chmod($directory.'/'.$filename,0600);
+                $filename=bin2hex(random_bytes(16)).'.'.$ext.'.enc';
+                $bytes=file_get_contents($tmp);
+                if(!is_string($bytes))throw new RuntimeException('Não foi possível ler imagem.');
+                $sealed=\App\AiLearningMemory::encryptImage($bytes);
+                $target=$directory.'/'.$filename;
+                if(file_put_contents($target,$sealed,LOCK_EX)===false)
+                    throw new RuntimeException('Não foi possível salvar a imagem protegida.');
+                chmod($target,0600);
             }
             try{
                 $id=$memory->savePending((string)($_POST['source_text']??''),
