@@ -37,6 +37,8 @@ jobs:
           cat backup/production-source-2026-09-18.part*.b64 | tr -d '[:space:]' | base64 -d | tar -xz -C /tmp/ai-learning-runtime-fixture
           echo BASELINE_RUNTIME_SMART_HASH=$(sha256sum /tmp/ai-learning-runtime-fixture/app/SmartFormatting.php | cut -c1-12)
           echo GITHUB_SMART_HASH=$(sha256sum app/SmartFormatting.php | cut -c1-12)
+          echo PRE_CHANGE_MAIN_SMART_HASH=$(git show b7ec9127df752e94450e25b2e333c4fe76cd060b:app/SmartFormatting.php | sha256sum | cut -c1-12)
+          echo PRE_CHANGE_MAIN_INDEX_HASH=$(git show b7ec9127df752e94450e25b2e333c4fe76cd060b:index.php | sha256sum | cut -c1-12)
           if [ -f /tmp/ai-learning-runtime-fixture/runtime-smart-format.php ]; then echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=YES; else echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=NO; fi
           if [ -f /tmp/ai-learning-runtime-fixture/index.php ]; then echo SNAPSHOT_HAS_PANEL=YES; fi
       - name: Check syntax and memory invariants
