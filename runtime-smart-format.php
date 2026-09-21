@@ -4,13 +4,6 @@
  * Runs only AFTER the existing translation, routing, branding and footer patches.
  * No old routing code is removed: disabled rules use their previous send calls.
  */
-$productionHealthGuard=getenv('SMART_FORMAT_TEST_ONLY')!=='1' && is_file(__DIR__.'/health');
-$installerSucceeded=false;
-if($productionHealthGuard){
-    register_shutdown_function(static function() use (&$installerSucceeded): void {
-        if(!$installerSucceeded)@unlink(__DIR__.'/health');
-    });
-}
 if(getenv('SMART_FORMAT_TEST_ONLY')!=='1'){
     require_once __DIR__.'/bootstrap.php';
     \App\SmartFormatting::migrate();
@@ -34,7 +27,6 @@ if(is_string($index) && !str_contains($index,'smart-format.css')){
 }
 if(!is_string($index)||!is_string($router)){fwrite(STDERR,"SMART_FORMAT_SOURCE_MISSING\n");exit(1);}
 if(str_contains($router,'TMR_SMART_FORMAT_V1') && str_contains($index,'tmr-smart-format-choice')){
-    $installerSucceeded=true;
     echo "SMART_FORMAT_ALREADY_APPLIED\n";exit(0);
 }
 $replaceOne=static function(string $content,string $old,string $new,string $label): string {
@@ -57,7 +49,7 @@ try {
     $section=<<<'HTML'
 <section class="treatment-block tmr-smart-format-choice" aria-labelledby="smart-format-title">
   <div class="treatment-title"><span id="smart-format-title">✦ Formatação inteligente com IA</span></div>
-  <p class="field-help">Opcional por regra. Interpreta texto e imagens usando o Gemini configurado. Com a opção desligada, o encaminhamento atual permanece igual.</p>
+  <p class="field-help">Opcional por regra. A interpretação e a tradução inteligentes usam o mesmo provedor definido na regra e, quando necessário, seu fallback configurado. Para gerar cards, o provedor deve aceitar interpretação por IA (Gemini ou Workers AI); Azure Translator e Google Cloud Translation, isoladamente, não interpretam comprovantes. Com a opção desligada, o encaminhamento atual permanece igual.</p>
   <div class="treatment-checks">
     <label><input type="checkbox" name="smart_format_enabled" <?=\App\SmartFormatting::settings((int)($editRule['id']??0))['enabled']?'checked':''?>> Ativar somente nesta regra</label>
   </div>
@@ -69,7 +61,7 @@ try {
       <option value="text" <?=$smartMode==='text'?'selected':''?>>Somente texto formatado</option>
     </select>
   </label>
-  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Caso a interpretação ou o card falhe, o envio original será mantido.</p>
+  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Se a IA ou o card falhar, a mensagem NÃO será encaminhada sem formatação; a falha será registrada no histórico, sem encaminhar o conteúdo original.</p>
 </section>
 HTML;
     $index=$replaceOne($index,
@@ -120,11 +112,12 @@ HTML;
         mixed $analysisMedia=null
     ): void
     {
-        // The optional feature must never prevent delivery if its settings are unavailable.
+        // If settings cannot be read, never guess that the rule is disabled:
+        // that could leak an unformatted source message to a mandatory AI rule.
         try {
             $setting=SmartFormatting::settings((int)($rule['id']??0));
-        } catch(\Throwable $ignored) {
-            $setting=['enabled'=>false,'output_mode'=>'card'];
+        } catch(\Throwable $error) {
+            throw new \RuntimeException('SMART_FORMAT_SETTINGS_UNAVAILABLE',0,$error);
         }
         $formatted=null;
         $sourceImage=null;
@@ -194,17 +187,8 @@ HTML;
                         );
                         $this->deliveryMethod='ai_vip_card';
                         if($continuation!==''){
-                            // The media was already accepted by Telegram. Never mark the
-                            // whole event as failed (or retry the card) if only the second
-                            // message fails, otherwise a manual retry can duplicate it.
-                            try {
-                                $this->sendContinuation($peer,$continuation.$footer,[]);
-                            } catch(\Throwable $continuationError) {
-                                $this->deliveryMethod='ai_vip_card_partial';
-                                error_log('TMR_SMART_CARD_CONTINUATION_FAILED '.json_encode([
-                                    'exception'=>get_class($continuationError)
-                                ]));
-                            }
+                            // The separator comes after the LAST part, never between parts.
+                            $this->sendContinuation($peer,$continuation.$footer,[]);
                         }
                         return;
                     }
@@ -234,34 +218,23 @@ HTML;
                 }
             }
         }
-        // When the opt-in translated card failed before sending, restore the
-        // legacy translation once and then perform the original legacy delivery.
-        // This also respects translation_fallback_original / failure settings.
-        if(SmartFormatting::cardHandlesTranslation($rule,$setting)){
-            if(SmartFormatting::providerUnavailable()){
-                // The card request has already proved Gemini is rate-limited.
-                // Do not immediately spend more requests through the legacy
-                // translation fallback; deliver the original instead.
-                error_log('TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF');
-            } else {
-                try {
-                    $translationFallback=Transform::translateDetailed($text,$rule,[
-                        'rule_id'=>(int)($rule['id']??0),
-                        'context'=>'message'
-                    ]);
-                    $text=(string)$translationFallback['text'];
-                    if(!empty($translationFallback['translated']))$entities=[];
-                    error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK');
-                } catch(\Throwable $translationError) {
-                    // Smart formatting is optional. Translation provider failure
-                    // must not prevent the original Telegram delivery.
-                    error_log('TMR_SMART_TRANSLATION_FALLBACK_FAILED '.json_encode([
-                        'exception'=>get_class($translationError)
-                    ]));
-                }
-            }
+        // Mandatory AI mode: never publish raw, merely translated, or
+        // unformatted source content if AI fails or formatting exceeds limits.
+        // process() catches this error and records the event as FAILED.
+        // Retry only BEFORE any Telegram send; never duplicate a sent card.
+        if(!empty($setting['enabled'])){
+            error_log('TMR_SMART_FORMAT_REQUIRED_FAILED '.json_encode([
+                'rule_id'=>(int)($rule['id']??0),
+                'mode'=>(string)($setting['output_mode']??'unknown')
+            ]));
+            // The history previously collapsed all AI failures to an unhelpful
+            // SMART_FORMAT_REQUIRED_UNAVAILABLE code. Include only sanitized
+            // per-message reason codes; never source text or credentials.
+            $reason=SmartFormatting::failureSummary();
+            throw new \RuntimeException('SMART_FORMAT_REQUIRED_UNAVAILABLE'.
+                ($reason!==''?' ['.$reason.']':''));
         }
-        // Bit-for-bit existing behavior for all disabled rules and AI failures.
+        // Legacy delivery is allowed ONLY if smart formatting is OFF.
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
         } else {
@@ -273,21 +246,7 @@ CODE;
     $router=$replaceOne($router,'    private function resolveDestination(string $peer): void',$method.'    private function resolveDestination(string $peer): void','NEW_METHOD');
 } catch(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);}
 
-// The previous generic error text promised an automatic retry that does not
-// exist in this worker. Keep the operational message truthful.
-$errorPath=__DIR__.'/app/ErrorTranslator.php';
-$errorSource=@file_get_contents($errorPath);
-if(!is_string($errorSource)){fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_MISSING\n");exit(1);}
-$oldErrorText='não foi possível determinar a causa exata; a tentativa foi interrompida e será reavaliada após a conexão ser restabelecida';
-$newErrorText='não foi possível determinar a causa exata; a tentativa foi interrompida';
-if(str_contains($errorSource,$oldErrorText)){
-    if(substr_count($errorSource,$oldErrorText)!==1){fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_ANCHOR_MISMATCH\n");exit(1);}
-    $errorSource=str_replace($oldErrorText,$newErrorText,$errorSource);
-} elseif(!str_contains($errorSource,$newErrorText)){
-    fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_UNKNOWN_STATE\n");exit(1);
-}
-
-$paths=[$indexPath=>$index,$routerPath=>$router,$errorPath=>$errorSource];
+$paths=[$indexPath=>$index,$routerPath=>$router];
 $temps=[];
 foreach($paths as $dest=>$content){
     $temp=$dest.'.smart-candidate';
@@ -300,9 +259,4 @@ foreach($paths as $dest=>$content){
 foreach($temps as $dest=>$temp){
     if(!@rename($temp,$dest)){fwrite(STDERR,"SMART_FORMAT_REPLACE_FAILED\n");exit(1);}
 }
-$installerSucceeded=true;
-$routerHash=@hash_file('sha256',$routerPath);
-$smartHash=@hash_file('sha256',__DIR__.'/app/SmartFormatting.php');
-echo 'TMR_SMART_FORMAT_RUNTIME_HASH router='.substr((string)$routerHash,0,12)
-    .' smart='.substr((string)$smartHash,0,12)."\n";
 echo "TMR_SMART_FORMAT_V1_INSTALLED\n";
