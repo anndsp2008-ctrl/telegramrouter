@@ -551,10 +551,10 @@ if(!is_string($transportSource)||!str_contains($transportSource,'$curlErr===28')
    !str_contains($transportSource,'[500,502,503,504]')||
    str_contains($transportSource,'[429,500,502,503,504]'))
     throw new RuntimeException('Transient AI timeout/network retry is not installed');
-if(!\\App\\SmartFormatting::workerVisualRescueEligible('HTTP_400') ||
-   \\App\\SmartFormatting::workerVisualRescueEligible('IMAGE_INPUT_INVALID_5004') ||
-   \\App\\SmartFormatting::workerVisualRescueEligible('HTTP_429') ||
-   \\App\\SmartFormatting::workerVisualRescueEligible('MODEL_NOT_FOUND_5007'))
+if(!\App\SmartFormatting::workerVisualRescueEligible('HTTP_400') ||
+   \App\SmartFormatting::workerVisualRescueEligible('IMAGE_INPUT_INVALID_5004') ||
+   \App\SmartFormatting::workerVisualRescueEligible('HTTP_429') ||
+   \App\SmartFormatting::workerVisualRescueEligible('MODEL_NOT_FOUND_5007'))
     throw new RuntimeException('Vision model-specific bad-request rescue guard regression');
 echo "SMART_FORMAT_REQUIRED_NO_RAW_FALLBACK_TESTS_PASSED\n";
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
