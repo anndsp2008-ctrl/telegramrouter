@@ -1,7 +1,5 @@
 <?php declare(strict_types=1);
 
-require_once __DIR__.'/runtime-workers-ai.php';
-
 /*
  * Integrations UI v10.
  * Premium compact workspace, one stylesheet and one behavior file.
@@ -46,7 +44,7 @@ $overview = <<<'HTML'
     <small>Configure credenciais, valide conexões e acompanhe o estado de cada provedor sem poluição visual.</small>
   </div>
   <div class="integrations-overview-v10-status">
-    <span class="<?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0)+((!empty($workersAIKey)&&!empty($workersAIAccount))?1:0))>0?'is-good':''?>">Chaves <?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0)+((!empty($workersAIKey)&&!empty($workersAIAccount))?1:0))?>/4</span>
+    <span class="<?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0))>0?'is-good':''?>">Chaves <?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0))?>/3</span>
     <span class="<?=$connectedPhone!==''?'is-good':''?>">Telegram <?=$connectedPhone!==''?'online':'offline'?></span>
   </div>
 </section>

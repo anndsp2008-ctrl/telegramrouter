@@ -5,21 +5,6 @@ on:
       - 'app/SmartFormatting.php'
       - 'app/VipCardRenderer.php'
       - 'runtime-smart-format.php'
-      - 'runtime-workers-ai.php'
-      - 'runtime-integrations-ui.php'
-      - 'app/WorkersAITranslation.php'
-      - 'app/workers-ai-card.php'
-      - 'scripts/workers-ai-request.php'
-      - 'scripts/smart-workers-isolated.php'
-      - 'scripts/translation-v2-safe-start.php'
-      - 'scripts/google-cloud-safe-start.php'
-      - 'tests/smart-provider-routing-smoke.php'
-      - 'tests/workers-ai-model-smoke.php'
-      - 'assets/brand/workers-ai-provider.css'
-      - 'assets/brand/mobile-visual-audit.css'
-      - 'assets/brand/integrations-v10.css'
-      - 'runtime-brand.php'
-      - 'tests/integration-badge-alignment-smoke.php'
       - 'tests/smart-format-smoke.php'
       - '.github/workflows/smart-format-checks.yml'
   workflow_dispatch:
@@ -38,94 +23,19 @@ jobs:
           php -l app/PurePngVipCardRenderer.php
           php -l app/VipCardRenderer.php
           php -l runtime-smart-format.php
-          php -l runtime-workers-ai.php
-          php -l runtime-integrations-ui.php
-          php -l app/WorkersAITranslation.php
-          php -l app/workers-ai-card.php
-          php -l scripts/workers-ai-request.php
-          php -l scripts/smart-workers-isolated.php
-          php -l scripts/translation-v2-safe-start.php
-          php -l scripts/google-cloud-safe-start.php
-          php -l tests/smart-provider-routing-smoke.php
-          php -l tests/integration-badge-alignment-smoke.php
-          php -l tests/workers-ai-model-smoke.php
       - name: Reconstruct sanitized baseline and patch it offline
         run: |
           mkdir -p /tmp/tmr-smart-fixture
           cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
           cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
-          cp runtime-workers-ai.php /tmp/tmr-smart-fixture/runtime-workers-ai.php
-          cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
-          cp app/workers-ai-card.php /tmp/tmr-smart-fixture/app/workers-ai-card.php
-          cp scripts/workers-ai-request.php /tmp/tmr-smart-fixture/scripts/workers-ai-request.php
-          mkdir -p /tmp/tmr-smart-fixture/assets/brand
-          cp assets/brand/workers-ai-provider.css /tmp/tmr-smart-fixture/assets/brand/workers-ai-provider.css
-          WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_INSTALLED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
           php -l /tmp/tmr-smart-fixture/index.php
-          php -l /tmp/tmr-smart-fixture/app/Repository.php
-          php -l /tmp/tmr-smart-fixture/app/TranslationService.php
           php -l /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_ALREADY_APPLIED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php | grep SMART_FORMAT_ALREADY_APPLIED
-      - name: Verify startup protects new translation provider
-        run: |
-          grep -Fq "TABLE_NAME=? AND COLUMN_NAME=?" scripts/translation-v2-safe-start.php
-          grep -Fq "TRANSLATION_V2_MIGRATION_SKIPPED_NEW_PROVIDER_ACTIVE" scripts/translation-v2-safe-start.php
-          grep -Fq "translation-migrate.php" scripts/translation-v2-safe-start.php
-          ! grep -F "UPDATE router_rules SET translation_provider" scripts/translation-v2-safe-start.php
-          grep -Fq 'GOOGLE_CLOUD_WORKERS_ENUM_PRESERVED' scripts/google-cloud-safe-start.php
-          grep -Fq "'google_cloud','workers_ai'" scripts/google-cloud-safe-start.php
-          grep -Fq 'GOOGLE_CLOUD_INSTALLER_SCHEMA_ANCHOR_CHANGED' scripts/google-cloud-safe-start.php
       - name: Assert isolated single-pass routing patch
         run: |
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationRule' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq 'TMR_SMART_FORMAT_ORIGINAL_FALLBACK' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq '⚠️ [Formatação Automática Indisponível]' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq "sendMediaWithSafeCaption(\$peer,\$deliveryMedia,\$text,\$entities)" /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          ! grep -Fq 'SMART_FORMAT_REQUIRED_UNAVAILABLE' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          ! grep -Fq 'TMR_SMART_CARD_TRANSLATION_FALLBACK' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          ! grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-      - name: Assert Workers AI additive provider wiring
-        run: |
-          grep -Fq "value=\"workers_ai\"" /tmp/tmr-smart-fixture/index.php
-          grep -Fq "WorkersAITranslation::attempt" /tmp/tmr-smart-fixture/app/TranslationService.php
-          grep -Fq "'workers_ai'" /tmp/tmr-smart-fixture/app/Repository.php
-          grep -Fq "workers-ai-card.php" /tmp/tmr-smart-fixture/index.php
-          grep -Fq "WORKERS_AI_INSTALLED" runtime-workers-ai.php
-          ! grep -R -F "cfut_" app scripts runtime-workers-ai.php assets tests || exit 1
-      - name: Verify integration badge right-side alignment across all viewports
-        run: php tests/integration-badge-alignment-smoke.php
-      - name: Render Workers AI provider UI in isolation
-        run: |
-          php -l tests/workers-ai-card-smoke.php
-          php tests/workers-ai-card-smoke.php
-          php tests/workers-ai-model-smoke.php
-      - name: Verify translation provider and card fallback parity
-        run: |
-          php tests/smart-provider-routing-smoke.php
-          printf '{}' | php scripts/smart-workers-isolated.php | grep -Fq 'INPUT_INVALID'
-          SMART_WORKERS_CLASSIFIER_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED'
-          SMART_WORKERS_JSON_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_AI_JSON_EXTRACTION_TESTS_PASSED'
-          SMART_WORKERS_VISION_PAYLOAD_TEST=1 php scripts/smart-workers-isolated.php | grep -Fq 'WORKERS_VISION_PAYLOAD_TESTS_PASSED'
-          python3 - <<'PY'
-          from pathlib import Path
-          code=Path('scripts/smart-workers-isolated.php').read_text()
-          assert "foreach(['response','description'] as $textField)" in code
-          assert 'EVIDÊNCIA EXTRAÍDA DA IMAGEM' in code
-          assert "'type'=>'text','text'=>$prompt" in code
-          assert "'type'=>'image_url','image_url'=>['url'=>$image]" in code
-          assert "Primary Vision unified content payload regression" in code
-          assert "smartVisionCompatPayload($prompt,$image)" in code
-          PY
-          grep -Fq 'if($attempt===0){' scripts/smart-workers-isolated.php
-          grep -Fq 'usleep(250000);continue;' scripts/smart-workers-isolated.php
-          grep -Fq 'parsedVisionBet($result)' scripts/smart-workers-isolated.php
-          grep -Fq 'probeVision($account,$token)' app/WorkersAITranslation.php
-          grep -Fq 'MODEL_LICENSE_REQUIRED_5016' app/WorkersAITranslation.php
-          grep -Fq '$checkOnly?12:2800' scripts/smart-workers-isolated.php
-          grep -Fq '$timeouts=$checkOnly?[30,20]:[45,30]' scripts/smart-workers-isolated.php
-          grep -Fq 'CURLOPT_CONNECTTIMEOUT=>8' scripts/smart-workers-isolated.php
+          grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php

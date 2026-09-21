@@ -49,7 +49,7 @@ try {
     $section=<<<'HTML'
 <section class="treatment-block tmr-smart-format-choice" aria-labelledby="smart-format-title">
   <div class="treatment-title"><span id="smart-format-title">✦ Formatação inteligente com IA</span></div>
-  <p class="field-help">Opcional por regra. A interpretação e a tradução inteligentes usam o mesmo provedor definido na regra e, quando necessário, seu fallback configurado. Para gerar cards, o provedor deve aceitar interpretação por IA (Gemini ou Workers AI); Azure Translator e Google Cloud Translation, isoladamente, não interpretam comprovantes. Com a opção desligada, o encaminhamento atual permanece igual.</p>
+  <p class="field-help">Opcional por regra. Interpreta texto e imagens usando o Gemini configurado. Com a opção desligada, o encaminhamento atual permanece igual.</p>
   <div class="treatment-checks">
     <label><input type="checkbox" name="smart_format_enabled" <?=\App\SmartFormatting::settings((int)($editRule['id']??0))['enabled']?'checked':''?>> Ativar somente nesta regra</label>
   </div>
@@ -61,7 +61,7 @@ try {
       <option value="text" <?=$smartMode==='text'?'selected':''?>>Somente texto formatado</option>
     </select>
   </label>
-  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Se a IA ou o card falhar, a mensagem original será encaminhada com o aviso de Formatação Automática Indisponível; o motivo técnico será registrado sem expor o conteúdo da mensagem.</p>
+  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Caso a interpretação ou o card falhe, o envio original será mantido.</p>
 </section>
 HTML;
     $index=$replaceOne($index,
@@ -112,12 +112,11 @@ HTML;
         mixed $analysisMedia=null
     ): void
     {
-        // If settings cannot be read, never guess that the rule is disabled:
-        // that could leak an unformatted source message to a mandatory AI rule.
+        // The optional feature must never prevent delivery if its settings are unavailable.
         try {
             $setting=SmartFormatting::settings((int)($rule['id']??0));
-        } catch(\Throwable $error) {
-            throw new \RuntimeException('SMART_FORMAT_SETTINGS_UNAVAILABLE',0,$error);
+        } catch(\Throwable $ignored) {
+            $setting=['enabled'=>false,'output_mode'=>'card'];
         }
         $formatted=null;
         $sourceImage=null;
@@ -218,28 +217,24 @@ HTML;
                 }
             }
         }
-        // Graceful fallback is requested for enabled rules when both AI
-        // providers fail or formatting cannot produce a complete deliverable.
-        // Do not retry after a successful Telegram send: the normal successful
-        // card/text/caption paths above return before this branch.
-        $originalFallback=!empty($setting['enabled']);
-        if($originalFallback){
-            error_log('TMR_SMART_FORMAT_ORIGINAL_FALLBACK '.json_encode([
+        // When the opt-in translated card failed before sending, restore the
+        // legacy translation once and then perform the original legacy delivery.
+        // This also respects translation_fallback_original / failure settings.
+        if(SmartFormatting::cardHandlesTranslation($rule,$setting)){
+            $translationFallback=Transform::translateDetailed($text,$rule,[
                 'rule_id'=>(int)($rule['id']??0),
-                'mode'=>(string)($setting['output_mode']??'unknown'),
-                'reason'=>SmartFormatting::failureSummary()
-            ]));
-            $text.="\n\n⚠️ [Formatação Automática Indisponível]";
-            // Appending the footer leaves the original Telegram entity offsets
-            // unchanged. Reuse the existing safe media-caption delivery path.
+                'context'=>'message'
+            ]);
+            $text=(string)$translationFallback['text'];
+            if(!empty($translationFallback['translated']))$entities=[];
+            error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK');
         }
+        // Bit-for-bit existing behavior for all disabled rules and AI failures.
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
         } else {
             $this->sendMediaWithSafeCaption($peer,$deliveryMedia,$text,$entities);
         }
-        // A failed Telegram send must never be recorded as a successful fallback.
-        if($originalFallback)$this->deliveryMethod='smart_original_fallback';
     }
 
 CODE;

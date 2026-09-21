@@ -543,22 +543,8 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
     height:38px!important;
     border-radius:11px!important;
   }
-  /* Keep the configuration badge visible and right-aligned on phones.
-     The chevron remains in the top-right track and the badge may wrap
-     beneath the title without changing its horizontal side. */
   .translation-provider-grid .provider-badge{
-    display:inline-flex!important;
-    grid-column:2 / 4!important;
-    grid-row:2!important;
-    justify-self:end!important;
-    margin-left:auto!important;
-    margin-right:0!important;
-    max-width:100%!important;
-  }
-  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head::after,
-  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head::after{
-    grid-column:3!important;
-    grid-row:1!important;
+    display:none!important;
   }
   .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test{
     grid-template-columns:1fr auto!important;
@@ -954,100 +940,4 @@ body:has(.translation-provider-grid) .translation-provider-grid .form-status{
 }
 .translation-provider-grid .provider-test.bad{
   border-color:rgba(255,49,90,.20)!important;
-}
-
-/* Global status badge size contract for every provider: intrinsic content
-   width even when legacy header styles allocate a flexible grid track. */
-body:has(.translation-provider-grid) .translation-provider-grid > * > :is(.provider-head,.saas-card-head) > .provider-badge{
-  display:inline-flex!important;
-  width:max-content!important;
-  inline-size:max-content!important;
-  min-width:max-content!important;
-  max-width:none!important;
-  flex:0 0 auto!important;
-  justify-self:end!important;
-  align-self:center!important;
-  margin:0!important;
-  white-space:nowrap!important;
-}
-
-/* Workers AI uses the same content column as every other integration.
-   Its longer explanatory text is inside the header text wrapper rather than
-   a full-bleed sibling between the header and connection-test strip. */
-body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > div > .workers-ai-observation{
-  display:block!important;
-  margin:12px 0 0!important;
-  padding:0!important;
-  width:auto!important;
-  min-width:0!important;
-  max-width:720px!important;
-  color:rgba(203,213,225,.65)!important;
-  font-size:11px!important;
-  line-height:1.55!important;
-  white-space:normal!important;
-  overflow-wrap:anywhere!important;
-  text-align:left!important;
-}
-/* All four providers use content-sized status pills, including Workers AI
-   whose original status element was a form-status span rather than a badge. */
-body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge{
-  display:inline-flex!important;
-  width:max-content!important;
-  inline-size:max-content!important;
-  min-width:max-content!important;
-  max-width:none!important;
-  flex:0 0 auto!important;
-  justify-self:end!important;
-  align-self:center!important;
-  margin:0!important;
-  white-space:nowrap!important;
-}
-
-/* Workers AI configuration pill: visual parity with the other three status
-   badges. Scope ONLY this provider; do not change its stored config state,
-   accent/icon, test-result styling, card layout or position. */
-body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty){
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:6px!important;
-  box-sizing:border-box!important;
-  width:max-content!important;
-  inline-size:max-content!important;
-  min-width:max-content!important;
-  max-width:none!important;
-  min-height:30px!important;
-  height:auto!important;
-  padding:6px 10px!important;
-  border:1px solid #284840!important;
-  border-radius:999px!important;
-  background:#152a29!important;
-  background-image:none!important;
-  color:#79e9be!important;
-  font-family:inherit!important;
-  font-size:11px!important;
-  font-weight:500!important;
-  line-height:1.4!important;
-  letter-spacing:normal!important;
-  text-shadow:none!important;
-  box-shadow:none!important;
-  white-space:nowrap!important;
-}
-/* The other integration statuses show a coloured dot before the label.
-   Restore it ONLY for Workers AI, preserving the already matched pill styling. */
-body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)::before{
-  content:""!important;
-  display:block!important;
-  flex:0 0 6px!important;
-  width:6px!important;
-  height:6px!important;
-  border-radius:50%!important;
-  background:#79e9be!important;
-}
-body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge.is-empty::before{
-  background:#facc15!important;
-}
-body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status.provider-badge:is(.is-configured,.is-empty)::after{
-  content:none!important;
-  display:none!important;
 }
