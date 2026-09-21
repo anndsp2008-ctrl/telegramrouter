@@ -14,6 +14,9 @@ fine-tuning, não altera os pesos do Llama e não executa apostas.
   Workers AI somente com AI_LEARNING_ENABLED=1. Preserve a chamada ao
   VipCardRenderer já existente; nenhuma imagem/card existente é redesenhado.
 - index.php — acrescenta link de navegação; não substitui páginas existentes.
+- runtime-ai-learning.php — injeta as alterações na cópia efetivamente reconstruída
+  de SmartFormatting.php, somente após validar o hash exato da versão-base.
+  Se o hash mudar, não modifica o arquivo, preservando o fluxo anterior.
 - tests/ai-learning-memory-test.php — invariantes de recuperação sem banco.
 - .github/workflows/ai-learning-checks.yml — lint e testes isolados.
 
@@ -35,7 +38,11 @@ fine-tuning, não altera os pesos do Llama e não executa apostas.
 
 O Railway intelligent-rebirth / telegramrouter executa um startCommand que
 reconstrói parte do código-fonte a partir de várias variáveis de ambiente e
-aplica patches posteriores ao checkout do GitHub. Logo, os arquivos
+aplica patches posteriores ao checkout do GitHub. O runtime-ai-learning.php
+é executado pelo instalador de smart-format no ponto identificado, com guarda
+de hash da cópia real confirmada no deployment ff4a55e6. A reprodução offline
+da cópia de SmartFormatting.php e de sua instalação foi testada no GitHub Actions.
+Isso não equivale a uma validação operacional no Railway. Logo, os arquivos
 app/SmartFormatting.php e index.php presentes na branch NÃO são necessariamente
 os arquivos efetivos em produção. Esta branch NÃO deve ser implantada sem:
 
@@ -55,7 +62,10 @@ para revisar este PR. **A abertura deste PR não habilita o recurso.**
 
 Somente administradores autenticados podem acessar o módulo e as imagens.
 CSRF é verificado em todas as escritas. Uploads aceitam somente PNG/JPEG/WebP
-de até 4 MB e ficam no diretório storage/ai-learning. O armazenamento deve
+de até 4 MB e são cifrados com AES-256-GCM antes de permanecer no diretório
+storage/ai-learning. A extensão de arquivo no volume é `.enc`; a visualização
+é autenticada e decifrada apenas em memória. Preserve APP_KEY ao restaurar
+arquivos antigos, pois a troca da chave invalida a leitura dos prints. O armazenamento deve
 persistir no volume da aplicação e não ser público. Imagens originais e texto
 dos exemplos NÃO são enviados a outro provedor pelo módulo; o prompt de memória
 recebe trechos de texto + campos estruturados somente dos exemplos aprovados.
@@ -67,3 +77,15 @@ não sejam estritamente necessários. Não aprove exemplos gerados artificialmen
 sem checagem do texto e dos campos. Planeje futuramente paginação completa,
 revisão de retenção/exclusão, controle RBAC granular e avaliação de acurácia
 por mercado, linha, odd e seleção com uma base real separada.
+
+## Recuperação
+
+Referência anterior à atualização: commit `b7ec9127df752e94450e25b2e333c4fe76cd060b`
+(branch `backup/intelligent-rebirth-prod-ff4a55e6-20260921`) e deployment
+`ff4a55e6-5fe0-4dc1-862e-5f3133c89fa2`. Os volumes de MySQL e storage
+precisam ter backups verificados separadamente. Restaurar o código não restaura
+tabelas nem substitui a necessidade da mesma APP_KEY para decifrar prints.
+
+**Não aplicar `accept_deploy` em conjunto com outras alterações em staging.**
+A implantação deve ser isolada; não confirmar nem descartar os três itens que
+haviam sido preparados para outros serviços.
