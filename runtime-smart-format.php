@@ -4,6 +4,13 @@
  * Runs only AFTER the existing translation, routing, branding and footer patches.
  * No old routing code is removed: disabled rules use their previous send calls.
  */
+$productionHealthGuard=getenv('SMART_FORMAT_TEST_ONLY')!=='1' && is_file(__DIR__.'/health');
+$installerSucceeded=false;
+if($productionHealthGuard){
+    register_shutdown_function(static function() use (&$installerSucceeded): void {
+        if(!$installerSucceeded)@unlink(__DIR__.'/health');
+    });
+}
 if(getenv('SMART_FORMAT_TEST_ONLY')!=='1'){
     require_once __DIR__.'/bootstrap.php';
     \App\SmartFormatting::migrate();
@@ -27,6 +34,7 @@ if(is_string($index) && !str_contains($index,'smart-format.css')){
 }
 if(!is_string($index)||!is_string($router)){fwrite(STDERR,"SMART_FORMAT_SOURCE_MISSING\n");exit(1);}
 if(str_contains($router,'TMR_SMART_FORMAT_V1') && str_contains($index,'tmr-smart-format-choice')){
+    $installerSucceeded=true;
     echo "SMART_FORMAT_ALREADY_APPLIED\n";exit(0);
 }
 $replaceOne=static function(string $content,string $old,string $new,string $label): string {
@@ -187,8 +195,14 @@ HTML;
                         );
                         $this->deliveryMethod='ai_vip_card';
                         if($continuation!==''){
-                            // The separator comes after the LAST part, never between parts.
-                            $this->sendContinuation($peer,$continuation.$footer,[]);
+                            try {
+                                $this->sendContinuation($peer,$continuation.$footer,[]);
+                            } catch(\Throwable $continuationError) {
+                                $this->deliveryMethod='ai_vip_card_partial';
+                                error_log('TMR_SMART_CARD_CONTINUATION_FAILED '.json_encode([
+                                    'exception'=>get_class($continuationError)
+                                ]));
+                            }
                         }
                         return;
                     }
@@ -218,35 +232,60 @@ HTML;
                 }
             }
         }
-        // Mandatory AI mode: never publish raw, merely translated, or
-        // unformatted source content if AI fails or formatting exceeds limits.
-        // process() catches this error and records the event as FAILED.
-        // Retry only BEFORE any Telegram send; never duplicate a sent card.
-        if(!empty($setting['enabled'])){
-            error_log('TMR_SMART_FORMAT_REQUIRED_FAILED '.json_encode([
-                'rule_id'=>(int)($rule['id']??0),
-                'mode'=>(string)($setting['output_mode']??'unknown')
-            ]));
-            // The history previously collapsed all AI failures to an unhelpful
-            // SMART_FORMAT_REQUIRED_UNAVAILABLE code. Include only sanitized
-            // per-message reason codes; never source text or credentials.
-            $reason=SmartFormatting::failureSummary();
-            throw new \RuntimeException('SMART_FORMAT_REQUIRED_UNAVAILABLE'.
-                ($reason!==''?' ['.$reason.']':''));
+        // PR #75 hardening: smart formatting must not make a valid source
+        // message disappear. If formatting failed before any Telegram send,
+        // try the existing translation path once when it is still meaningful.
+        if(SmartFormatting::cardHandlesTranslation($rule,$setting)){
+            if(SmartFormatting::providerUnavailable()){
+                error_log('TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF');
+            } else {
+                try {
+                    $translationFallback=Transform::translateDetailed($text,$rule,[
+                        'rule_id'=>(int)($rule['id']??0),
+                        'context'=>'message'
+                    ]);
+                    $text=(string)$translationFallback['text'];
+                    if(!empty($translationFallback['translated']))$entities=[];
+                    error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK');
+                } catch(\Throwable $translationError) {
+                    error_log('TMR_SMART_TRANSLATION_FALLBACK_FAILED '.json_encode([
+                        'exception'=>get_class($translationError)
+                    ]));
+                }
+            }
         }
-        // Legacy delivery is allowed ONLY if smart formatting is OFF.
+        if(!empty($setting['enabled'])){
+            error_log('TMR_SMART_FORMAT_ORIGINAL_FALLBACK '.json_encode([
+                'rule_id'=>(int)($rule['id']??0),
+                'mode'=>(string)($setting['output_mode']??'unknown'),
+                'reason'=>SmartFormatting::failureSummary()
+            ]));
+        }
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
         } else {
             $this->sendMediaWithSafeCaption($peer,$deliveryMedia,$text,$entities);
         }
+        if(!empty($setting['enabled']))$this->deliveryMethod='smart_original_fallback';
     }
 
 CODE;
     $router=$replaceOne($router,'    private function resolveDestination(string $peer): void',$method.'    private function resolveDestination(string $peer): void','NEW_METHOD');
 } catch(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);}
 
-$paths=[$indexPath=>$index,$routerPath=>$router];
+$errorPath=__DIR__.'/app/ErrorTranslator.php';
+$errorSource=@file_get_contents($errorPath);
+if(!is_string($errorSource)){fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_MISSING\n");exit(1);}
+$oldErrorText='não foi possível determinar a causa exata; a tentativa foi interrompida e será reavaliada após a conexão ser restabelecida';
+$newErrorText='não foi possível determinar a causa exata; a tentativa foi interrompida';
+if(str_contains($errorSource,$oldErrorText)){
+    if(substr_count($errorSource,$oldErrorText)!==1){fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_ANCHOR_MISMATCH\n");exit(1);}
+    $errorSource=str_replace($oldErrorText,$newErrorText,$errorSource);
+} elseif(!str_contains($errorSource,$newErrorText)){
+    fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_UNKNOWN_STATE\n");exit(1);
+}
+
+$paths=[$indexPath=>$index,$routerPath=>$router,$errorPath=>$errorSource];
 $temps=[];
 foreach($paths as $dest=>$content){
     $temp=$dest.'.smart-candidate';
@@ -259,4 +298,9 @@ foreach($paths as $dest=>$content){
 foreach($temps as $dest=>$temp){
     if(!@rename($temp,$dest)){fwrite(STDERR,"SMART_FORMAT_REPLACE_FAILED\n");exit(1);}
 }
+$installerSucceeded=true;
+$routerHash=@hash_file('sha256',$routerPath);
+$smartHash=@hash_file('sha256',__DIR__.'/app/SmartFormatting.php');
+echo 'TMR_SMART_FORMAT_RUNTIME_HASH router='.substr((string)$routerHash,0,12)
+    .' smart='.substr((string)$smartHash,0,12)."\n";
 echo "TMR_SMART_FORMAT_V1_INSTALLED\n";
