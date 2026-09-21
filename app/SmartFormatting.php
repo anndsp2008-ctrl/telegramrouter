@@ -209,8 +209,13 @@ final class SmartFormatting
         if(!function_exists('proc_open')){self::diag('PROCESS_EXTENSION_MISSING');return null;}
         $transport=dirname(__DIR__).'/scripts/smart-gemini-isolated.php';
         if(!is_file($transport)){self::diag('ISOLATED_TRANSPORT_MISSING');return null;}
-        $input=json_encode(['model'=>$model,'key'=>$key,'payload'=>$payload],
-            JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+        // Stable multimodal backup model is tried only after the configured
+        // model returns 429/503. It reuses the same payload and API key.
+        $fallbackModel=$model==='gemini-2.5-flash-lite'?'':'gemini-2.5-flash-lite';
+        $input=json_encode([
+            'model'=>$model,'fallback_model'=>$fallbackModel,
+            'key'=>$key,'payload'=>$payload
+        ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if(!is_string($input))return null;
         $spec=[0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']];
         $process=@proc_open(['php',$transport],$spec,$pipes,dirname(__DIR__));
@@ -237,6 +242,9 @@ final class SmartFormatting
         }
         if($exit!==0||$output===''){self::diag('ISOLATED_PROCESS_EMPTY_OR_ERROR');return null;}
         $response=json_decode($output,true);
+        if(!empty($response['ok']) && !empty($response['model_fallback_used'])){
+            error_log('TMR_SMART_FORMAT_GEMINI_MODEL_FALLBACK');
+        }
         if(empty($response['ok'])||!isset($response['data'])||!is_array($response['data'])){
             $reason=(string)($response['reason']??'UNCLASSIFIED');
             if(!preg_match('/^[A-Z0-9_]{1,48}$/D',$reason))$reason='UNCLASSIFIED';
