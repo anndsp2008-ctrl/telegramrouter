@@ -340,7 +340,7 @@ if(getenv('SMART_WORKERS_VISION_PAYLOAD_TEST')==='1'){
     if($shape!==['result_type'=>'array','response_type'=>'null',
         'description_type'=>'null','tool_calls_present'=>false])
         throw new RuntimeException('Private data leaked into response-shape diagnostics');
-    echo "WORKERS_VISION_PAYLOAD_TESTS_PASSED\\n";
+    echo "WORKERS_VISION_PAYLOAD_TESTS_PASSED\n";
     exit(0);
 }
 
