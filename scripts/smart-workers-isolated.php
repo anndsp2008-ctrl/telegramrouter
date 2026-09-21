@@ -282,17 +282,21 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     exit(0);
 }
 
-/** REST ImageTextToText accepts a base64 image string with chat messages.
- * Do not pass the data-URI wrapper into the top-level image field: it is
- * required for image_url parts, not for REST's base64 image field.
+/** Vision payloads are model-specific. Keep text and image together
+ * for primary multimodal chat and preserve Scout's existing schema.
  */
 function smartVisionPayload(string $model,string $prompt,string $image,bool $checkOnly,array $fields): array {
     if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
-        $separator=strpos($image,',');
-        $base64=$separator===false?'':substr($image,$separator+1);
+        // Keep text and image in one user message. The REST request never
+        // combines a top-level image with chat messages.
         return [
-            'messages'=>[['role'=>'user','content'=>$prompt]],
-            'image'=>$base64,
+            'messages'=>[[
+                'role'=>'user',
+                'content'=>[
+                    ['type'=>'text','text'=>$prompt],
+                    ['type'=>'image_url','image_url'=>['url'=>$image]]
+                ]
+            ]],
             'temperature'=>0,'max_tokens'=>$checkOnly?12:2800,'stream'=>false
         ];
     }
@@ -346,13 +350,20 @@ if(getenv('SMART_WORKERS_VISION_PAYLOAD_TEST')==='1'){
     $image='data:image/png;base64,'.$rawImage;
     $vision=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct',
         'Test prompt',$image,false,['match']);
-    if(($vision['messages'][0]['content']??null)!=='Test prompt' ||
-       ($vision['image']??null)!==$rawImage || ($vision['max_tokens']??null)!==2800 ||
-       isset($vision['prompt']))
-        throw new RuntimeException('Primary REST Vision base64 payload regression');
+    $primaryParts=$vision['messages'][0]['content']??[];
+    if(($vision['messages'][0]['role']??null)!=='user' ||
+       ($primaryParts[0]['type']??null)!=='text' ||
+       ($primaryParts[0]['text']??null)!=='Test prompt' ||
+       ($primaryParts[1]['type']??null)!=='image_url' ||
+       ($primaryParts[1]['image_url']['url']??null)!==$image ||
+       ($vision['max_tokens']??null)!==2800 ||
+       isset($vision['image']) || isset($vision['prompt']))
+        throw new RuntimeException('Primary Vision unified content payload regression');
     $probe=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct',
         'Probe',$image,true,[]);
-    if(($probe['max_tokens']??null)!==12 || ($probe['image']??null)!==$rawImage)
+    if(($probe['max_tokens']??null)!==12 ||
+       ($probe['messages'][0]['content'][1]['image_url']['url']??null)!==$image ||
+       isset($probe['image']))
         throw new RuntimeException('Vision probe payload regression');
     $compat=smartVisionCompatPayload('Test prompt',$image);
     if(($compat['prompt']??null)!=='Test prompt' ||
