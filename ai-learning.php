@@ -105,7 +105,7 @@ As correções ficam em revisão até sua aprovação. Esta tela não altera o m
 <?php if($notice!==''):?><div class="ai-flash" role="status"><?=aiEscape($notice)?></div><?php endif;?>
 <?php if($error!==''):?><div class="ai-flash" role="alert"><?=aiEscape($error)?></div><?php endif;?>
 <section class="ai-card"><h2>Adicionar exemplo</h2>
-<p class="ai-note">Envie um print e, quando possível, transcreva a mensagem/mercado no campo original para facilitar a busca por exemplos semelhantes. Corrija todos os campos antes de aprovar.</p>
+<p class="ai-note">Envie um print e, quando possível, transcreva a mensagem/mercado no campo original para facilitar a busca por exemplos semelhantes. Você pode salvar apenas o print como pendente e preencher os dados depois, na revisão. Para a memória reconhecer mensagens parecidas, informe também o texto original quando possível.</p>
 <form method="post" enctype="multipart/form-data" class="ai-grid">
 <input type="hidden" name="csrf" value="<?=aiEscape(\App\Auth::csrf())?>">
 <input type="hidden" name="action" value="save">
@@ -115,10 +115,10 @@ As correções ficam em revisão até sua aprovação. Esta tela não altera o m
 <?php foreach($fields as $key=>$title):?>
 <label class="ai-field <?=in_array($key,['match','market','selection','analysis'],true)?'full':''?>"><?=aiEscape($title)?>
 <?php if($key==='analysis'):?><textarea name="label[<?=aiEscape($key)?>]" maxlength="3000"></textarea>
-<?php else:?><input name="label[<?=aiEscape($key)?>]" maxlength="220" <?=in_array($key,['match','market','selection'],true)?'required':''?>>
+<?php else:?><input name="label[<?=aiEscape($key)?>]" maxlength="220" >
 <?php endif;?></label>
 <?php endforeach;?>
-<div class="ai-field full"><button type="submit">Salvar para revisão</button></div>
+<div class="ai-field full"><button type="submit">Salvar exemplo pendente</button></div>
 </form></section>
 <section><h2>Exemplos recentes</h2>
 <?php foreach($examples as $example):
