@@ -535,17 +535,23 @@ if(SmartFormatting::failureSummary()!=='SOURCE_EMPTY')
 $runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($runtimeSource)
    ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
-   ||!str_contains($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE')
-   ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_REQUIRED_FAILED')
+   ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_ORIGINAL_FALLBACK')
    ||!str_contains($runtimeSource,'SmartFormatting::failureSummary()')
-   ||!str_contains($runtimeSource,"if(!empty(\$setting['enabled']))")
+   ||!str_contains($runtimeSource,"if(\$originalFallback)")
+   ||!str_contains($runtimeSource,'⚠️ [Formatação Automática Indisponível]')
+   ||str_contains($runtimeSource,"throw new \\RuntimeException('SMART_FORMAT_REQUIRED_UNAVAILABLE'")
    ||str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
    ||str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK'))
-    throw new RuntimeException('Mandatory opt-in formatting or single-pass translation missing');
-$failGuard=strpos($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE');
-$rawDelivery=strpos($runtimeSource,"if(\$deliveryMedia===null){", $failGuard?:0);
-if($failGuard===false||$rawDelivery===false||$failGuard>$rawDelivery)
-    throw new RuntimeException('Unformatted legacy send reachable before mandatory AI guard');
+    throw new RuntimeException('Graceful original fallback or single-pass translation missing');
+$noticePos=strpos($runtimeSource,'$text.="');
+$plainSendPos=strpos($runtimeSource,'$this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);',$noticePos?:0);
+$mediaSendPos=strpos($runtimeSource,'$this->sendMediaWithSafeCaption($peer,$deliveryMedia,$text,$entities);',$noticePos?:0);
+if($noticePos===false||$plainSendPos===false||$mediaSendPos===false||
+   $plainSendPos<$noticePos||$mediaSendPos<$noticePos)
+    throw new RuntimeException('Notice must precede original text and media sends');
+if(substr_count($runtimeSource,'⚠️ [Formatação Automática Indisponível]')!==1 ||
+   !str_contains($runtimeSource,"if(\$originalFallback)\$this->deliveryMethod='smart_original_fallback';"))
+    throw new RuntimeException('Fallback notice duplicated or status marked before send');
 $transportSource=file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
 if(!is_string($transportSource)||!str_contains($transportSource,'$curlErr===28')||
    !str_contains($transportSource,'[500,502,503,504]')||
@@ -559,7 +565,7 @@ if(!\App\SmartFormatting::workerVisualRescueEligible('HTTP_400') ||
    \App\SmartFormatting::workerVisualRescueEligible('HTTP_429') ||
    \App\SmartFormatting::workerVisualRescueEligible('MODEL_NOT_FOUND_5007'))
     throw new RuntimeException('Vision model-specific bad-request rescue guard regression');
-echo "SMART_FORMAT_REQUIRED_NO_RAW_FALLBACK_TESTS_PASSED\n";
+echo "SMART_FORMAT_GRACEFUL_ORIGINAL_FALLBACK_TESTS_PASSED\n";
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
