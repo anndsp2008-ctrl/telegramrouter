@@ -13,11 +13,16 @@ function reply(bool $ok,string $reason='OK',?array $data=null,?string $evidence=
  */
 function cloudflareFailureReason(int $http,string|false $body,int $errno): string {
     $errorCode=0;
+    $errorMessage='';
     if(is_string($body) && strlen($body)<60000){
         $json=json_decode($body,true);
         $code=is_array($json)?($json['errors'][0]['code']??null):null;
         if((is_int($code)||is_string($code))&&preg_match('/^[0-9]{3,5}$/D',(string)$code))
             $errorCode=(int)$code;
+        // Interpret a few stable error categories locally; NEVER expose the
+        // upstream message, which may contain request text or image metadata.
+        $message=is_array($json)?($json['errors'][0]['message']??null):null;
+        if(is_string($message)&&strlen($message)<2000)$errorMessage=$message;
     }
     if($http===403){
         return match($errorCode){
@@ -36,9 +41,21 @@ function cloudflareFailureReason(int $http,string|false $body,int $errno): strin
             default=>'HTTP_429'
         };
     }
-    if($http===400)return $errorCode===5007?'MODEL_NOT_FOUND_5007':
-        ($errorCode===5004?'IMAGE_INPUT_INVALID_5004':
-        ($errorCode>0?'HTTP_400_CF_'.$errorCode:'HTTP_400'));
+    if($http===400){
+        if($errorCode===5007)return 'MODEL_NOT_FOUND_5007';
+        if($errorCode===5004)return 'IMAGE_INPUT_INVALID_5004';
+        if($errorCode===3030){
+            // 3030 is NOT one error with one fix: Cloudflare also uses it
+            // for missing model inputs and content-policy rejections.
+            // Policy errors must not be retried through another vision model.
+            if(preg_match('/\\b(?:nsfw|content.policy|content.filter|safety.filter|unsafe.content)\\b/i',$errorMessage))
+                return 'HTTP_400_CF_3030_POLICY';
+            if(preg_match('/\\b(?:missing required (?:input|field)|required (?:input|field) [^ ]+ (?:is )?missing)\\b/i',$errorMessage))
+                return 'HTTP_400_CF_3030_MISSING_INPUT';
+            return 'HTTP_400_CF_3030_UNCLASSIFIED';
+        }
+        return $errorCode>0?'HTTP_400_CF_'.$errorCode:'HTTP_400';
+    }
     if($http>=500)return 'HTTP_5XX';
     if($errno===28)return 'TIMEOUT';
     return 'NETWORK';
@@ -55,12 +72,27 @@ if(getenv('SMART_WORKERS_CLASSIFIER_TEST')==='1'){
         [429,3036,'DAILY_QUOTA_EXHAUSTED_3036'],
         [400,5004,'IMAGE_INPUT_INVALID_5004'],
         [400,5007,'MODEL_NOT_FOUND_5007'],
+        [400,3030,'HTTP_400_CF_3030_UNCLASSIFIED'],
         [400,1234,'HTTP_400_CF_1234'],
         [400,0,'HTTP_400']
     ] as [$status,$code,$expected]){
         $body=$code>0?json_encode(['errors'=>[['code'=>$code,'message'=>'REDACTED']]]):'{}';
         if(cloudflareFailureReason($status,$body,0)!==$expected)
             throw new RuntimeException('Workers AI classification mismatch '.$status.'/'.$code);
+    }
+    foreach([
+        ['AiError: Model input is not valid: missing required input image',
+            'HTTP_400_CF_3030_MISSING_INPUT'],
+        ['AiError: Input prompt contains NSFW content.',
+            'HTTP_400_CF_3030_POLICY'],
+        ['AiError: content filter declined input.',
+            'HTTP_400_CF_3030_POLICY'],
+        ['AiError: unknown invalid payload',
+            'HTTP_400_CF_3030_UNCLASSIFIED']
+    ] as [$message,$expected]){
+        $body=json_encode(['errors'=>[['code'=>3030,'message'=>$message]]]);
+        if(cloudflareFailureReason(400,$body,0)!==$expected)
+            throw new RuntimeException('Workers AI code 3030 category regression');
     }
     echo "WORKERS_VISION_ERROR_CLASSIFIER_TESTS_PASSED\n";
     exit(0);
@@ -503,7 +535,8 @@ try{
         // quota or transient failures here.
         if($attempt===0 && $http===400 && $image!==null && !$checkOnly &&
            $model==='@cf/meta/llama-3.2-11b-vision-instruct' &&
-           cloudflareFailureReason($http,$body,$errno)==='HTTP_400'){
+           in_array(cloudflareFailureReason($http,$body,$errno),
+               ['HTTP_400','HTTP_400_CF_3030_MISSING_INPUT'],true)){
             $compat=smartVisionCompatPayload($prompt,$image);
             $retryBody=json_encode($compat,
                 JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);

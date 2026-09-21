@@ -552,6 +552,9 @@ if(!is_string($transportSource)||!str_contains($transportSource,'$curlErr===28')
    str_contains($transportSource,'[429,500,502,503,504]'))
     throw new RuntimeException('Transient AI timeout/network retry is not installed');
 if(!\App\SmartFormatting::workerVisualRescueEligible('HTTP_400') ||
+   !\App\SmartFormatting::workerVisualRescueEligible('HTTP_400_CF_3030_MISSING_INPUT') ||
+   \App\SmartFormatting::workerVisualRescueEligible('HTTP_400_CF_3030_POLICY') ||
+   \App\SmartFormatting::workerVisualRescueEligible('HTTP_400_CF_3030_UNCLASSIFIED') ||
    \App\SmartFormatting::workerVisualRescueEligible('IMAGE_INPUT_INVALID_5004') ||
    \App\SmartFormatting::workerVisualRescueEligible('HTTP_429') ||
    \App\SmartFormatting::workerVisualRescueEligible('MODEL_NOT_FOUND_5007'))

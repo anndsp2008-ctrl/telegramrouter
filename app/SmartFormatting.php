@@ -229,7 +229,8 @@ final class SmartFormatting
         return in_array($reason,[
             'RESPONSE_MISSING_TEXT','RESPONSE_NOT_JSON','RESPONSE_EMPTY',
             'RESPONSE_UNSTRUCTURED_TOOL_CALLS','RESPONSE_MISSING_REQUIRED_FIELDS',
-            'RESPONSE_BAD_FIELD_TYPES','HTTP_400'
+            'RESPONSE_BAD_FIELD_TYPES','HTTP_400',
+            'HTTP_400_CF_3030_MISSING_INPUT'
         ],true);
     }
     /**
