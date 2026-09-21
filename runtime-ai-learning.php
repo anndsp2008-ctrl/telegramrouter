@@ -22,10 +22,29 @@ if(str_contains($original,$marker)){
     echo "AI_LEARNING_ALREADY_INSTALLED\n";
     return;
 }
-// The pre-learning runtime file emitted exactly this hash in the confirmed
-// ff4a55e6 deployment and matches commit b7ec9127df752e94450e25b2e333c4fe76cd060b.
+// The first production release already ships the seven memory-context changes
+// in app/SmartFormatting.php, so the older unpatched hash is NOT expected there.
+// Accept that exact, validated source as already wired; do not patch it twice.
+$sourceHash=substr(hash('sha256',$original),0,12);
+if($sourceHash==='aef5fc1567f6'){
+    $wiredAnchors=[
+        'AiLearningMemory::contextFor($sourceText,(int)($rule[\'id\']??0))',
+        'self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples)',
+        'self::request($key,$sourceText,$localImage,$inputLanguage,$fields,$memoryExamples)',
+        '($memoryExamples!==\'\'?$memoryExamples:\'\')',
+    ];
+    foreach($wiredAnchors as $anchor){
+        if(!str_contains($original,$anchor)){
+            fwrite(STDERR,"AI_LEARNING_PREWIRED_ANCHOR_MISSING\n");return;
+        }
+    }
+    echo "AI_LEARNING_RUNTIME_READY_ALREADY_WIRED\n";
+    return;
+}
+// A separately supported older runtime needs the guarded overlay below.
+// Unknown formatter versions are never rewritten.
 $expectedPrefix='c05edc1c025c';
-if(substr(hash('sha256',$original),0,12)!==$expectedPrefix){
+if($sourceHash!==$expectedPrefix){
     fwrite(STDERR,"AI_LEARNING_BASE_HASH_MISMATCH\n");return;
 }
 $replace=function(string $before,string $after,string $label) use (&$original): void {
