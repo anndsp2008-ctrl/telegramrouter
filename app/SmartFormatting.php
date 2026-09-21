@@ -122,6 +122,8 @@ final class SmartFormatting
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
+        // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
+        $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
         // Every attempt must translate AND extract; no invisible Gemini call
         // when the configured provider is Workers AI or translation-only.
@@ -130,13 +132,13 @@ final class SmartFormatting
         foreach($providers as $provider){
             $json=null;
             if($provider==='workers_ai'){
-                $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields);
+                $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples);
             } elseif($provider==='gemini'){
                 if(self::geminiBackoffActive()){
                     self::diag('GEMINI_BACKOFF_ACTIVE');
                 } else {
                     $key=trim(Repository::integration('gemini_api_key'));
-                    if($key!=='')$json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
+                    if($key!=='')$json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields,$memoryExamples);
                     else self::diag('GEMINI_KEY_MISSING');
                 }
             } else {
@@ -342,7 +344,7 @@ final class SmartFormatting
      * The isolated REST transport never logs source text, images or credentials.
      * @param list<string> $fields
      */
-    private static function requestWorkers(string $text,?string $image,string $language,array $fields,?string $forcedTextModel=null): ?array
+    private static function requestWorkers(string $text,?string $image,string $language,array $fields,?string $forcedTextModel=null,string $memoryExamples=''): ?array
     {
         $account=WorkersAITranslation::account();
         $token=WorkersAITranslation::token();
@@ -366,7 +368,7 @@ final class SmartFormatting
             "Status AO VIVO somente se a PARTIDA estiver explicitamente em andamento; bilhete aberto não basta. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
             "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
-            $language." TEXTO ORIGINAL:\n".$text;
+            $language." ".($memoryExamples!==''?$memoryExamples:'')." TEXTO ORIGINAL:\n".$text;
         $photo=null;
         if($hasImage){
             $mime=mime_content_type($image)?:'';
@@ -463,7 +465,7 @@ final class SmartFormatting
         return null;
     }
     /** @param list<string> $fields */
-    private static function request(string $key,string $text,?string $image,string $language,array $fields): ?array
+    private static function request(string $key,string $text,?string $image,string $language,array $fields,string $memoryExamples=''): ?array
     {
         if(!function_exists('curl_init')){self::diag('CURL_EXTENSION_MISSING');return null;}
         $model=trim(Repository::integration('gemini_model'))?:'gemini-2.5-flash';
@@ -485,6 +487,7 @@ final class SmartFormatting
             "Não reproduza stake original, unidades, quantia apostada, banca, retorno financeiro, lucro ou valores monetários no campo analysis. ".
             "Omitir analysis é permitido SOMENTE quando não há análise de fato. ".
             "Não mencione o nome do roteador no JSON. ".$language." ".
+            ($memoryExamples!==''?$memoryExamples:'').
             "TEXTO ORIGINAL:\n".$text;
         $parts=[['text'=>$prompt]];
         if($image!==null&&is_file($image)&&filesize($image)>0&&filesize($image)<=4*1024*1024){
