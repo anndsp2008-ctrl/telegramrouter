@@ -28,13 +28,26 @@ final class SmartFormatting
     }
     private static function geminiBackoffActive(): bool
     {
-        $raw=@file_get_contents(self::GEMINI_BACKOFF_FILE);
+        // MadelineProto converts PHP warnings to exceptions, including warnings
+        // from @file_get_contents(). A missing backoff marker is the normal
+        // first-run state and must never abort smart formatting.
+        if(!is_file(self::GEMINI_BACKOFF_FILE))return false;
+        try {
+            $raw=file_get_contents(self::GEMINI_BACKOFF_FILE);
+        } catch(\Throwable $error) {
+            return false; // Fail open: provider request may proceed.
+        }
         return is_string($raw) && ctype_digit(trim($raw)) && (int)trim($raw)>time();
     }
     private static function activateGeminiBackoff(int $seconds): void
     {
         $seconds=max(30,min(900,$seconds));
-        @file_put_contents(self::GEMINI_BACKOFF_FILE,(string)(time()+$seconds),LOCK_EX);
+        try {
+            file_put_contents(self::GEMINI_BACKOFF_FILE,(string)(time()+$seconds),LOCK_EX);
+        } catch(\Throwable $error) {
+            // Backoff is an optimization. Never block forwarding if /tmp is
+            // temporarily unavailable or a warning is promoted to an exception.
+        }
     }
 
     public static function migrate(): void
