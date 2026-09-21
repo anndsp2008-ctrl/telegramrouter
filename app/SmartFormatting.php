@@ -607,6 +607,22 @@ final class SmartFormatting
             $reason=(string)($result['reason']??'PROCESS_FAILED');
             if(!preg_match('/^[A-Z0-9_]{1,40}$/D',$reason))$reason='PROCESS_FAILED';
             self::diag('WORKERS_AI_'.$reason);
+            // The isolated process never logs the response body. Surface only
+            // fixed-type metadata so the next empty Vision response can be
+            // diagnosed without exposing tips, images, provider text or tokens.
+            if($hasImage && $reason==='RESPONSE_MISSING_TEXT' && is_array($result['shape']??null)){
+                $shape=$result['shape'];
+                $kind=static fn(mixed $value): string =>
+                    is_string($value) && in_array($value,['null','string','array','other'],true)
+                        ?$value:'other';
+                error_log('TMR_WORKERS_AI_SAFE_SHAPE '.json_encode([
+                    'model_role'=>$index===0?'primary':'vision_rescue',
+                    'result_type'=>$kind($shape['result_type']??null),
+                    'response_type'=>$kind($shape['response_type']??null),
+                    'description_type'=>$kind($shape['description_type']??null),
+                    'tool_calls_present'=>($shape['tool_calls_present']??false)===true
+                ]));
+            }
             // Only model-output validation failures may be recovered using
             // observations from the existing Vision call. Never turn HTTP
             // 429, timeout, authentication or missing credentials into an

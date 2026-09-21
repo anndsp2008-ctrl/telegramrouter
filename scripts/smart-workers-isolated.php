@@ -1,9 +1,9 @@
 <?php declare(strict_types=1);
 /** Isolated Cloudflare REST extraction; secrets and source enter through STDIN only. */
-function reply(bool $ok,string $reason='OK',?array $data=null,?string $evidence=null): never {
+function reply(bool $ok,string $reason='OK',?array $data=null,?string $evidence=null,?array $shape=null): never {
     // Only the parent isolated PHP process receives evidence over stdout.
     // Never print model text, image data or the original tip in application logs.
-    echo json_encode(['ok'=>$ok,'reason'=>$reason,'data'=>$data,'evidence'=>$evidence],
+    echo json_encode(['ok'=>$ok,'reason'=>$reason,'data'=>$data,'evidence'=>$evidence,'shape'=>$shape],
         JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
     exit(0);
 }
@@ -248,13 +248,9 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
 
 /** Model-specific Vision payloads; keep source image data only inside the API request. */
 function smartVisionPayload(string $model,string $prompt,string $image,bool $checkOnly,array $fields): array {
-    // Llama 3.2 Vision REST supports prompt + image; the multimodal
-    // image_url chat payload may yield HTTP 200 without a usable text response.
-    // Scout retains its supported image_url chat schema and guided JSON.
-    if($model==='@cf/meta/llama-3.2-11b-vision-instruct'){
-        return ['prompt'=>$prompt,'image'=>$image,'temperature'=>0,
-            'max_tokens'=>$checkOnly?12:2800,'stream'=>false];
-    }
+    // Both Vision models accept the documented multimodal messages format.
+    // For Llama 3.2, the deprecated top-level image shape is only a bounded
+    // compatibility retry if a successful response contains no output at all.
     $payload=[
         'messages'=>[[
             'role'=>'user',
@@ -271,23 +267,59 @@ function smartVisionPayload(string $model,string $prompt,string $image,bool $che
         $payload['guided_json']=['type'=>'object','properties'=>$properties,
             'additionalProperties'=>false];
     }
+    if($checkOnly)$payload['max_tokens']=12;
     return $payload;
+}
+/** Cloudflare Vision tutorial's alternative input shape; only try on HTTP 200
+ * with no output/evidence, never on quota, auth or timeout failures.
+ */
+function smartVisionCompatPayload(string $prompt,string $image): array {
+    return ['messages'=>[['role'=>'user','content'=>$prompt]],'image'=>$image,
+        'temperature'=>0,'max_tokens'=>1200,'stream'=>false];
+}
+/** Metadata from a fixed allowlist only: no response content, image or keys. */
+function safeWorkersResponseShape(array $envelope,array $result): array {
+    $kind=static function(mixed $v): string {
+        if($v===null)return 'null';
+        if(is_string($v))return 'string';
+        if(is_array($v))return 'array';
+        return 'other';
+    };
+    return [
+        'result_type'=>$kind($envelope['result']??null),
+        'response_type'=>$kind($result['response']??null),
+        'description_type'=>$kind($result['description']??null),
+        'tool_calls_present'=>is_array($result['tool_calls']??null)
+            && count($result['tool_calls'])>0
+    ];
 }
 // Offline contract test: never calls Cloudflare or reads production credentials.
 if(getenv('SMART_WORKERS_VISION_PAYLOAD_TEST')==='1'){
     $image='data:image/png;base64,'.base64_encode('offline-test-image');
     $vision=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct','Test prompt',$image,false,['match']);
-    if(($vision['prompt']??null)!=='Test prompt' || ($vision['image']??null)!==$image ||
-        isset($vision['messages']) || ($vision['max_tokens']??null)!==2800)
-        throw new RuntimeException('Primary Vision image payload regression');
+    $parts=$vision['messages'][0]['content']??[];
+    if(($parts[0]['text']??null)!=='Test prompt' ||
+       ($parts[1]['image_url']['url']??null)!==$image ||
+       isset($vision['image']) || ($vision['max_tokens']??null)!==2800)
+        throw new RuntimeException('Primary Vision multimodal payload regression');
+    $compat=smartVisionCompatPayload('Test prompt',$image);
+    if(($compat['messages'][0]['content']??null)!=='Test prompt' ||
+       ($compat['image']??null)!==$image || ($compat['max_tokens']??null)!==1200)
+        throw new RuntimeException('Alternative Vision payload regression');
     $probe=smartVisionPayload('@cf/meta/llama-3.2-11b-vision-instruct','Probe',$image,true,[]);
-    if(($probe['max_tokens']??null)!==12 || !isset($probe['image']))
+    if(($probe['max_tokens']??null)!==12 ||
+       ($probe['messages'][0]['content'][1]['image_url']['url']??null)!==$image)
         throw new RuntimeException('Vision probe payload regression');
     $scout=smartVisionPayload('@cf/meta/llama-4-scout-17b-16e-instruct','Scout',$image,false,['match','odd']);
     $parts=$scout['messages'][0]['content']??[];
     if(($parts[0]['text']??null)!=='Scout' || ($parts[1]['image_url']['url']??null)!==$image ||
         isset($scout['image']) || ($scout['guided_json']['properties']['odd']['type']??null)!=='string')
         throw new RuntimeException('Scout Vision rescue payload regression');
+    $shape=safeWorkersResponseShape(['result'=>['response'=>null,'description'=>null]],
+        ['response'=>null,'description'=>null,'tool_calls'=>[]]);
+    if($shape!==['result_type'=>'array','response_type'=>'null',
+        'description_type'=>'null','tool_calls_present'=>false])
+        throw new RuntimeException('Private data leaked into response-shape diagnostics');
     echo "WORKERS_VISION_PAYLOAD_TESTS_PASSED\n";
     exit(0);
 }
@@ -408,7 +440,20 @@ try{
             // be repaired by an identical request. Pass control to the existing
             // same-account Vision rescue without spending another 30-45 seconds.
             if($image!==null && $reason==='RESPONSE_MISSING_TEXT' && $visualEvidence===''){
-                reply(false,$reason);
+                if($attempt===0 &&
+                   $model==='@cf/meta/llama-3.2-11b-vision-instruct'){
+                    // Different documented Vision schema, not an identical retry.
+                    $compat=smartVisionCompatPayload($prompt,$image);
+                    $retryBody=json_encode($compat,
+                        JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+                    if(!is_string($retryBody))reply(false,'PAYLOAD_INVALID');
+                    $payload=$compat;
+                    $encoded=$retryBody;
+                    $retryPrepared=true;
+                    usleep(250000);
+                    continue;
+                }
+                reply(false,$reason,null,null,safeWorkersResponseShape($envelope,$result));
             }
             if($attempt===0){
                 if(is_string($description)&&trim($description)!==''){
@@ -428,7 +473,8 @@ try{
                 }
                 usleep(250000);continue;
             }
-            reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null);
+            reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null,
+                safeWorkersResponseShape($envelope,$result));
         }
         if($attempt===0&&(in_array($http,[500,502,503,504],true)||
             in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}
