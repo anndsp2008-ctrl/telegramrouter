@@ -4,6 +4,13 @@
  * Runs only AFTER the existing translation, routing, branding and footer patches.
  * No old routing code is removed: disabled rules use their previous send calls.
  */
+$productionHealthGuard=getenv('SMART_FORMAT_TEST_ONLY')!=='1' && is_file(__DIR__.'/health');
+$installerSucceeded=false;
+if($productionHealthGuard){
+    register_shutdown_function(static function() use (&$installerSucceeded): void {
+        if(!$installerSucceeded)@unlink(__DIR__.'/health');
+    });
+}
 if(getenv('SMART_FORMAT_TEST_ONLY')!=='1'){
     require_once __DIR__.'/bootstrap.php';
     \App\SmartFormatting::migrate();
@@ -27,6 +34,7 @@ if(is_string($index) && !str_contains($index,'smart-format.css')){
 }
 if(!is_string($index)||!is_string($router)){fwrite(STDERR,"SMART_FORMAT_SOURCE_MISSING\n");exit(1);}
 if(str_contains($router,'TMR_SMART_FORMAT_V1') && str_contains($index,'tmr-smart-format-choice')){
+    $installerSucceeded=true;
     echo "SMART_FORMAT_ALREADY_APPLIED\n";exit(0);
 }
 $replaceOne=static function(string $content,string $old,string $new,string $label): string {
@@ -186,8 +194,17 @@ HTML;
                         );
                         $this->deliveryMethod='ai_vip_card';
                         if($continuation!==''){
-                            // The separator comes after the LAST part, never between parts.
-                            $this->sendContinuation($peer,$continuation.$footer,[]);
+                            // The media was already accepted by Telegram. Never mark the
+                            // whole event as failed (or retry the card) if only the second
+                            // message fails, otherwise a manual retry can duplicate it.
+                            try {
+                                $this->sendContinuation($peer,$continuation.$footer,[]);
+                            } catch(\Throwable $continuationError) {
+                                $this->deliveryMethod='ai_vip_card_partial';
+                                error_log('TMR_SMART_CARD_CONTINUATION_FAILED '.json_encode([
+                                    'exception'=>get_class($continuationError)
+                                ]));
+                            }
                         }
                         return;
                     }
@@ -221,13 +238,28 @@ HTML;
         // legacy translation once and then perform the original legacy delivery.
         // This also respects translation_fallback_original / failure settings.
         if(SmartFormatting::cardHandlesTranslation($rule,$setting)){
-            $translationFallback=Transform::translateDetailed($text,$rule,[
-                'rule_id'=>(int)($rule['id']??0),
-                'context'=>'message'
-            ]);
-            $text=(string)$translationFallback['text'];
-            if(!empty($translationFallback['translated']))$entities=[];
-            error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK');
+            if(SmartFormatting::providerUnavailable()){
+                // The card request has already proved Gemini is rate-limited.
+                // Do not immediately spend more requests through the legacy
+                // translation fallback; deliver the original instead.
+                error_log('TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF');
+            } else {
+                try {
+                    $translationFallback=Transform::translateDetailed($text,$rule,[
+                        'rule_id'=>(int)($rule['id']??0),
+                        'context'=>'message'
+                    ]);
+                    $text=(string)$translationFallback['text'];
+                    if(!empty($translationFallback['translated']))$entities=[];
+                    error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK');
+                } catch(\Throwable $translationError) {
+                    // Smart formatting is optional. Translation provider failure
+                    // must not prevent the original Telegram delivery.
+                    error_log('TMR_SMART_TRANSLATION_FALLBACK_FAILED '.json_encode([
+                        'exception'=>get_class($translationError)
+                    ]));
+                }
+            }
         }
         // Bit-for-bit existing behavior for all disabled rules and AI failures.
         if($deliveryMedia===null){
