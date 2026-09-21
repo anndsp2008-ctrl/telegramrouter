@@ -88,6 +88,21 @@ jobs:
           php -l /tmp/tmr-smart-fixture/app/TelegramRouter.php
           WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_ALREADY_APPLIED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php | grep SMART_FORMAT_ALREADY_APPLIED
+      - name: Verify already-integrated formatter is recognized without rewriting
+        run: |
+          mkdir -p /tmp/tmr-ai-prewired/app
+          cp runtime-ai-learning.php /tmp/tmr-ai-prewired/runtime-ai-learning.php
+          cp app/AiLearningMemory.php /tmp/tmr-ai-prewired/app/AiLearningMemory.php
+          cp app/SmartFormatting.php /tmp/tmr-ai-prewired/app/SmartFormatting.php
+          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "aef5fc1567f6"
+          hash_before="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
+          php /tmp/tmr-ai-prewired/runtime-ai-learning.php | grep -Fq 'AI_LEARNING_RUNTIME_READY_ALREADY_WIRED'
+          test "$hash_before" = "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
+          printf '\\n' >> /tmp/tmr-ai-prewired/app/SmartFormatting.php
+          hash_unknown="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
+          php /tmp/tmr-ai-prewired/runtime-ai-learning.php > /tmp/tmr-ai-unknown.out 2>&1
+          grep -Fq 'AI_LEARNING_BASE_HASH_MISMATCH' /tmp/tmr-ai-unknown.out
+          test "$hash_unknown" = "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
       - name: Verify startup protects new translation provider
         run: |
           grep -Fq "TABLE_NAME=? AND COLUMN_NAME=?" scripts/translation-v2-safe-start.php
