@@ -220,15 +220,16 @@ final class SmartFormatting
         return $providers;
     }
     private const WORKERS_VISION_RESCUE_MODEL='@cf/meta/llama-4-scout-17b-16e-instruct';
-    /** A same-provider visual rescue is only for malformed MODEL output,
-     * never for missing credentials, authentication failures, or exhausted quota.
+    /** A same-provider visual rescue handles malformed output or a model-specific
+     * HTTP 400 without a known invalid-image code. Never retry invalid image,
+     * auth, missing credentials, or exhausted quota as a different model.
      */
     public static function workerVisualRescueEligible(string $reason): bool
     {
         return in_array($reason,[
             'RESPONSE_MISSING_TEXT','RESPONSE_NOT_JSON','RESPONSE_EMPTY',
             'RESPONSE_UNSTRUCTURED_TOOL_CALLS','RESPONSE_MISSING_REQUIRED_FIELDS',
-            'RESPONSE_BAD_FIELD_TYPES'
+            'RESPONSE_BAD_FIELD_TYPES','HTTP_400'
         ],true);
     }
     /**
