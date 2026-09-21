@@ -19,6 +19,7 @@ on:
       - 'assets/brand/workers-ai-provider.css'
       - 'assets/brand/integrations-v10.css'
       - 'assets/brand/mobile-visual-audit.css'
+      - 'assets/brand/activity-status-badges.css'
       - 'runtime-brand.php'
       - 'tests/integration-badge-alignment-smoke.php'
       - 'tests/smart-format-smoke.php'
@@ -100,6 +101,11 @@ jobs:
           ! grep -R -F "cfut_" app scripts runtime-workers-ai.php assets tests || exit 1
       - name: Verify approved integration card and badge alignment
         run: php tests/integration-badge-alignment-smoke.php
+      - name: Verify activity skipped badge styling
+        run: |
+          grep -Fq '.saas-badge.Ignorada' assets/brand/activity-status-badges.css
+          grep -Fq '.activity-badge.Ignorada' assets/brand/activity-status-badges.css
+          grep -Fq 'activity-status-badges.css?v=3' runtime-brand.php
       - name: Render Workers AI provider UI in isolation
         run: |
           php -l tests/workers-ai-card-smoke.php
