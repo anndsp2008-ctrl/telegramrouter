@@ -83,6 +83,27 @@ foreach (['login.php','index.php','connect.php','reset.php','install.php'] as $p
 
     $html = (string)file_get_contents($path);
 
+    if ($page === 'index.php') {
+        // Production startup restores an older snapshot before runtime patches.
+        // Normalize only the configured-rules page size after that restore.
+        $rulesPaginationPatches = [
+            '$rulesPage=min($rulesPage,max(1,(int)ceil($rulesTotal/5)));' =>
+                '$rulesPage=min($rulesPage,max(1,(int)ceil($rulesTotal/6)));',
+            'Repository::rules($rulesPage,5)' =>
+                'Repository::rules($rulesPage,6)',
+            "paginas(\$rulesPage,\$rulesTotal,'rules_page',5)" =>
+                "paginas(\$rulesPage,\$rulesTotal,'rules_page',6)",
+        ];
+        foreach ($rulesPaginationPatches as $legacy => $target) {
+            if (str_contains($html, $legacy)) {
+                $html = str_replace($legacy, $target, $html);
+            } elseif (!str_contains($html, $target)) {
+                fwrite(STDERR, "BRAND_RULES_PAGINATION_ANCHOR_CHANGED\n");
+                exit(1);
+            }
+        }
+    }
+
     // Remove previous brand-specific head tags so each page has one source of truth.
     $html = preg_replace('~<link\b[^>]*rel=["\'](?:shortcut\s+)?icon["\'][^>]*>~i', '', $html) ?? $html;
     $html = preg_replace('~<link\b[^>]*rel=["\']manifest["\'][^>]*>~i', '', $html) ?? $html;
