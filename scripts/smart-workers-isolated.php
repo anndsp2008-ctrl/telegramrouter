@@ -104,6 +104,23 @@ function parseTip(string $response): ?array {
  * containing explicit match, market and selection as normal card extraction.
  * Ignore names, destinations, URLs and any other proposed tool behavior.
  */
+/** Normalize supported Cloudflare result envelopes without inventing tip fields.
+ * A successful REST response can contain JSON text as the whole result rather
+ * than under result.response. Direct structured results are validated too.
+ * Never interpret unstructured text or arbitrary objects as betting facts.
+ */
+function normalizedCloudflareResult(array $envelope): array {
+    $raw=$envelope['result']??null;
+    if(is_string($raw))return ['response'=>$raw];
+    if(!is_array($raw)||array_is_list($raw))return [];
+    foreach(['response','description','tool_calls'] as $field){
+        if(array_key_exists($field,$raw))return $raw;
+    }
+    $encoded=json_encode($raw,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+    if(is_string($encoded)&&tipResponseStatus($encoded)==='OK')
+        return ['response'=>$encoded];
+    return $raw;
+}
 function parsedVisionBet(array $result): ?array {
     // Cloudflare's ImageTextToText REST result uses "description", not
     // necessarily the TextGeneration "response" field. Accept either ONLY
@@ -164,6 +181,25 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     $json=json_encode($base,JSON_UNESCAPED_UNICODE);
     if(!is_string($json)||tipResponseStatus($json)!=='OK')
         throw new RuntimeException('Valid tip was rejected');
+    foreach([
+        ['success'=>true,'result'=>$json],
+        ['success'=>true,'result'=>$base],
+        ['success'=>true,'result'=>['response'=>$json]],
+        ['success'=>true,'result'=>['description'=>$json]]
+    ] as $envelope){
+        if(parsedVisionBet(normalizedCloudflareResult($envelope))!==$base)
+            throw new RuntimeException('Cloudflare response envelope lost structured tip');
+    }
+    foreach([
+        ['success'=>true,'result'=>'Relato sem JSON'],
+        ['success'=>true,'result'=>['match'=>'Venezia','market'=>'','selection'=>'Mais de 8,5']],
+        ['success'=>true,'result'=>['arbitrary'=>'unknown']],
+        ['success'=>true,'result'=>null],
+        ['success'=>true,'result'=>[1,2,3]]
+    ] as $envelope){
+        if(parsedVisionBet(normalizedCloudflareResult($envelope))!==null)
+            throw new RuntimeException('Cloudflare envelope created unsupported tip data');
+    }
     $fence=str_repeat(chr(96),3);
     foreach([$json,"Aqui está o JSON:\n".$json."\n", "~~~\n".$json."\n~~~",
        $fence."json\n".$json."\n".$fence] as $value){
@@ -346,15 +382,15 @@ try{
         unset($ch);
         if($http===200&&is_string($body)&&strlen($body)<=450000){
             $envelope=json_decode($body,true);
-            $response=is_array($envelope)?($envelope['result']['response']??null):null;
             if(!is_array($envelope)||empty($envelope['success'])){
                 reply(false,'CF_ENVELOPE_INVALID');
             }
+            $result=normalizedCloudflareResult($envelope);
+            $response=$result['response']??null;
             if($checkOnly){
                 if(is_string($response)&&trim($response)!=='')reply(true,'OK',[]);
                 reply(false,'PROBE_MISSING_TEXT');
             }
-            $result=(array)($envelope['result']??[]);
             $bet=parsedVisionBet($result);
             if($bet!==null)reply(true,'OK',$bet);
             // Llama Vision can describe the ticket or return incomplete JSON.
