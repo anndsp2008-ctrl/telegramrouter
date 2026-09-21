@@ -1,0 +1,33 @@
+name: AI learning isolated checks
+on:
+  pull_request:
+    paths:
+      - 'app/AiLearningMemory.php'
+      - 'app/SmartFormatting.php'
+      - 'ai-learning.php'
+      - 'tests/ai-learning-memory-test.php'
+      - '.github/workflows/ai-learning-checks.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP CLI and mbstring
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-mbstring
+      - name: Check syntax and memory invariants
+        run: |
+          php -l app/AiLearningMemory.php
+          php -l app/SmartFormatting.php
+          php -l ai-learning.php
+          php -l tests/ai-learning-memory-test.php
+          php tests/ai-learning-memory-test.php
+      - name: Verify production-safe defaults and rendering ownership
+        run: |
+          grep -q "getenv('AI_LEARNING_ENABLED')==='1'" app/AiLearningMemory.php
+          grep -q "AiLearningMemory::contextFor" app/SmartFormatting.php
+          grep -q "VipCardRenderer::render" app/SmartFormatting.php
+          grep -q "Auth::requireLogin" ai-learning.php
+          grep -q "Auth::verifyCsrf" ai-learning.php
