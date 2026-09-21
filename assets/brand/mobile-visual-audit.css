@@ -1056,3 +1056,11 @@
     font-weight:500!important;
   }
 }
+
+/* Channel identification: keep both desktop/tablet inputs on the same baseline
+   even when one helper text wraps to two lines. Mobile remains content-driven. */
+@media (min-width:641px){
+  .saas-content .routing-form form > .form-section-title:first-of-type + .saas-form-grid > label > .field-help{
+    min-height:2.8em!important;
+  }
+}
