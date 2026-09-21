@@ -60,13 +60,17 @@ jobs:
           cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
           cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
           cp runtime-workers-ai.php /tmp/tmr-smart-fixture/runtime-workers-ai.php
+          cp runtime-brand.php /tmp/tmr-smart-fixture/runtime-brand.php
           cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
           cp app/workers-ai-card.php /tmp/tmr-smart-fixture/app/workers-ai-card.php
           cp scripts/workers-ai-request.php /tmp/tmr-smart-fixture/scripts/workers-ai-request.php
           mkdir -p /tmp/tmr-smart-fixture/assets/brand
           cp assets/brand/workers-ai-provider.css /tmp/tmr-smart-fixture/assets/brand/workers-ai-provider.css
+          cp assets/brand/mark.svg /tmp/tmr-smart-fixture/assets/brand/mark.svg
+          cp assets/brand/mark-maskable.svg /tmp/tmr-smart-fixture/assets/brand/mark-maskable.svg
           WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_INSTALLED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
           php -l /tmp/tmr-smart-fixture/index.php
           php -l /tmp/tmr-smart-fixture/app/Repository.php
           php -l /tmp/tmr-smart-fixture/app/TranslationService.php
@@ -115,6 +119,11 @@ jobs:
           grep -Fq 'Repository::events($eventsPage,$eventsPerPage)' index.php
           grep -Fq "paginas(\$rulesPage,\$rulesTotal,'rules_page',\$rulesPerPage)" index.php
           grep -Fq "paginas(\$eventsPage,\$eventsTotal,'events_page',\$eventsPerPage)" index.php
+          grep -Fq 'ceil($rulesTotal/6)' /tmp/tmr-smart-fixture/index.php
+          grep -Fq 'Repository::rules($rulesPage,6)' /tmp/tmr-smart-fixture/index.php
+          grep -Fq "paginas(\$rulesPage,\$rulesTotal,'rules_page',6)" /tmp/tmr-smart-fixture/index.php
+          ! grep -Fq 'Repository::rules($rulesPage,5)' /tmp/tmr-smart-fixture/index.php
+          grep -Fq 'Repository::events($eventsPage,20)' /tmp/tmr-smart-fixture/index.php
       - name: Render Workers AI provider UI in isolation
         run: |
           php -l tests/workers-ai-card-smoke.php
