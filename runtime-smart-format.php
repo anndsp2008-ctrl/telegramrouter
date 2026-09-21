@@ -294,6 +294,10 @@ if(!str_contains($index,'href="/ai-learning.php"')){
         $index=str_replace($navAnchor,
             '<a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>'.$navAnchor,
             $index);
+    }elseif(substr_count($index,'<nav class="saas-nav">')===1){
+        $index=str_replace('<nav class="saas-nav">',
+            '<nav class="saas-nav"><a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>',
+            $index);
     }else{
         echo "AI_LEARNING_NAV_SKIPPED_UNKNOWN_MENU\\n";
     }
