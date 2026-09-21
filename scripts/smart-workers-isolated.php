@@ -535,7 +535,8 @@ try{
         // quota or transient failures here.
         if($attempt===0 && $http===400 && $image!==null && !$checkOnly &&
            $model==='@cf/meta/llama-3.2-11b-vision-instruct' &&
-           cloudflareFailureReason($http,$body,$errno)==='HTTP_400'){
+           in_array(cloudflareFailureReason($http,$body,$errno),
+               ['HTTP_400','HTTP_400_CF_3030_MISSING_INPUT'],true)){
             $compat=smartVisionCompatPayload($prompt,$image);
             $retryBody=json_encode($compat,
                 JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
