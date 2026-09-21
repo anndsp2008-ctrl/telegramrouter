@@ -66,3 +66,23 @@
   color:inherit;
   font-weight:800;
 }
+
+/* Processing state: visual-only feedback while the event is still running. */
+.activity-badge.Processando,
+.saas-badge.Processando {
+  color:#88BC47 !important;
+  animation:tmr-processing-blink 1.15s ease-in-out infinite !important;
+}
+
+@keyframes tmr-processing-blink {
+  0%,100% { opacity:1; }
+  50% { opacity:.28; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .activity-badge.Processando,
+  .saas-badge.Processando {
+    animation:none !important;
+    opacity:1 !important;
+  }
+}
