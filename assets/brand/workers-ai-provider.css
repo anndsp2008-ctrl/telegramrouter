@@ -1,0 +1,56 @@
+/* The fourth provider uses the same v10 header and form-status pill
+   as Google Cloud, Azure and Gemini. Only its icon and accent differ. */
+.translation-provider-grid > .workers-ai-provider-card:has(.provider-form input[name="provider"][value="workers_ai"]){
+  --provider-accent:#f48120!important;
+}
+.translation-provider-grid > .workers-ai-provider-card > .provider-head::before{
+  content:"CF"!important;
+}
+
+/* The shared form-status can grow when reused inside a provider-head grid.
+   Restrict its size/position, but inherit ALL of the existing providers'
+   typography, colors, border, padding and ::before treatment. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status{
+  grid-column:3!important;
+  grid-row:1!important;
+  justify-self:end!important;
+  align-self:center!important;
+  display:inline-flex!important;
+  width:max-content!important;
+  min-width:0!important;
+  max-width:100%!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+  white-space:nowrap!important;
+}
+@media(max-width:640px){
+  /* v10 reserves three columns on compact screens. Keep the chevron in
+     column 3, with the badge below the descriptive text (not over it). */
+  body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-head > .form-status{
+    grid-column:2!important;
+    grid-row:2!important;
+    justify-self:start!important;
+  }
+}
+
+/* The shared v10 stylesheet deliberately hides all provider-test > em nodes.
+   The Workers AI diagnostics are required to distinguish auth, model licence,
+   and billing issues. Override this rule ONLY for the Workers AI fourth card. */
+body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-provider-card > .provider-test.bad > em{
+  display:block!important;
+  grid-column:1/-1!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:4px 0 0!important;
+  padding:9px 11px!important;
+  color:#ffadba!important;
+  font:inherit!important;
+  font-size:12px!important;
+  font-style:normal!important;
+  line-height:1.5!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  border:1px solid rgba(255,49,90,.22)!important;
+  border-radius:9px!important;
+  background:rgba(255,49,90,.055)!important;
+}
