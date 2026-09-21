@@ -11,6 +11,7 @@ on:
       - 'app/workers-ai-card.php'
       - 'scripts/workers-ai-request.php'
       - 'scripts/smart-workers-isolated.php'
+      - 'scripts/smart-gemini-isolated.php'
       - 'scripts/translation-v2-safe-start.php'
       - 'scripts/google-cloud-safe-start.php'
       - 'tests/smart-provider-routing-smoke.php'
@@ -40,6 +41,7 @@ jobs:
           php -l app/workers-ai-card.php
           php -l scripts/workers-ai-request.php
           php -l scripts/smart-workers-isolated.php
+          php -l scripts/smart-gemini-isolated.php
           php -l scripts/translation-v2-safe-start.php
           php -l scripts/google-cloud-safe-start.php
           php -l tests/smart-provider-routing-smoke.php
@@ -72,14 +74,17 @@ jobs:
           grep -Fq 'GOOGLE_CLOUD_WORKERS_ENUM_PRESERVED' scripts/google-cloud-safe-start.php
           grep -Fq "'google_cloud','workers_ai'" scripts/google-cloud-safe-start.php
           grep -Fq 'GOOGLE_CLOUD_INSTALLER_SCHEMA_ANCHOR_CHANGED' scripts/google-cloud-safe-start.php
-      - name: Assert isolated single-pass routing patch
+      - name: Assert PR39 routing with PR75 hardening
         run: |
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationRule' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq 'SMART_FORMAT_REQUIRED_UNAVAILABLE' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq 'TMR_SMART_FORMAT_REQUIRED_FAILED' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          ! grep -Fq 'TMR_SMART_CARD_TRANSLATION_FALLBACK' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          ! grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'providerUnavailable()' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'TMR_SMART_FORMAT_ORIGINAL_FALLBACK' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq "deliveryMethod='ai_vip_card_partial'" /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          ! grep -Fq 'SMART_FORMAT_REQUIRED_UNAVAILABLE' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'a tentativa foi interrompida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
+          ! grep -Fq 'será reavaliada após a conexão ser restabelecida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
       - name: Assert Workers AI additive provider wiring
         run: |
           grep -Fq "value=\"workers_ai\"" /tmp/tmr-smart-fixture/index.php
@@ -114,5 +119,7 @@ jobs:
           grep -Fq '$checkOnly?12:2800' scripts/smart-workers-isolated.php
           grep -Fq '$timeouts=$checkOnly?[30,20]:[45,30]' scripts/smart-workers-isolated.php
           grep -Fq 'CURLOPT_CONNECTTIMEOUT=>8' scripts/smart-workers-isolated.php
+      - name: Run isolated Gemini model-routing checks
+        run: SMART_GEMINI_MODEL_ROUTE_TEST=1 php scripts/smart-gemini-isolated.php
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
