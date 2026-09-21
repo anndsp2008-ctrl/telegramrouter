@@ -17,6 +17,14 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y php-cli php-mbstring
+      - name: Compare repository and sanitized runtime snapshot hashes
+        run: |
+          mkdir -p /tmp/ai-learning-runtime-fixture
+          cat backup/production-source-2026-09-18.part*.b64 | tr -d '\\r\\n' | base64 -d | tar -xz -C /tmp/ai-learning-runtime-fixture
+          echo BASELINE_RUNTIME_SMART_HASH=$(sha256sum /tmp/ai-learning-runtime-fixture/app/SmartFormatting.php | cut -c1-12)
+          echo GITHUB_SMART_HASH=$(sha256sum app/SmartFormatting.php | cut -c1-12)
+          if [ -f /tmp/ai-learning-runtime-fixture/runtime-smart-format.php ]; then echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=YES; else echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=NO; fi
+          if [ -f /tmp/ai-learning-runtime-fixture/index.php ]; then echo SNAPSHOT_HAS_PANEL=YES; fi
       - name: Check syntax and memory invariants
         run: |
           php -l app/AiLearningMemory.php
