@@ -42,5 +42,7 @@ jobs:
           grep -Fq "deliveryMethod='ai_vip_card_partial'" /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'a tentativa foi interrompida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
           ! grep -Fq 'será reavaliada após a conexão ser restabelecida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
+      - name: Run isolated Gemini model-routing checks
+        run: SMART_GEMINI_MODEL_ROUTE_TEST=1 php scripts/smart-gemini-isolated.php
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php
