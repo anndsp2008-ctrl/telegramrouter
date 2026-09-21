@@ -145,6 +145,38 @@ final class AiLearningMemory
         return $tokens;
     }
 
+    /**
+     * Encrypt uploaded images at rest: the Railway volume resides under the
+     * web application root, so guessing a raw /storage path must not expose
+     * a screenshot. The authenticated preview decrypts in memory only.
+     */
+    private static function imageKey(): string
+    {
+        $master=(string)getenv('APP_KEY');
+        if(strlen($master)<32)throw new RuntimeException('APP_KEY indisponível para proteger as imagens.');
+        return hash_hmac('sha256','tmr-ai-learning-images-v1',$master,true);
+    }
+
+    public static function encryptImage(string $bytes): string
+    {
+        if($bytes===''||strlen($bytes)>4*1024*1024)throw new RuntimeException('Imagem inválida.');
+        $iv=random_bytes(12);$tag='';
+        $encrypted=openssl_encrypt($bytes,'aes-256-gcm',self::imageKey(),
+            OPENSSL_RAW_DATA,$iv,$tag,'TMRIMG1');
+        if(!is_string($encrypted)||strlen($tag)!==16)throw new RuntimeException('Falha ao proteger imagem.');
+        return 'TMRIMG1'.$iv.$tag.$encrypted;
+    }
+
+    public static function decryptImage(string $encrypted): string
+    {
+        if(strlen($encrypted)<36||substr($encrypted,0,7)!=='TMRIMG1')
+            throw new RuntimeException('Imagem armazenada inválida.');
+        $data=openssl_decrypt(substr($encrypted,35),'aes-256-gcm',self::imageKey(),
+            OPENSSL_RAW_DATA,substr($encrypted,7,12),substr($encrypted,19,16),'TMRIMG1');
+        if(!is_string($data))throw new RuntimeException('Não foi possível abrir imagem protegida.');
+        return $data;
+    }
+
     public static function enabled(): bool { return getenv('AI_LEARNING_ENABLED')==='1'; }
 
     /**
