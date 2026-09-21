@@ -8,7 +8,34 @@ namespace App;
 final class SmartFormatting
 {
     private const SIGNATURE='⚡ TelegramRouter • Aposta encaminhada';
-    private static function diag(string $code): void {error_log('TMR_SMART_FORMAT_REASON '.$code);}
+    private const GEMINI_BACKOFF_FILE='/tmp/tmr-smart-gemini-backoff-until';
+    /** @var list<string> */
+    private static array $failureReasons=[];
+    private static function diag(string $code): void
+    {
+        if(!in_array($code,self::$failureReasons,true))self::$failureReasons[]=$code;
+        error_log('TMR_SMART_FORMAT_REASON '.$code);
+    }
+    /** @return list<string> */
+    public static function failureReasons(): array { return self::$failureReasons; }
+    public static function failureSummary(): string { return implode(';',self::$failureReasons); }
+    public static function providerUnavailable(): bool
+    {
+        foreach(self::$failureReasons as $reason){
+            if(in_array($reason,['GEMINI_HTTP_429','GEMINI_BACKOFF_ACTIVE'],true))return true;
+        }
+        return false;
+    }
+    private static function geminiBackoffActive(): bool
+    {
+        $raw=@file_get_contents(self::GEMINI_BACKOFF_FILE);
+        return is_string($raw) && ctype_digit(trim($raw)) && (int)trim($raw)>time();
+    }
+    private static function activateGeminiBackoff(int $seconds): void
+    {
+        $seconds=max(30,min(900,$seconds));
+        @file_put_contents(self::GEMINI_BACKOFF_FILE,(string)(time()+$seconds),LOCK_EX);
+    }
 
     public static function migrate(): void
     {
@@ -69,6 +96,8 @@ final class SmartFormatting
      */
     public static function prepare(string $sourceText,array $rule,?string $localImage,string $mode): ?array
     {
+        self::$failureReasons=[];
+        if(self::geminiBackoffActive()){self::diag('GEMINI_BACKOFF_ACTIVE');return null;}
         $key=trim(Repository::integration('gemini_api_key'));
         if($key===''){self::diag('GEMINI_KEY_MISSING');return null;}
         if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
@@ -77,13 +106,16 @@ final class SmartFormatting
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
         $json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields);
-        if(!$json){self::diag('GEMINI_RESPONSE_UNAVAILABLE');return null;}
+        if(!$json){
+            if(self::$failureReasons===[])self::diag('GEMINI_RESPONSE_UNAVAILABLE');
+            return null;
+        }
         $bet=[];
         foreach($fields as $field)$bet[$field]=trim((string)($json[$field]??''));
         // Compute profit deterministically from explicit, matching currencies.
         $bet['potential_profit']=self::calculatePotentialProfit($bet['stake_amount'],$bet['potential_return']);
         if($bet['selection']===''||$bet['market']===''||$bet['match']===''){self::diag('REQUIRED_FIELDS_INCOMPLETE');return null;}
-        if($bet['analysis']==='' && self::containsAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
+        if($bet['analysis']==='' && self::sourceHasAnalysis($sourceText)){self::diag('ANALYSIS_ABSENT');return null;}
         // Keep the underlying extraction untouched. Only card-mode presentation
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
@@ -115,9 +147,25 @@ final class SmartFormatting
         }
         return ['caption'=>$text,'image'=>$image,'mode'=>$mode];
     }
-    private static function containsAnalysis(string $text): bool
+    public static function sourceHasAnalysis(string $text): bool
     {
-        return mb_strlen(trim($text),'UTF-8')>=180;
+        $plain=trim(preg_replace('/https?:\/\/\S+/iu',' ',strip_tags($text))??$text);
+        if(mb_strlen($plain,'UTF-8')<180)return false;
+        $lines=preg_split('/\R+/u',$plain)?:[$plain];
+        $prose=[];
+        foreach($lines as $line){
+            $line=trim($line);
+            if($line==='')continue;
+            if(preg_match('/^(?:odd|odds|mercado|market|sele[cç][aã]o|selection|stake|aposta|retorno|bookmaker|liga|league|hor[aá]rio|time|jogo|match)\s*[:\-]/iu',$line))continue;
+            if(preg_match('/^(?:\p{So}|\p{Sk}|\p{S}|\d|[\-–—:;,.])+$/u',$line))continue;
+            if(mb_strlen($line,'UTF-8')>=70)$prose[]=$line;
+        }
+        $joined=implode(' ',$prose);
+        if(mb_strlen($joined,'UTF-8')<120)return false;
+        $words=preg_match_all('/\p{L}{3,}/u',$joined,$matches);
+        $sentences=preg_match_all('/[.!?](?:\s|$)/u',$joined,$dummy);
+        $analytical=preg_match('/\b(?:porque|devido|tend[eê]ncia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia)\b/iu',$joined)===1;
+        return $words>=20 && ($sentences>=2 || $analytical);
     }
     /** @param list<string> $fields */
     private static function request(string $key,string $text,?string $image,string $language,array $fields): ?array
@@ -192,7 +240,11 @@ final class SmartFormatting
         if(empty($response['ok'])||!isset($response['data'])||!is_array($response['data'])){
             $reason=(string)($response['reason']??'UNCLASSIFIED');
             if(!preg_match('/^[A-Z0-9_]{1,48}$/D',$reason))$reason='UNCLASSIFIED';
-            self::diag('GEMINI_'. $reason);
+            if($reason==='HTTP_429'){
+                $retryAfter=(int)($response['retry_after']??60);
+                self::activateGeminiBackoff($retryAfter);
+            }
+            self::diag('GEMINI_'.$reason);
             return null;
         }
         return $response['data'];
