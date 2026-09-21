@@ -285,6 +285,20 @@ if(str_contains($errorSource,$oldErrorText)){
     fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_UNKNOWN_STATE\n");exit(1);
 }
 
+// The baseline source archive replaces index.php on every Railway start.
+// Restore only the opt-in learning navigation after the existing smart-format patch.
+// If an unfamiliar menu is encountered, leave it unchanged; direct admin URL still works.
+if(!str_contains($index,'href="/ai-learning.php"')){
+    $navAnchor='<a href="/connect.php">';
+    if(substr_count($index,$navAnchor)===1){
+        $index=str_replace($navAnchor,
+            '<a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>'.$navAnchor,
+            $index);
+    }else{
+        echo "AI_LEARNING_NAV_SKIPPED_UNKNOWN_MENU\\n";
+    }
+}
+
 $paths=[$indexPath=>$index,$routerPath=>$router,$errorPath=>$errorSource];
 $temps=[];
 foreach($paths as $dest=>$content){
