@@ -273,7 +273,21 @@ CODE;
     $router=$replaceOne($router,'    private function resolveDestination(string $peer): void',$method.'    private function resolveDestination(string $peer): void','NEW_METHOD');
 } catch(\Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);}
 
-$paths=[$indexPath=>$index,$routerPath=>$router];
+// The previous generic error text promised an automatic retry that does not
+// exist in this worker. Keep the operational message truthful.
+$errorPath=__DIR__.'/app/ErrorTranslator.php';
+$errorSource=@file_get_contents($errorPath);
+if(!is_string($errorSource)){fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_MISSING\n");exit(1);}
+$oldErrorText='não foi possível determinar a causa exata; a tentativa foi interrompida e será reavaliada após a conexão ser restabelecida';
+$newErrorText='não foi possível determinar a causa exata; a tentativa foi interrompida';
+if(str_contains($errorSource,$oldErrorText)){
+    if(substr_count($errorSource,$oldErrorText)!==1){fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_ANCHOR_MISMATCH\n");exit(1);}
+    $errorSource=str_replace($oldErrorText,$newErrorText,$errorSource);
+} elseif(!str_contains($errorSource,$newErrorText)){
+    fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_UNKNOWN_STATE\n");exit(1);
+}
+
+$paths=[$indexPath=>$index,$routerPath=>$router,$errorPath=>$errorSource];
 $temps=[];
 foreach($paths as $dest=>$content){
     $temp=$dest.'.smart-candidate';
@@ -286,4 +300,9 @@ foreach($paths as $dest=>$content){
 foreach($temps as $dest=>$temp){
     if(!@rename($temp,$dest)){fwrite(STDERR,"SMART_FORMAT_REPLACE_FAILED\n");exit(1);}
 }
+$installerSucceeded=true;
+$routerHash=@hash_file('sha256',$routerPath);
+$smartHash=@hash_file('sha256',__DIR__.'/app/SmartFormatting.php');
+echo 'TMR_SMART_FORMAT_RUNTIME_HASH router='.substr((string)$routerHash,0,12)
+    .' smart='.substr((string)$smartHash,0,12)."\n";
 echo "TMR_SMART_FORMAT_V1_INSTALLED\n";
