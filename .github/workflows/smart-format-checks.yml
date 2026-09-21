@@ -22,6 +22,7 @@ jobs:
           php -l app/SmartFormatting.php
           php -l app/PurePngVipCardRenderer.php
           php -l app/VipCardRenderer.php
+          php -l scripts/smart-gemini-isolated.php
           php -l runtime-smart-format.php
       - name: Reconstruct sanitized baseline and patch it offline
         run: |
@@ -37,5 +38,9 @@ jobs:
           grep -Fq 'cardOwnsTranslation=SmartFormatting::shouldTranslateInsideCard' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationRule' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'providerUnavailable()' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq "deliveryMethod='ai_vip_card_partial'" /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'a tentativa foi interrompida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
+          ! grep -Fq 'será reavaliada após a conexão ser restabelecida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php

@@ -1,4 +1,11 @@
 <?php declare(strict_types=1);
+$productionHealth=is_file(__DIR__.'/../health');
+$smokePassed=false;
+if($productionHealth){
+    register_shutdown_function(static function() use (&$smokePassed): void {
+        if(!$smokePassed)@unlink(__DIR__.'/../health');
+    });
+}
 require __DIR__.'/../app/PurePngVipCardRenderer.php';
 require __DIR__.'/../app/VipCardRenderer.php';
 require __DIR__.'/../app/SmartFormatting.php';
@@ -13,6 +20,14 @@ foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $req
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+$structuredLong=str_repeat("Mercado: Resultado final\nSeleção: Lazio\nOdd: 2.00\nStake: 2/10\n",8);
+if(SmartFormatting::sourceHasAnalysis($structuredLong))
+    throw new RuntimeException('Structured receipt text was misclassified as analysis');
+$proseAnalysis='A Lazio chega em bom momento porque mantém sequência consistente. '.
+    'O confronto favorece sua organização defensiva e o desempenho recente sustenta a leitura. '.
+    'Por isso, o autor acredita que a seleção tem valor para este mercado.';
+if(!SmartFormatting::sourceHasAnalysis($proseAnalysis))
+    throw new RuntimeException('Real analytical prose was not detected');
 // Regression: the author's complete long analysis must never be reduced to 480 chars.
 $longBet=$bet;
 $longBet['analysis']=str_repeat('Análise completa do autor, mantida na mensagem sem cortes. ',32).'FIM_DA_ANALISE_ORIGINAL';
@@ -271,10 +286,24 @@ $runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($runtimeSource)
    ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
    ||!str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
-   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK'))
-    throw new RuntimeException('Single-pass and legacy fallback routing hooks missing');
+   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK')
+   ||!str_contains($runtimeSource,'providerUnavailable()')
+   ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF')
+   ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_FAILED')
+   ||!str_contains($runtimeSource,"deliveryMethod='ai_vip_card_partial'")
+   ||!str_contains($runtimeSource,'$installerSucceeded')
+   ||!str_contains($runtimeSource,"@unlink(__DIR__.'/health')"))
+    throw new RuntimeException('Production hardening hooks missing');
+$geminiTransport=file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
+if(!is_string($geminiTransport)
+   ||!str_contains($geminiTransport,'CURLOPT_HEADERFUNCTION')
+   ||!str_contains($geminiTransport,"in_array(\$http,[502,503,504],true)")
+   ||str_contains($geminiTransport,"in_array(\$http,[429,502,503,504],true)")
+   ||!str_contains($geminiTransport,"retry_after"))
+    throw new RuntimeException('Gemini rate-limit backoff transport regression');
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
 echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
+$smokePassed=true;
 echo "SMART_FORMAT_TESTS_PASSED\n";
