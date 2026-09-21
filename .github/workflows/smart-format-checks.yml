@@ -5,6 +5,8 @@ on:
       - 'app/SmartFormatting.php'
       - 'app/VipCardRenderer.php'
       - 'runtime-smart-format.php'
+      - 'runtime-ai-learning.php'
+      - 'app/AiLearningMemory.php'
       - 'runtime-workers-ai.php'
       - 'runtime-integrations-ui.php'
       - 'app/WorkersAITranslation.php'
@@ -42,6 +44,7 @@ jobs:
           php -l app/PurePngVipCardRenderer.php
           php -l app/VipCardRenderer.php
           php -l runtime-smart-format.php
+          php -l runtime-ai-learning.php
           php -l runtime-workers-ai.php
           php -l runtime-integrations-ui.php
           php -l app/WorkersAITranslation.php
@@ -59,6 +62,11 @@ jobs:
           mkdir -p /tmp/tmr-smart-fixture
           cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
           cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          cp runtime-ai-learning.php /tmp/tmr-smart-fixture/runtime-ai-learning.php
+          cp app/AiLearningMemory.php /tmp/tmr-smart-fixture/app/AiLearningMemory.php
+          git fetch --no-tags --depth=1 origin b7ec9127df752e94450e25b2e333c4fe76cd060b
+          git show FETCH_HEAD:app/SmartFormatting.php > /tmp/tmr-smart-fixture/app/SmartFormatting.php
+          test -s /tmp/tmr-smart-fixture/app/SmartFormatting.php
           cp runtime-workers-ai.php /tmp/tmr-smart-fixture/runtime-workers-ai.php
           cp runtime-brand.php /tmp/tmr-smart-fixture/runtime-brand.php
           cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
@@ -70,6 +78,9 @@ jobs:
           cp assets/brand/mark-maskable.svg /tmp/tmr-smart-fixture/assets/brand/mark-maskable.svg
           WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_INSTALLED
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
+          grep -Fq 'TMR_AI_LEARNING_CONTEXT_V1' /tmp/tmr-smart-fixture/app/SmartFormatting.php
+          grep -Fq 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php
+          test "$(grep -o 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php | wc -l)" -eq 1
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
           php -l /tmp/tmr-smart-fixture/index.php
           php -l /tmp/tmr-smart-fixture/app/Repository.php

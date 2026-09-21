@@ -285,6 +285,24 @@ if(str_contains($errorSource,$oldErrorText)){
     fwrite(STDERR,"SMART_FORMAT_ERROR_TRANSLATOR_UNKNOWN_STATE\n");exit(1);
 }
 
+// The baseline source archive replaces index.php on every Railway start.
+// Restore only the opt-in learning navigation after the existing smart-format patch.
+// If an unfamiliar menu is encountered, leave it unchanged; direct admin URL still works.
+if(!str_contains($index,'href="/ai-learning.php"')){
+    $navAnchor='<a href="/connect.php">';
+    if(substr_count($index,$navAnchor)===1){
+        $index=str_replace($navAnchor,
+            '<a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>'.$navAnchor,
+            $index);
+    }elseif(substr_count($index,'<nav class="saas-nav">')===1){
+        $index=str_replace('<nav class="saas-nav">',
+            '<nav class="saas-nav"><a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>',
+            $index);
+    }else{
+        echo "AI_LEARNING_NAV_SKIPPED_UNKNOWN_MENU\\n";
+    }
+}
+
 $paths=[$indexPath=>$index,$routerPath=>$router,$errorPath=>$errorSource];
 $temps=[];
 foreach($paths as $dest=>$content){
@@ -298,6 +316,9 @@ foreach($paths as $dest=>$content){
 foreach($temps as $dest=>$temp){
     if(!@rename($temp,$dest)){fwrite(STDERR,"SMART_FORMAT_REPLACE_FAILED\n");exit(1);}
 }
+// Apply the opt-in learning overlay only after the original smart-format runtime is verified.
+// Failure leaves the previous formatter and forwarding behavior unchanged.
+if(is_file(__DIR__.'/runtime-ai-learning.php'))require __DIR__.'/runtime-ai-learning.php';
 $installerSucceeded=true;
 $routerHash=@hash_file('sha256',$routerPath);
 $smartHash=@hash_file('sha256',__DIR__.'/app/SmartFormatting.php');

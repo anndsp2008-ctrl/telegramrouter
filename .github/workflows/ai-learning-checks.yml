@@ -1,0 +1,64 @@
+name: AI learning isolated checks
+on:
+  pull_request:
+    paths:
+      - 'app/AiLearningMemory.php'
+      - 'app/SmartFormatting.php'
+      - 'ai-learning.php'
+      - 'tests/ai-learning-memory-test.php'
+      - 'tests/ai-learning-db-test.php'
+      - '.github/workflows/ai-learning-checks.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-not-production
+          MYSQL_DATABASE: ai_learning_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest-only-not-production"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP CLI and mbstring
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-mbstring php-mysql
+      - name: Compare repository and sanitized runtime snapshot hashes
+        run: |
+          mkdir -p /tmp/ai-learning-runtime-fixture
+          cat backup/production-source-2026-09-18.part*.b64 | tr -d '[:space:]' | base64 -d | tar -xz -C /tmp/ai-learning-runtime-fixture
+          echo BASELINE_RUNTIME_SMART_HASH=$(sha256sum /tmp/ai-learning-runtime-fixture/app/SmartFormatting.php | cut -c1-12)
+          echo GITHUB_SMART_HASH=$(sha256sum app/SmartFormatting.php | cut -c1-12)
+          git fetch --no-tags --depth=1 origin b7ec9127df752e94450e25b2e333c4fe76cd060b
+          git show FETCH_HEAD:app/SmartFormatting.php > /tmp/tmr-pre-change-smart-format.php
+          git show FETCH_HEAD:index.php > /tmp/tmr-pre-change-index.php
+          test -s /tmp/tmr-pre-change-smart-format.php
+          test -s /tmp/tmr-pre-change-index.php
+          echo PRE_CHANGE_MAIN_SMART_HASH=$(sha256sum /tmp/tmr-pre-change-smart-format.php | cut -c1-12)
+          echo PRE_CHANGE_MAIN_INDEX_HASH=$(sha256sum /tmp/tmr-pre-change-index.php | cut -c1-12)
+          if [ -f /tmp/ai-learning-runtime-fixture/runtime-smart-format.php ]; then echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=YES; else echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=NO; fi
+          if [ -f /tmp/ai-learning-runtime-fixture/index.php ]; then echo SNAPSHOT_HAS_PANEL=YES; fi
+      - name: Check syntax and memory invariants
+        run: |
+          php -l app/AiLearningMemory.php
+          php -l app/SmartFormatting.php
+          php -l ai-learning.php
+          php -l tests/ai-learning-memory-test.php
+          php -l tests/ai-learning-db-test.php
+          php tests/ai-learning-memory-test.php
+          php tests/ai-learning-db-test.php
+      - name: Verify production-safe defaults and rendering ownership
+        run: |
+          grep -q "getenv('AI_LEARNING_ENABLED')==='1'" app/AiLearningMemory.php
+          grep -q "AiLearningMemory::contextFor" app/SmartFormatting.php
+          grep -q "VipCardRenderer::render" app/SmartFormatting.php
+          grep -q "Auth::requireLogin" ai-learning.php
+          grep -q "Auth::verifyCsrf" ai-learning.php
