@@ -299,8 +299,10 @@ if(!is_string($geminiTransport)
    ||!str_contains($geminiTransport,'CURLOPT_HEADERFUNCTION')
    ||!str_contains($geminiTransport,"in_array(\$http,[502,503,504],true)")
    ||str_contains($geminiTransport,"in_array(\$http,[429,502,503,504],true)")
-   ||!str_contains($geminiTransport,"retry_after"))
-    throw new RuntimeException('Gemini rate-limit backoff transport regression');
+   ||!str_contains($geminiTransport,"retry_after")
+   ||!str_contains($geminiTransport,"model_fallback_used")
+   ||!str_contains($geminiTransport,"gemini-2.5-flash-lite"))
+    throw new RuntimeException('Gemini rate-limit/model fallback transport regression');
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
