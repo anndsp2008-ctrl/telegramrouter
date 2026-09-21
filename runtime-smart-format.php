@@ -218,23 +218,22 @@ HTML;
                 }
             }
         }
-        // Mandatory AI mode: never publish raw, merely translated, or
-        // unformatted source content if AI fails or formatting exceeds limits.
-        // process() catches this error and records the event as FAILED.
-        // Retry only BEFORE any Telegram send; never duplicate a sent card.
+        // Graceful fallback is requested for enabled rules when both AI
+        // providers fail or formatting cannot produce a complete deliverable.
+        // Do not retry after a successful Telegram send: the normal successful
+        // card/text/caption paths above return before this branch.
         if(!empty($setting['enabled'])){
-            error_log('TMR_SMART_FORMAT_REQUIRED_FAILED '.json_encode([
+            error_log('TMR_SMART_FORMAT_ORIGINAL_FALLBACK '.json_encode([
                 'rule_id'=>(int)($rule['id']??0),
-                'mode'=>(string)($setting['output_mode']??'unknown')
+                'mode'=>(string)($setting['output_mode']??'unknown'),
+                'reason'=>SmartFormatting::failureSummary()
             ]));
-            // The history previously collapsed all AI failures to an unhelpful
-            // SMART_FORMAT_REQUIRED_UNAVAILABLE code. Include only sanitized
-            // per-message reason codes; never source text or credentials.
-            $reason=SmartFormatting::failureSummary();
-            throw new \RuntimeException('SMART_FORMAT_REQUIRED_UNAVAILABLE'.
-                ($reason!==''?' ['.$reason.']':''));
+            $text.="\n\n⚠️ [Formatação Automática Indisponível]";
+            // Added footer does not shift pre-existing Telegram entity offsets.
+            // Use the same original media, caption and entities delivery path.
+            $this->deliveryMethod='smart_original_fallback';
         }
-        // Legacy delivery is allowed ONLY if smart formatting is OFF.
+        // When smart formatting is disabled, preserve untouched legacy delivery.
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
         } else {
