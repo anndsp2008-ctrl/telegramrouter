@@ -126,7 +126,7 @@ final class AiLearningMemory
         return $row?:null;
     }
 
-    public function review(int $id,string $decision,array $label): void
+    public function review(int $id,string $decision,array $label,?string $sourceText=null): void
     {
         if(!in_array($decision,['approved','rejected'],true))throw new RuntimeException('Decisão inválida.');
         $this->pdo->beginTransaction();
@@ -137,9 +137,21 @@ final class AiLearningMemory
             $json=$decision==='approved'
                 ?json_encode(self::fields($label),JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)
                 :(string)$before['expected_json'];
+            // Preserve the original text unless the reviewer explicitly edits it.
+            $text=$sourceText===null?(string)$before['source_text']:trim($sourceText);
+            if(strlen($text)>12000)throw new RuntimeException('Mensagem original muito extensa.');
+            if($text==='' && empty($before['image_name']))throw new RuntimeException('Informe uma tip ou imagem.');
             $q=$this->pdo->prepare('UPDATE tmr_ai_learning_examples
-                SET expected_json=?,status=?,reviewed_at=NOW() WHERE id=?');
-            $q->execute([$json,$decision,$id]);
+                SET source_text=?,expected_json=?,status=?,reviewed_at=NOW() WHERE id=?');
+            $q->execute([$text,$json,$decision,$id]);
+            if($text!==(string)$before['source_text']){
+                $auditText=$this->pdo->prepare('INSERT INTO tmr_ai_learning_audit
+                    (example_id,prior_json,next_json,decision) VALUES(?,?,?,?)');
+                $auditText->execute([$id,
+                    json_encode(['source_text'=>$before['source_text']],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+                    json_encode(['source_text'=>$text],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+                    'source_updated']);
+            }
             $q=$this->pdo->prepare('INSERT INTO tmr_ai_learning_audit
                 (example_id,prior_json,next_json,decision) VALUES(?,?,?,?)');
             $q->execute([$id,(string)$before['expected_json'],$json,$decision]);
