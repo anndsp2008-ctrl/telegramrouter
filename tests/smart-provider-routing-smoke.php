@@ -92,6 +92,16 @@ namespace {
        !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
         throw new \RuntimeException('Same-account Vision evidence rescue not wired');
     }
+    if(!str_contains($source,'WORKERS_LOGICAL_BUDGET_SECONDS=42.0')||
+       !str_contains($source,"'budget_ms'=>min(42000,$budgetMs)")||
+       !str_contains($source,'WORKERS_AI_BUDGET_EXHAUSTED')||
+       !str_contains($transport,"$budgetMs=(int)($input['budget_ms']??0)")||
+       !str_contains($transport,'$remainingBudgetMs=static function()')||
+       !str_contains($transport,"reply(false,'BUDGET_EXHAUSTED'")||
+       !str_contains($transport,'CURLOPT_CONNECTTIMEOUT=>min(8,$timeout)')){
+        throw new \RuntimeException('Workers logical wall-clock budget is not enforced end to end');
+    }
+    echo "WORKERS_AI_LOGICAL_BUDGET_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_EVIDENCE_TEXT_RESCUE_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";
