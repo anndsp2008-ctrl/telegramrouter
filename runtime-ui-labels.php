@@ -159,7 +159,7 @@ HTML;
     // state); strip its dynamic active classes so Reset alone is highlighted.
     $mainMarkup = @file_get_contents(__DIR__.'/index.php');
     $navPattern = '~<nav class="saas-nav">.*?</nav>~s';
-    $linkPattern = '~<a\b[^>]*\bhref="([^"]+)"[^>]*>(.*?)</a>~s';
+    $linkPattern = '~\bhref="([^"]+)"[^>]*>(<span class="nav-icon">.*?</span>.*?)</a>~s';
     $expectedMenu = [
         '/?page=dashboard','/?page=rules','/ai-learning.php',
         '/?page=events','/?page=integrations','/connect.php'
