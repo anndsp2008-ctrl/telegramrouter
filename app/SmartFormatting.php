@@ -165,7 +165,7 @@ final class SmartFormatting
         if(preg_match('~(?:^|\\R)\\s*(?:[2-9]|[1-9][0-9]+)\\s+(?:sele[cç][oõ]es|selections?|legs?|eventos?|events?)\\b~iu',$source)===1)return true;
         if(preg_match_all('~(?:^|\\R)\\s*(?:sele[cç][aã]o|selection|pick)\\s*[:\\-]~iu',$source)>=2)return true;
         // Bet Builder is not sufficient by itself: it may contain only one pick.
-        if(preg_match('~\\b(?:bet\\s*builder|same[- ]game\\s+parlay)\\b~iu',$source)!==1)return false;
+        if(preg_match('~\\b(?:bet\\s*builder|same[- ]game\\s+parlay|criar\\s+aposta|crear\\s+apuesta)\\b~iu',$source)!==1)return false;
         return preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$source)>=2;
     }
 
@@ -824,10 +824,10 @@ final class SmartFormatting
         $prompt="Você interpreta dicas de apostas, SEM CRIAR OU ALTERAR DADOS. ".
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
-            "Antes de preencher o card, conte as SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder com duas linhas de escolhas no MESMO jogo é múltipla, mesmo se o cabeçalho disser Simple/Simples. ".
+            "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
-            "Se for multiple, não tente resumir tudo em market e selection: preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção de cada uma, além da odd combinada somente se visível. ".
+            "Se for multiple, não tente resumir tudo em market e selection: preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção de cada uma. Em acumuladas com vários jogos, preserve todos os jogos; em Bet Builder preserve todas as condições internas. Inclua odd individual/combinada somente quando visível. ".
             "Para multiple_details transcreva com fidelidade o comprovante visual e traduza todas as descrições para o idioma solicitado, inclusive qualquer texto de análise da mensagem; preserve nomes, números e linhas originais. Nunca invente pernas, odds ou resultados. ".
             "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
             "Diferencie stake sugerida do valor real do bilhete e aposta ao vivo de pré-jogo. ".
