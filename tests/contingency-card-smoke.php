@@ -59,7 +59,7 @@ foreach([
 $smart=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
 foreach([
     'public static function timingCompact(',
-    "'render_ms'=>self::$renderMs",
+    "'render_ms'=>self::\$renderMs",
     'self::$aiFinishedAt=microtime(true)',
     '$renderStarted=microtime(true)'
 ] as $timingAnchor){
