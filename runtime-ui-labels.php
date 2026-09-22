@@ -58,10 +58,19 @@ ob_start(static function (string $html) use ($script, $resetIcon): string {
             $html
         ) ?? $html;
 
-        if (!str_contains($html, 'href="/reset.php"')) {
-            $resetLink = '<a href="/reset.php"><span class="nav-icon">'.$resetIcon.'</span>Reset de dados</a>';
-            $html = preg_replace('/<\/nav>/', $resetLink.'</nav>', $html, 1) ?? $html;
-        }
+        // The approved mobile "Mais" menu also links to /reset.php. Check
+        // only the desktop sidebar: a whole-document search suppresses its
+        // Reset link whenever the mobile navigation is present.
+        $html = preg_replace_callback(
+            '~<nav class="saas-nav">.*?</nav>~s',
+            static function (array $match) use ($resetIcon): string {
+                if (str_contains($match[0], 'href="/reset.php"')) return $match[0];
+                $resetLink = '<a href="/reset.php"><span class="nav-icon">'.$resetIcon.'</span>Reset de dados</a>';
+                return str_replace('</nav>', $resetLink.'</nav>', $match[0]);
+            },
+            $html,
+            1
+        ) ?? $html;
 
         if (!str_contains($html, 'id="telegramrouter-sidebar-sync"')) {
             // Icon geometry must be available before first paint. Injecting this
