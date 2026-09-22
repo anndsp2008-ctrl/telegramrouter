@@ -47,7 +47,7 @@ ob_start(static function (string $html) use ($script, $resetIcon): string {
                 'Arquivo temporário: falha na remoção',
                 'Download da mídia:',
                 'Reenvio da mídia:',
-                'Envio ao Telegram:',
+                'Processamento + envio:',
                 'Tempo total:',
             ],
             $html
