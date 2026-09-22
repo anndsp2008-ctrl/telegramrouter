@@ -62,3 +62,9 @@ jobs:
           grep -q "VipCardRenderer::render" app/SmartFormatting.php
           grep -q "Auth::requireLogin" ai-learning.php
           grep -q "Auth::verifyCsrf" ai-learning.php
+          # The learning screen must use the same navy/turquoise palette as the dashboard.
+          grep -Fq -- '--al-bg:#080b12' ai-learning.php
+          grep -Fq -- '--al-panel:#0d131e' ai-learning.php
+          grep -Fq -- '--al-accent:#61dfcb' ai-learning.php
+          ! grep -Fq '#88bc47' ai-learning.php
+          ! grep -Fq 'prefers-color-scheme:light' ai-learning.php
