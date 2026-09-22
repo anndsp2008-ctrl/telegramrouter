@@ -68,6 +68,49 @@ final class AiLearningMemory
         return (int)$this->pdo->lastInsertId();
     }
 
+    /** Totals across the full library, not merely the last N entries. */
+    public function statusCounts(): array
+    {
+        $counts=['all'=>0,'pending'=>0,'approved'=>0,'rejected'=>0];
+        $rows=$this->pdo->query('SELECT status,COUNT(*) AS total FROM tmr_ai_learning_examples GROUP BY status')
+            ->fetchAll(PDO::FETCH_ASSOC);
+        foreach($rows as $row){
+            $status=(string)$row['status'];
+            if(isset($counts[$status]))$counts[$status]=(int)$row['total'];
+            $counts['all']+=(int)$row['total'];
+        }
+        return $counts;
+    }
+
+    /**
+     * Paged, scoped admin library. No user input is interpolated into SQL;
+     * only validated status and integer LIMIT/OFFSET form query structure.
+     */
+    public function browse(string $status='all',string $query='',int $page=1,int $perPage=12): array
+    {
+        if(!in_array($status,['all','pending','approved','rejected'],true))$status='all';
+        $query=trim($query);
+        if(mb_strlen($query,'UTF-8')>120)throw new RuntimeException('Busca muito extensa.');
+        $page=max(1,$page);$perPage=max(1,min(30,$perPage));
+        $where=[];$params=[];
+        if($status!=='all'){$where[]='status=?';$params[]=$status;}
+        if($query!==''){
+            $where[]='(source_text LIKE ? OR expected_json LIKE ?)';
+            $like='%'.str_replace(['\\','%','_'],['\\\\','\\%','\\_'],$query).'%';
+            $params[]=$like;$params[]=$like;
+        }
+        $predicate=$where?' WHERE '.implode(' AND ',$where):'';
+        $count=$this->pdo->prepare('SELECT COUNT(*) FROM tmr_ai_learning_examples'.$predicate);
+        $count->execute($params);$total=(int)$count->fetchColumn();
+        $pages=max(1,(int)ceil($total/$perPage));
+        $page=min($page,$pages);
+        $list=$this->pdo->prepare('SELECT id,rule_id,source_text,image_name,expected_json,status,created_at,reviewed_at
+            FROM tmr_ai_learning_examples'.$predicate.'
+            ORDER BY id DESC LIMIT '.$perPage.' OFFSET '.(($page-1)*$perPage));
+        $list->execute($params);
+        return ['items'=>$list->fetchAll(PDO::FETCH_ASSOC),'total'=>$total,'page'=>$page,'pages'=>$pages];
+    }
+
     public function all(int $limit=30): array
     {
         $limit=max(1,min(100,$limit));
