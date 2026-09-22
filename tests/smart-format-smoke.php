@@ -433,18 +433,40 @@ if(!str_contains($summary,'WORKERS_AI_RESPONSE_MISSING_TEXT') ||
    str_contains($summary,'ALL_CONFIGURED_PROVIDERS_FAILED') ||
    str_contains($summary,'SMART_PROVIDER_FAILED_'))
     throw new RuntimeException('Per-tip failure summary missing real provider reason');
+// A noisy Workers rescue must never evict the earlier Gemini root cause.
+foreach([
+    'WORKERS_AI_VISION_RESCUE_STARTED',
+    'WORKERS_AI_RESPONSE_MISSING_REQUIRED_FIELDS',
+    'WORKERS_AI_TEXT_RESCUE_STARTED',
+    'WORKERS_AI_TIMEOUT',
+    'WORKERS_AI_TEXT_RESCUE_FAILED'
+] as $code)$diagMethod->invoke(null,$code);
+$summary=SmartFormatting::failureSummary();
+if(!str_contains($summary,'GEMINI_CURL_TIMEOUT') ||
+   !str_contains($summary,'WORKERS_AI_TIMEOUT') ||
+   str_contains($summary,'RESCUE_STARTED') ||
+   str_contains($summary,'RESCUE_FAILED'))
+    throw new RuntimeException('Provider root causes were truncated or rescue noise leaked');
 SmartFormatting::prepare('',[],null,'card');
 if(SmartFormatting::failureSummary()!=='SOURCE_EMPTY')
     throw new RuntimeException('Stale failure code leaked between messages');
+$diagnostics=SmartFormatting::diagnostics();
+if(($diagnostics['reason']??'')!=='SOURCE_EMPTY' ||
+   !isset($diagnostics['provider_order'],$diagnostics['attempts'],$diagnostics['ai_ms']))
+    throw new RuntimeException('Structured smart diagnostics unavailable');
 $runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($runtimeSource)
    ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
    ||!str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
    ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK')
+   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK_SKIPPED_AFTER_FORMAT_FAILURE')
+   ||!str_contains($runtimeSource,"($setting['output_mode']??'')==='card'")
    ||!str_contains($runtimeSource,'providerUnavailable()')
    ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF')
    ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_FAILED')
    ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_ORIGINAL_FALLBACK')
+   ||!str_contains($runtimeSource,'SmartFormatting::diagnostics()')
+   ||!str_contains($runtimeSource,'SmartFormatting::diagnosticsCompact()')
    ||!str_contains($runtimeSource,"deliveryMethod='ai_vip_card_partial'")
    ||!str_contains($runtimeSource,'$installerSucceeded')
    ||!str_contains($runtimeSource,"@unlink(__DIR__.'/health')")
