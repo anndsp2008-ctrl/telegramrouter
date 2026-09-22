@@ -30,14 +30,14 @@ foreach([
     'ContingencyCardRenderer::caption',
     "deliveryMethod='ai_vip_card_contingency",
     'SMART_CARD_CONTINGENCY_UNAVAILABLE',
-    "($setting['output_mode']??'')==='card'"
+    '(\$setting[\'output_mode\']??\'\')===\'card\''
 ] as $anchor){
     if(!str_contains($runtime,$anchor)){
         throw new RuntimeException('Mandatory contingency runtime anchor missing: '.$anchor);
     }
 }
 
-if(!str_contains($runtime,"$contingencyTranslated=!empty($translationFallback['translated'])")){
+if(!str_contains($runtime,'$contingencyTranslated=!empty($translationFallback[\'translated\'])')){
     throw new RuntimeException('Contingency translation status is not derived from translation result');
 }
 if(!str_contains($runtime,"throw new \\RuntimeException('SMART_CARD_CONTINGENCY_UNAVAILABLE')")){
