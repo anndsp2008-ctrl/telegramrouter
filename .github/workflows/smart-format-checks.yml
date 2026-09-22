@@ -175,7 +175,9 @@ jobs:
           grep -Fq 'translationFallback=Transform::translateDetailed' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'providerUnavailable()' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'TMR_SMART_FORMAT_ORIGINAL_FALLBACK' /tmp/tmr-smart-fixture/app/TelegramRouter.php
-          grep -Fq "deliveryMethod='ai_vip_card_partial'" /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'ai_vip_card_partial' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'ai_vip_card_contingency' /tmp/tmr-smart-fixture/app/TelegramRouter.php
+          grep -Fq 'SMART_CARD_CONTINGENCY_UNAVAILABLE' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           ! grep -Fq 'SMART_FORMAT_REQUIRED_UNAVAILABLE' /tmp/tmr-smart-fixture/app/TelegramRouter.php
           grep -Fq 'a tentativa foi interrompida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
           ! grep -Fq 'será reavaliada após a conexão ser restabelecida' /tmp/tmr-smart-fixture/app/ErrorTranslator.php
