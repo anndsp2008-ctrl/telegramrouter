@@ -84,6 +84,54 @@ HTML;
             $html = str_replace('</body>', $sidebarSync.'</body>', $html);
         }
 
+        // An unrelated page-level notification may mistakenly mark one of the
+        // application containers as feedback when the Integrations page loads.
+        // Shield only the existing navigation/app shell; leave provider cards,
+        // test messages and Integrations behavior unchanged.
+        if (str_contains($html, 'class="translation-provider-grid"')
+            && !str_contains($html, 'id="tmr-sidebar-feedback-guard"')) {
+            $sidebarStyle = <<<'HTML'
+<style id="tmr-sidebar-feedback-style">
+.saas-shell.integrations-global-test-feedback{display:flex!important}
+.saas-sidebar.integrations-global-test-feedback{display:flex!important}
+.saas-main.integrations-global-test-feedback{display:block!important}
+.saas-content.integrations-global-test-feedback{display:block!important}
+</style>
+HTML;
+            $sidebarGuard = <<<'HTML'
+<script id="tmr-sidebar-feedback-guard">
+(()=>{
+    const containers=['.saas-shell','.saas-sidebar','.saas-main','.saas-content']
+        .map(selector=>document.querySelector(selector)).filter(Boolean);
+    const marker='integrations-global-test-feedback';
+    const restore=element=>{
+        if(!element.classList.contains(marker)) return;
+        element.classList.remove(marker);
+        element.removeAttribute('hidden');
+        if(element.getAttribute('aria-hidden')==='true'){
+            element.removeAttribute('aria-hidden');
+        }
+    };
+    if(typeof MutationObserver==='undefined') return;
+    const observer=new MutationObserver(changes=>{
+        for(const change of changes) restore(change.target);
+    });
+    for(const element of containers){
+        observer.observe(element,{
+            attributes:true,
+            attributeFilter:['class','hidden','aria-hidden']
+        });
+        restore(element);
+    }
+})();
+</script>
+HTML;
+            // CSS is available before paint; the observer is registered before
+            // deferred scripts execute. No navigation or page body is replaced.
+            $html = str_replace('</head>', $sidebarStyle.'</head>', $html);
+            $html = str_replace('</body>', $sidebarGuard.'</body>', $html);
+        }
+
         return $html;
     }
 
