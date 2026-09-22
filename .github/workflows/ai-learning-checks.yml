@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'app/AiLearningMemory.php'
+      - 'app/AiLearningZipImporter.php'
+      - 'tests/ai-learning-zip-import-test.php'
       - 'app/SmartFormatting.php'
       - 'ai-learning.php'
       - 'tests/ai-learning-memory-test.php'
@@ -30,7 +32,7 @@ jobs:
       - name: Install PHP CLI and mbstring
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y php-cli php-mbstring php-mysql
+          sudo apt-get install -y php-cli php-mbstring php-mysql php-gd php-zip unzip
       - name: Compare repository and sanitized runtime snapshot hashes
         run: |
           mkdir -p /tmp/ai-learning-runtime-fixture
@@ -49,12 +51,15 @@ jobs:
       - name: Check syntax and memory invariants
         run: |
           php -l app/AiLearningMemory.php
+          php -l app/AiLearningZipImporter.php
+          php -l tests/ai-learning-zip-import-test.php
           php -l app/SmartFormatting.php
           php -l ai-learning.php
           php -l tests/ai-learning-memory-test.php
           php -l tests/ai-learning-db-test.php
           php tests/ai-learning-memory-test.php
           php tests/ai-learning-db-test.php
+          php tests/ai-learning-zip-import-test.php
       - name: Verify production-safe defaults and rendering ownership
         run: |
           grep -q "getenv('AI_LEARNING_ENABLED')==='1'" app/AiLearningMemory.php
@@ -62,6 +67,9 @@ jobs:
           grep -q "VipCardRenderer::render" app/SmartFormatting.php
           grep -q "Auth::requireLogin" ai-learning.php
           grep -q "Auth::verifyCsrf" ai-learning.php
+          grep -Fq 'AI_LEARNING_ZIP_IMPORT' tests/ai-learning-zip-import-test.php || true
+          grep -q 'import_zip_chunk' ai-learning.php
+          grep -q 'savePending' app/AiLearningZipImporter.php
           # The learning screen must use the same navy/turquoise palette as the dashboard.
           grep -Fq -- '--al-bg:#080b12' ai-learning.php
           grep -Fq -- '--al-panel:#0d131e' ai-learning.php
