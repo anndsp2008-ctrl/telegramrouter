@@ -164,6 +164,11 @@ jobs:
           grep -Fq "workers-ai-card.php" /tmp/tmr-smart-fixture/index.php
           grep -Fq "WORKERS_AI_INSTALLED" runtime-workers-ai.php
           ! grep -R -F "cfut_" app scripts runtime-workers-ai.php assets tests || exit 1
+      - name: Verify Railway integration source marker and cache-bust hook
+        run: |
+          grep -Fq 'integrations-v10.js?v=6' runtime-integrations-ui.php
+          grep -Fq 'integrations-v10.js?v=7' runtime-brand.php
+          grep -Fq 'integrations-v10.js?v=7' tests/sidebar-no-flash-nav-test.php
       - name: Verify approved integration card and badge alignment
         run: php tests/integration-badge-alignment-smoke.php
       - name: Verify activity status badge styling
