@@ -16,7 +16,7 @@ assert(php.includes('.saas-shell.integrations-global-test-feedback{display:flex!
   'A marked app shell may disappear before the observer runs');
 const selectors=['.saas-shell','.saas-sidebar','.saas-main','.saas-content'];
 function node(name){
-  const labels=new Set(name==='sidebar'?['saas-sidebar','other-active-link']:['other-existing-class']);
+  const labels=new Set(name==='.saas-sidebar'?['saas-sidebar','other-active-link']:['other-existing-class']);
   const attributes=new Map();
   return {
     name,
