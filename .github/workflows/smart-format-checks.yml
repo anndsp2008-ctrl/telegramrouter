@@ -243,7 +243,8 @@ jobs:
           grep -Fq 'MODEL_LICENSE_REQUIRED_5016' app/WorkersAITranslation.php
           grep -Fq '$checkOnly?12:2800' scripts/smart-workers-isolated.php
           grep -Fq '$timeouts=$checkOnly?[30,20]:[45,30]' scripts/smart-workers-isolated.php
-          grep -Fq 'CURLOPT_CONNECTTIMEOUT=>8' scripts/smart-workers-isolated.php
+          grep -Fq 'CURLOPT_CONNECTTIMEOUT=>min(8,$timeout)' scripts/smart-workers-isolated.php
+          grep -Fq 'BUDGET_EXHAUSTED' scripts/smart-workers-isolated.php
       - name: Run isolated Gemini model-routing checks
         run: SMART_GEMINI_MODEL_ROUTE_TEST=1 php scripts/smart-gemini-isolated.php
       - name: Run mandatory contingency card checks
