@@ -45,10 +45,10 @@ if(count($actualLinks)!==7||array_map(static fn($x)=>$x[1],array_slice($actualLi
 for($i=0;$i<6;$i++){
     if($actualLinks[$i][2]!==$sourceLinks[$i][2])
         throw new RuntimeException('Icon or label differs from main sidebar: '.$expected[$i]);
-    if(!str_starts_with($actualLinks[$i][0],'<a href="'.$expected[$i].'">'))
+    if(!str_contains($final[0],'<a href="'.$expected[$i].'">'))
         throw new RuntimeException('Inactive Reset link was not normalized: '.$expected[$i]);
 }
-if(!str_starts_with($actualLinks[6][0],'<a class="active" href="/reset.php">'))
+if(!str_contains($final[0],'<a class="active" href="/reset.php">') || substr_count($final[0],'class="active"')!==1)
     throw new RuntimeException('Reset link is not the only selected link');
 if(!str_contains($actualLinks[6][2],'class="tmr-icon"')
     ||!str_contains($actualLinks[6][2],'stroke-width="1.7"')
