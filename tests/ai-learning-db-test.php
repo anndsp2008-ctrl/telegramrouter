@@ -92,4 +92,22 @@ if($cross!=='')throw new RuntimeException('Cross-rule example leaked into contex
 putenv('AI_LEARNING_ENABLED=0');
 if(AiLearningMemory::contextFor('Liverpool Aston Villa Over 10,5 corners',25)!=='')
     throw new RuntimeException('Feature flag failed to isolate context');
+// The refreshed library counts the full table and filters/pages without
+// limiting statistics to the most recent 30 examples.
+$counts=$store->statusCounts();
+if($counts['all']<2 || $counts['approved']<2 || $counts['rejected']!==0)
+    throw new RuntimeException('Global review counters are inaccurate');
+$paged=$store->browse('approved','Liverpool',1,1);
+if($paged['total']<1 || count($paged['items'])!==1 || $paged['pages']<1)
+    throw new RuntimeException('Paged approved library search failed');
+$noPending=$store->browse('pending','Liverpool');
+if($noPending['total']!==0)throw new RuntimeException('Status filter mixed approved and pending');
+$stored=$store->get($pendingImageId);
+$fields=json_decode((string)$stored['expected_json'],true);
+$store->review($pendingImageId,'approved',$fields,'Liverpool x Aston Villa, Más de 10.5 córners, odd 1.72');
+$updated=$store->get($pendingImageId);
+if(!str_contains((string)$updated['source_text'],'10.5 córners'))
+    throw new RuntimeException('Review did not save corrected source transcription');
+$auditText=(int)$pdo->query("SELECT COUNT(*) FROM tmr_ai_learning_audit WHERE example_id=".$pendingImageId." AND decision='source_updated'")->fetchColumn();
+if($auditText!==1)throw new RuntimeException('Edited source text was not audited');
 echo "AI_LEARNING_MYSQL_INTEGRATION_PASSED\n";
