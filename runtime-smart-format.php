@@ -69,7 +69,7 @@ try {
       <option value="text" <?=$smartMode==='text'?'selected':''?>>Somente texto formatado</option>
     </select>
   </label>
-  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Se a IA ou o card falhar, a mensagem NÃO será encaminhada sem formatação; a falha será registrada no histórico, sem encaminhar o conteúdo original.</p>
+  <p class="field-help">A análise original será preservada. A tradução seguirá a configuração desta regra. Se todas as tentativas de IA ou a renderização do card falharem, a mensagem original será preservada e encaminhada; o histórico e os logs registrarão a ordem, o motivo e o tempo das tentativas sem expor o conteúdo da tip.</p>
 </section>
 HTML;
     $index=$replaceOne($index,
@@ -232,11 +232,16 @@ HTML;
                 }
             }
         }
-        // PR #75 hardening: smart formatting must not make a valid source
-        // message disappear. If formatting failed before any Telegram send,
-        // try the existing translation path once when it is still meaningful.
+        // Smart formatting must never make a valid source message disappear.
+        // For CARD mode, all configured generative providers were already tried
+        // above. Running the legacy translator again cannot create a card and
+        // only repeats the same providers, adding tens of seconds before the
+        // original is preserved. Caption/text modes may still benefit from the
+        // established translation fallback because their final output is text.
         if(SmartFormatting::cardHandlesTranslation($rule,$setting)){
-            if(SmartFormatting::providerUnavailable()){
+            if(($setting['output_mode']??'')==='card'){
+                error_log('TMR_SMART_CARD_TRANSLATION_FALLBACK_SKIPPED_AFTER_FORMAT_FAILURE');
+            } elseif(SmartFormatting::providerUnavailable()){
                 error_log('TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF');
             } else {
                 try {
@@ -258,15 +263,22 @@ HTML;
             error_log('TMR_SMART_FORMAT_ORIGINAL_FALLBACK '.json_encode([
                 'rule_id'=>(int)($rule['id']??0),
                 'mode'=>(string)($setting['output_mode']??'unknown'),
-                'reason'=>SmartFormatting::failureSummary()
-            ]));
+                'reason'=>SmartFormatting::failureSummary(),
+                'diagnostics'=>SmartFormatting::diagnostics()
+            ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
         }
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
         } else {
             $this->sendMediaWithSafeCaption($peer,$deliveryMedia,$text,$entities);
         }
-        if(!empty($setting['enabled']))$this->deliveryMethod='smart_original_fallback';
+        if(!empty($setting['enabled'])){
+            // Keep the stable method prefix used by current activity telemetry,
+            // while appending a bounded, source-free diagnostic visible in the
+            // existing "Método" field. This avoids a schema/UI migration.
+            $diag=SmartFormatting::diagnosticsCompact();
+            $this->deliveryMethod='smart_original_fallback'.($diag!==''?' ['.$diag.']':'');
+        }
     }
 
 CODE;
