@@ -3,7 +3,91 @@
 $path=__DIR__.'/index.php';
 $html=@file_get_contents($path);
 if (!is_string($html)) { fwrite(STDERR,"TMR_MOBILE_NAV_INDEX_MISSING\n"); exit(1); }
-if (str_contains($html,'tmr-mobile-navigation')) { echo "TMR_MOBILE_NAV_ALREADY_APPLIED\n"; exit(0); }
+
+/**
+ * Reuse the already installed, approved index mobile navigation for Reset.
+ * This runs after runtime-brand has rebuilt Reset's existing canonical header.
+ * No reset actions, data, providers or desktop navigation are changed.
+ */
+function syncResetMobileNavigation(string $indexHtml): void
+{
+    $path=__DIR__.'/reset.php';
+    $reset=@file_get_contents($path);
+    if(!is_string($reset)){fwrite(STDERR,"TMR_RESET_MOBILE_NAV_MISSING\n");exit(1);}
+    if(str_contains($reset,'<nav class="tmr-mobile-navigation"')){
+        if(substr_count($reset,'<nav class="tmr-mobile-navigation"')!==1
+            || !str_contains($reset,'id="tmr-mobile-bottom-nav-critical"')
+            || !str_contains($reset,'/assets/brand/mobile-app-header.css?v=2')){
+            fwrite(STDERR,"TMR_RESET_MOBILE_NAV_PARTIAL\n");exit(1);
+        }
+        echo "TMR_RESET_MOBILE_NAV_ALREADY_APPLIED\n";
+        return;
+    }
+
+    if(preg_match('~<nav class="tmr-mobile-navigation"[\s\S]*?</nav>~',$indexHtml,$match)!==1
+        || preg_match('~<link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation\.css\?v=2">\s*<style id="tmr-mobile-bottom-nav-critical">[\s\S]*?</style>~',$indexHtml,$style)!==1){
+        fwrite(STDERR,"TMR_RESET_MOBILE_NAV_INDEX_SOURCE_MISSING\n");exit(1);
+    }
+    $menu=$match[0];
+    // Only the existing index page-state expressions are removed: reset.php
+    // does not define $active. Navigation icons, labels, URLs and order are
+    // identical to the approved index component.
+    $menu=preg_replace('~<\?=[\s\S]*?\?>~','',$menu,-1,$removed);
+    if(!is_string($menu)||$removed!==8||str_contains($menu,'<?')
+        ||substr_count($menu,'<a href="/reset.php">')!==1
+        ||substr_count($menu,'<details class="tmr-nav-more">')!==1){
+        fwrite(STDERR,"TMR_RESET_MOBILE_NAV_TEMPLATE_CHANGED\n");exit(1);
+    }
+    $menu=str_replace('<a href="/reset.php">',
+        '<a class="is-active" aria-current="page" href="/reset.php">',$menu);
+    $menu=str_replace('<details class="tmr-nav-more">',
+        '<details class="tmr-nav-more is-active">',$menu);
+
+    $anchor='</header><main class="saas-content reset-page">';
+    $appHeader='<link rel="stylesheet" href="/assets/brand/mobile-app-header.css?v=2">';
+    $logoutCss='<link rel="stylesheet" href="/assets/brand/logout-icon.css?v=1">';
+    if(substr_count($reset,$anchor)!==1
+        || substr_count($reset,'</head>')!==1
+        || substr_count($reset,$appHeader)!==1
+        || substr_count($reset,$logoutCss)!==1){
+        fwrite(STDERR,"TMR_RESET_MOBILE_NAV_ANCHOR_CHANGED\n");exit(1);
+    }
+
+    // Reset's older stylesheet order loaded the shared mobile header before
+    // mobile-shell.css, allowing later rules to override its spacing/typography.
+    // Match index: base CSS, branding, bottom nav, mobile header, logout.
+    $reset=str_replace([$appHeader,$logoutCss],['',''],$reset);
+    if(str_contains($indexHtml,'/assets/responsive.css?v=4')
+        && !str_contains($reset,'/assets/responsive.css?v=4')){
+        $base='<link rel="stylesheet" href="/assets/saas.css">';
+        if(substr_count($reset,$base)!==1){
+            fwrite(STDERR,"TMR_RESET_MOBILE_NAV_BASE_CSS_MISSING\n");exit(1);
+        }
+        $reset=str_replace($base,$base.'<link rel="stylesheet" href="/assets/responsive.css?v=4">',$reset);
+    }
+    $reset=str_replace($anchor,'</header>'.$menu.'<main class="saas-content reset-page">',$reset);
+    $critical=str_replace('</style>',
+        'body:has(.reset-page) .tmr-mobile-navigation .tmr-nav-more.is-active>summary{color:#79e9be!important}'."\n".'</style>',
+        $style[0]);
+    $reset=str_replace('</head>',$critical.$appHeader.$logoutCss.'</head>',$reset);
+
+    $candidate=$path.'.mobile-nav-tmp';
+    if(@file_put_contents($candidate,$reset,LOCK_EX)===false){
+        fwrite(STDERR,"TMR_RESET_MOBILE_NAV_WRITE_FAILED\n");exit(1);
+    }
+    exec('php -l '.escapeshellarg($candidate).' 2>&1',$lint,$code);
+    if($code!==0){
+        @unlink($candidate);
+        fwrite(STDERR,"TMR_RESET_MOBILE_NAV_LINT_FAILED: ".implode(' ',$lint)."\n");exit(1);
+    }
+    if(!@rename($candidate,$path)){
+        @unlink($candidate);
+        fwrite(STDERR,"TMR_RESET_MOBILE_NAV_RENAME_FAILED\n");exit(1);
+    }
+    echo "TMR_RESET_MOBILE_NAV_APPLIED\n";
+}
+
+if (str_contains($html,'tmr-mobile-navigation')) { syncResetMobileNavigation($html); echo "TMR_MOBILE_NAV_ALREADY_APPLIED\n"; exit(0); }
 
 $anchor='</header><main class="saas-content">';
 if (substr_count($html,$anchor)!==1) { fwrite(STDERR,"TMR_MOBILE_NAV_INSERT_POINT_MISSING\n"); exit(1); }
@@ -55,4 +139,5 @@ if (@file_put_contents($temp,$html)===false) { fwrite(STDERR,"TMR_MOBILE_NAV_WRI
 exec('php -l '.escapeshellarg($temp).' 2>&1',$lint,$exitCode);
 if ($exitCode!==0) { @unlink($temp); fwrite(STDERR,"TMR_MOBILE_NAV_LINT_FAILED: ".implode(' ', $lint)."\n"); exit(1); }
 if (!@rename($temp,$path)) { fwrite(STDERR,"TMR_MOBILE_NAV_RENAME_FAILED\n"); exit(1); }
+syncResetMobileNavigation($html);
 echo "TMR_MOBILE_NAV_V1_APPLIED\n";
