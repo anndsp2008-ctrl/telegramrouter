@@ -45,44 +45,24 @@
     });
   });
 
-  // Remove provider-test feedback rendered outside the provider grid,
-  // regardless of the notification component/class used by the base app.
+  // Only dedicated page-level notifications may be suppressed. The previous
+  // document.body.querySelectorAll('*') scan also matched ancestors containing
+  // provider text (including .saas-shell and .saas-main), briefly hiding the
+  // entire sidebar before the navigation guard restored it.
   const testFeedbackRx = /(conex[aã]o realizada com sucesso|falha ao testar conex[aã]o)/i;
-  const allOutside = Array.from(document.body.querySelectorAll('*')).filter(el =>
-    !el.closest('.translation-provider-grid') &&
-    testFeedbackRx.test((el.textContent || '').trim())
+  const pageNotices = document.querySelectorAll(
+    '.saas-flash, .toast, .notification, [role="alert"], [role="status"]'
   );
-
-  // Work from deepest nodes upward and hide the highest contiguous wrapper
-  // containing only that same feedback text. This removes both banner + toast
-  // without touching the surrounding page layout.
-  allOutside
-    .sort((a,b) => {
-      const depth = el => {
-        let n=0,p=el;
-        while(p && p.parentElement){ n++; p=p.parentElement; }
-        return n;
-      };
-      return depth(b)-depth(a);
-    })
-    .forEach(el => {
-      if (el.closest('.integrations-global-test-feedback')) return;
-
-      let target = el;
-      const normalized = (el.textContent || '').replace(/\s+/g,' ').trim();
-      while (
-        target.parentElement &&
-        target.parentElement !== document.body &&
-        !target.parentElement.closest('.translation-provider-grid') &&
-        (target.parentElement.textContent || '').replace(/\s+/g,' ').trim() === normalized
-      ) {
-        target = target.parentElement;
-      }
-
-      target.classList.add('integrations-global-test-feedback');
-      target.setAttribute('hidden','');
-      target.setAttribute('aria-hidden','true');
-    });
+  pageNotices.forEach(notice => {
+    if (notice.closest('.translation-provider-grid')) return;
+    // Never hide a container, even if it has an alert class or role.
+    if (notice.matches('.saas-shell, .saas-sidebar, .saas-main, .saas-content')) return;
+    if (notice.contains(grid)) return;
+    if (!testFeedbackRx.test((notice.textContent || '').trim())) return;
+    notice.classList.add('integrations-global-test-feedback');
+    notice.setAttribute('hidden', '');
+    notice.setAttribute('aria-hidden', 'true');
+  });
 
   cards.forEach(card => {
     const provider = providerOf(card);
