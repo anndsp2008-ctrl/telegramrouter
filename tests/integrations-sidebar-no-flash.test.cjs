@@ -35,6 +35,12 @@ const grid={children:[card]};
 let selectorUsed='';
 const document={
   querySelector(selector){return selector==='.translation-provider-grid'?grid:null;},
+  querySelectorAll(selector){
+    selectorUsed=selector;
+    if(selector==='*')return [shell,sidebar,main,flash];
+    if(selector.includes('.saas-flash'))return [flash];
+    return [];
+  },
   body:{querySelectorAll(selector){
     selectorUsed=selector;
     if(selector==='*')return [shell,sidebar,main,flash];
