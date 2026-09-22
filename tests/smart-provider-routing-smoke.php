@@ -92,8 +92,8 @@ namespace {
        !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
         throw new \RuntimeException('Same-account Vision evidence rescue not wired');
     }
-    if(!str_contains($source,'WORKERS_LOGICAL_BUDGET_SECONDS=42.0')||
-       !str_contains($source,"'budget_ms'=>min(42000,\$budgetMs)")||
+    if(!str_contains($source,'WORKERS_LOGICAL_BUDGET_SECONDS=75.0')||
+       !str_contains($source,"'budget_ms'=>min(75000,\$budgetMs)")||
        !str_contains($source,'WORKERS_AI_BUDGET_EXHAUSTED')||
        !str_contains($transport,'$budgetMs=(int)($input[\'budget_ms\']??0)')||
        !str_contains($transport,'$remainingBudgetMs=static function()')||
