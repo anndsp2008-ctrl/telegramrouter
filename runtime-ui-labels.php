@@ -4,7 +4,7 @@
  * UI-only formatter for operational event details and navigation.
  * Internal identifiers, database values and worker logs remain untouched.
  */
-if (PHP_SAPI === 'cli') {
+if (PHP_SAPI === 'cli' && getenv('TMR_NAV_TEST_ONLY') !== '1') {
     return;
 }
 
@@ -104,6 +104,47 @@ HTML;
         );
     }
 
+    // Render the canonical menu before sending the page to the browser.
+    // Previously Reset displayed its old menu and later replaced the whole
+    // sidebar from sessionStorage, causing a visible flash/reflow.
+    $navPattern = '~<nav class="saas-nav">.*?</nav>~s';
+    $linkPattern = '~<a\b[^>]*\bhref="([^"]+)"[^>]*>.*?</a>~s';
+    $ruleLinkPattern = '~<a\b[^>]*\bhref="/\?page=rules"[^>]*>.*?</a>~s';
+    $learnLinkPattern = '~<a\b[^>]*\bhref="/ai-learning\.php"[^>]*>.*?</a>~s';
+    $svg = static fn(string $paths): string => '<svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$paths.'</svg>';
+    $menuIcons = [
+        '/?page=dashboard' => $svg('<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/>'),
+        '/?page=rules' => $svg('<path d="M4 6h10"/><path d="M18 6h2"/><path d="M4 12h2"/><path d="M10 12h10"/><path d="M4 18h7"/><path d="M15 18h5"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="13" cy="18" r="2"/>'),
+        '/ai-learning.php' => $svg('<path d="m12 2 2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2Z"/>'),
+        '/?page=events' => $svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+        '/?page=integrations' => $svg('<path d="M8 12h8"/><path d="M12 8v8"/><path d="M7 3v4"/><path d="M17 3v4"/><path d="M7 17v4"/><path d="M17 17v4"/><path d="M5 7h14v10H5z"/>'),
+        '/connect.php' => $svg('<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>'),
+        '/reset.php' => $resetIcon,
+    ];
+    $html = preg_replace_callback($navPattern,
+        static function (array $match) use ($ruleLinkPattern, $learnLinkPattern, $linkPattern, $menuIcons): string {
+            $nav = $match[0];
+            $rulesCount = preg_match_all($ruleLinkPattern, $nav);
+            $learningCount = preg_match_all($learnLinkPattern, $nav, $learnMatches);
+            if ($rulesCount !== 1 || $learningCount === false || $learningCount > 1) {
+                return $nav; // Unknown sidebar: preserve it untouched.
+            }
+            $learn = $learningCount === 1 ? $learnMatches[0][0]
+                : '<a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>';
+            if ($learningCount === 1) $nav = str_replace($learn, '', $nav);
+            $nav = preg_replace_callback($ruleLinkPattern,
+                static fn(array $rule): string => $rule[0].$learn, $nav, 1) ?? $nav;
+            // Render icons on the server. Do not replace the sidebar (or its
+            // icons) after first paint; this also preserves keyboard focus.
+            return preg_replace_callback($linkPattern,
+                static function (array $link) use ($menuIcons): string {
+                    $icon = $menuIcons[$link[1]] ?? null;
+                    if ($icon === null || str_contains($link[0], '<svg')) return $link[0];
+                    return preg_replace('~<span class="nav-icon">.*?</span>~s',
+                        '<span class="nav-icon">'.$icon.'</span>', $link[0], 1) ?? $link[0];
+                }, $nav) ?? $nav;
+        }, $html, 1) ?? $html;
+
     if (!str_contains($html, 'id="telegramrouter-reset-sidebar-compat"')) {
         $compat = <<<'HTML'
 <style id="telegramrouter-reset-sidebar-compat">
@@ -112,68 +153,9 @@ HTML;
 .saas-sidebar .nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;min-width:22px;min-height:22px;line-height:0}
 .saas-sidebar .nav-icon .nav-icon-svg{display:block;width:20px;height:20px;min-width:20px;min-height:20px;stroke:currentColor}
 </style>
-<script id="telegramrouter-reset-sidebar-sync">
-(()=>{
-    const svg=(body)=>'<svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+body+'</svg>';
-    const fallbackIcons={
-        '/?page=dashboard':svg('<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/>'),
-        '/?page=rules':svg('<path d="M4 6h10"/><path d="M18 6h2"/><path d="M4 12h2"/><path d="M10 12h10"/><path d="M4 18h7"/><path d="M15 18h5"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="13" cy="18" r="2"/>'),
-        '/?page=events':svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
-        '/?page=integrations':svg('<path d="M8 12h8"/><path d="M12 8v8"/><path d="M7 3v4"/><path d="M17 3v4"/><path d="M7 17v4"/><path d="M17 17v4"/><path d="M5 7h14v10H5z"/>'),
-        '/connect.php':svg('<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>'),
-        '/reset.php':svg('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 8v4"/><path d="M12 16h.01"/>')
-    };
-
-    try {
-        let current=document.querySelector('.saas-sidebar');
-        if(!current) return;
-
-        const saved=sessionStorage.getItem('telegramrouter.sidebar.html');
-        if(saved){
-            const template=document.createElement('template');
-            template.innerHTML=saved.trim();
-            const restored=template.content.querySelector('.saas-sidebar');
-            if(restored){
-                const restoredNav=restored.querySelector('.saas-nav');
-                let resetLink=restored.querySelector('a[href="/reset.php"]');
-                if(!resetLink&&restoredNav){
-                    const localReset=current.querySelector('a[href="/reset.php"]');
-                    if(localReset){
-                        resetLink=localReset.cloneNode(true);
-                        restoredNav.appendChild(resetLink);
-                    }
-                }
-                restored.querySelectorAll('.saas-nav a.active').forEach(link=>link.classList.remove('active'));
-                if(resetLink) resetLink.classList.add('active');
-                current.replaceWith(restored);
-                current=restored;
-            }
-        }
-
-        const storedWidth=Number(sessionStorage.getItem('telegramrouter.sidebar.width')||0);
-        if(Number.isFinite(storedWidth)&&storedWidth>=180&&storedWidth<=480){
-            current.style.width=storedWidth+'px';
-            current.style.minWidth=storedWidth+'px';
-            current.style.maxWidth=storedWidth+'px';
-            current.style.flexBasis=storedWidth+'px';
-        }
-
-        current.querySelectorAll('.saas-nav a').forEach(link=>{
-            const href=link.getAttribute('href')||'';
-            const icon=link.querySelector('.nav-icon');
-            if(icon&&fallbackIcons[href]&&!icon.querySelector('svg')) icon.innerHTML=fallbackIcons[href];
-        });
-
-        const activeReset=current.querySelector('a[href="/reset.php"]');
-        if(activeReset){
-            current.querySelectorAll('.saas-nav a.active').forEach(link=>link.classList.remove('active'));
-            activeReset.classList.add('active');
-        }
-    } catch (_) {}
-})();
-</script>
 HTML;
-        $html = str_replace('</body>', $compat.'</body>', $html);
+        // Style must be present before first paint, not appended after </body>.
+        $html = str_replace('</head>', $compat.'</head>', $html);
     }
 
     return $html;
