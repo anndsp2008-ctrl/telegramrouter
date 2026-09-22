@@ -144,7 +144,7 @@ a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textare
 .al-thumb{width:60px;height:60px;border:1px solid var(--al-edge);background:var(--al-panel);border-radius:10px;display:grid;place-items:center;overflow:hidden;color:var(--al-muted);font-size:22px}.al-thumb img{width:100%;height:100%;object-fit:cover}
 .al-rec-main{min-width:0}.al-rec-main strong{display:block;font-size:14px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.al-rec-main small{display:block;color:var(--al-muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
 .al-rec-meta{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
-.al-chevron{color:var(--al-muted);font-weight:800}.al-record[open] .al-chevron{transform:rotate(180deg)}.al-rec-detail{border-top:1px solid var(--al-edge);padding:18px}
+.al-chevron{display:inline-flex;align-items:center;justify-content:center;flex:none;width:16px;height:16px;color:var(--al-muted)}.al-chevron svg{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.al-chevron-up,.al-record[open] .al-chevron-down{display:none!important}.al-record[open] .al-chevron-up{display:block!important}.al-rec-detail{border-top:1px solid var(--al-edge);padding:18px}
 .al-preview{max-width:100%;max-height:350px;object-fit:contain;display:block;margin:0 0 16px;border-radius:12px;border:1px solid var(--al-edge);background:var(--al-bg)}
 .al-warning{padding:10px 13px;border:1px solid var(--al-edge);border-radius:10px;color:var(--al-warning);font-size:13px;margin:10px 0}
 .al-paging{display:flex;gap:7px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:16px;font-size:12px;color:var(--al-muted)}.al-paging a{border:1px solid var(--al-edge);padding:7px 12px;border-radius:8px;text-decoration:none;font-weight:750}
@@ -275,7 +275,7 @@ a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textare
           </div>
           <div class="al-rec-meta">
             <span class="al-pill al-pill--<?=aiEscape(in_array($state,['approved','rejected'],true)?$state:'pending')?>"><?=aiEscape(aiStatusLabel($state))?></span>
-            <span class="al-chevron" aria-hidden="true">⌄</span>
+            <span class="al-chevron" aria-hidden="true"><svg class="al-chevron-down" viewBox="0 0 20 20" focusable="false"><path d="m5 7.5 5 5 5-5"/></svg><svg class="al-chevron-up" viewBox="0 0 20 20" focusable="false"><path d="m5 12.5 5-5 5 5"/></svg></span>
           </div>
         </summary>
         <div class="al-rec-detail">
