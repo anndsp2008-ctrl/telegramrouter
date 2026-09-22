@@ -15,7 +15,7 @@ final class SmartFormatting
     private static array $failureCodes=[];
     /** @var list<string> */
     private static array $providerOrder=[];
-    /** @var list<array{provider:string,success:bool,latency_ms:int,reasons:list<string>}> */
+    /** @var list<array{provider:string,attempt:int,success:bool,latency_ms:int,reasons:list<string>}> */
     private static array $providerAttempts=[];
     private static float $prepareStartedAt=0.0;
 
@@ -26,7 +26,7 @@ final class SmartFormatting
         self::$failureCodes[]=$safe;
         // A visual tip can legitimately produce several bounded rescue diagnostics.
         // Keep enough entries to preserve BOTH configured providers in one event.
-        if(count(self::$failureCodes)>32)array_shift(self::$failureCodes);
+        if(count(self::$failureCodes)>64)array_shift(self::$failureCodes);
         error_log('TMR_SMART_FORMAT_REASON '.$safe);
     }
 
@@ -55,25 +55,28 @@ final class SmartFormatting
         string $provider,
         float $startedAt,
         int $failureOffset,
-        bool $success
+        bool $success,
+        int $attempt=1
     ): void {
         $reasons=self::meaningfulFailureCodes(array_slice(self::$failureCodes,$failureOffset));
         $latency=max(0,(int)round((microtime(true)-$startedAt)*1000));
         self::$providerAttempts[]=[
             'provider'=>$provider,
+            'attempt'=>$attempt,
             'success'=>$success,
             'latency_ms'=>$latency,
             'reasons'=>$reasons
         ];
         error_log('TMR_SMART_FORMAT_PROVIDER_ATTEMPT '.json_encode([
             'provider'=>$provider,
+            'attempt'=>$attempt,
             'success'=>$success,
             'latency_ms'=>$latency,
             'reasons'=>$reasons
         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
     }
 
-    /** @return array{provider_order:list<string>,attempts:list<array{provider:string,success:bool,latency_ms:int,reasons:list<string>}>,reason:string,ai_ms:int} */
+    /** @return array{provider_order:list<string>,attempts:list<array{provider:string,attempt:int,success:bool,latency_ms:int,reasons:list<string>}>,reason:string,ai_ms:int} */
     public static function diagnostics(): array
     {
         $elapsed=self::$prepareStartedAt>0
@@ -93,7 +96,7 @@ final class SmartFormatting
         $parts=[];
         if(self::$providerOrder!==[])$parts[]='ordem='.implode('>',self::$providerOrder);
         foreach(self::$providerAttempts as $attempt){
-            $provider=(string)$attempt['provider'];
+            $provider=(string)$attempt['provider'].'#'.(int)($attempt['attempt']??1);
             if(!empty($attempt['success'])){
                 $parts[]=$provider.'=OK '.number_format(((int)$attempt['latency_ms'])/1000,1,'.','').'s';
                 continue;
@@ -217,53 +220,80 @@ final class SmartFormatting
             'providers'=>$providers
         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
         foreach($providers as $provider){
-            $attemptStarted=microtime(true);
-            $attemptFailureOffset=count(self::$failureCodes);
-            $json=null;
-            if($provider==='workers_ai'){
-                $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples);
-            } elseif($provider==='gemini'){
-                if(self::geminiBackoffActive()){
-                    self::diag('GEMINI_BACKOFF_ACTIVE');
-                } else {
+            // Two complete logical generation attempts for each generative AI.
+            // This is intentionally above each transport's own bounded HTTP
+            // recovery: an incomplete/invalid model answer also gets one fresh
+            // end-to-end chance before the configured fallback provider is used.
+            $maxLogicalAttempts=in_array($provider,['workers_ai','gemini'],true)?2:1;
+            for($logicalAttempt=1;$logicalAttempt<=$maxLogicalAttempts;$logicalAttempt++){
+                $attemptStarted=microtime(true);
+                $attemptFailureOffset=count(self::$failureCodes);
+                $json=null;
+                if($provider==='workers_ai'){
+                    $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples);
+                } elseif($provider==='gemini'){
+                    // Mandatory card generation gets its two configured attempts
+                    // even if a previous message activated the short Gemini
+                    // backoff marker. The isolated Gemini transport still handles
+                    // 429/503 and its backup model safely.
+                    if(self::geminiBackoffActive())self::diag('GEMINI_BACKOFF_BYPASSED_FOR_CARD_RETRY');
                     $key=trim(Repository::integration('gemini_api_key'));
                     if($key!=='')$json=self::request($key,$sourceText,$localImage,$inputLanguage,$fields,$memoryExamples);
                     else self::diag('GEMINI_KEY_MISSING');
+                } else {
+                    // Azure Translator/Google Cloud Translation translate text but
+                    // cannot extract structured tip data from source photos.
+                    self::diag('PROVIDER_NOT_GENERATIVE_'.$provider);
                 }
-            } else {
-                // Azure Translator/Google Cloud Translation translate text but
-                // cannot extract structured tip data from source photos.
-                self::diag('PROVIDER_NOT_GENERATIVE_'.$provider);
+                if(!is_array($json)){
+                    self::diag('SMART_PROVIDER_FAILED_'.$provider);
+                    self::recordProviderAttempt(
+                        $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
+                    if($logicalAttempt<$maxLogicalAttempts){
+                        self::diag('SMART_PROVIDER_RETRY_'.$provider);
+                        usleep(350000);
+                    }
+                    continue;
+                }
+                $candidate=[];
+                foreach($fields as $field)$candidate[$field]=trim((string)($json[$field]??''));
+                // Never forward the source channel's suggested stake. This applies
+                // even when the source has no stake or the model omits the field.
+                // Keep stake_amount (the receipt's real money amount) untouched.
+                $candidate['stake']=self::FIXED_STAKE;
+                $candidate['potential_profit']=self::calculatePotentialProfit(
+                    $candidate['stake_amount'],$candidate['potential_return']);
+                if($candidate['selection']===''||$candidate['market']===''||$candidate['match']===''){
+                    self::diag('REQUIRED_FIELDS_INCOMPLETE_'.$provider);
+                    self::recordProviderAttempt(
+                        $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
+                    if($logicalAttempt<$maxLogicalAttempts){
+                        self::diag('SMART_PROVIDER_RETRY_'.$provider);
+                        usleep(350000);
+                    }
+                    continue;
+                }
+                if($candidate['analysis']==='' && self::sourceHasAnalysis($sourceText)){
+                    self::diag('ANALYSIS_ABSENT_'.$provider);
+                    self::recordProviderAttempt(
+                        $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
+                    if($logicalAttempt<$maxLogicalAttempts){
+                        self::diag('SMART_PROVIDER_RETRY_'.$provider);
+                        usleep(350000);
+                    }
+                    continue;
+                }
+                self::recordProviderAttempt(
+                    $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
+                $bet=self::sentenceCaseBet($candidate);
+                error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
+                    'provider'=>$provider,
+                    'attempt'=>$logicalAttempt,
+                    'fallback'=>$provider!==$providers[0]
+                ]));
+                break;
             }
-            if(!is_array($json)){
-                self::diag('SMART_PROVIDER_FAILED_'.$provider);
-                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false);
-                continue;
-            }
-            $candidate=[];
-            foreach($fields as $field)$candidate[$field]=trim((string)($json[$field]??''));
-            // Never forward the source channel's suggested stake. This applies
-            // even when the source has no stake or the model omits the field.
-            // Keep stake_amount (the receipt's real money amount) untouched.
-            $candidate['stake']=self::FIXED_STAKE;
-            $candidate['potential_profit']=self::calculatePotentialProfit(
-                $candidate['stake_amount'],$candidate['potential_return']);
-            if($candidate['selection']===''||$candidate['market']===''||$candidate['match']===''){
-                self::diag('REQUIRED_FIELDS_INCOMPLETE_'.$provider);
-                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false);
-                continue;
-            }
-            if($candidate['analysis']==='' && self::sourceHasAnalysis($sourceText)){
-                self::diag('ANALYSIS_ABSENT_'.$provider);
-                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false);
-                continue;
-            }
-            self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,true);
-            $bet=self::sentenceCaseBet($candidate);
-            error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
-                'provider'=>$provider,'fallback'=>$provider!==$providers[0]
-            ]));
-            break;
+            if($bet!==null)break;
         }
         if($bet===null){self::diag('ALL_CONFIGURED_PROVIDERS_FAILED');return null;}
         // Keep the underlying extraction untouched. Only card-mode presentation
