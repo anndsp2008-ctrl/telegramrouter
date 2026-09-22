@@ -5,6 +5,8 @@ on:
       - 'app/SmartFormatting.php'
       - 'app/VipCardRenderer.php'
       - 'runtime-smart-format.php'
+      - 'runtime-ui-labels.php'
+      - 'tests/sidebar-no-flash-nav-test.php'
       - 'runtime-ai-learning.php'
       - 'app/AiLearningMemory.php'
       - 'runtime-workers-ai.php'
@@ -41,6 +43,9 @@ jobs:
       - name: Lint standalone modules
         run: |
           php -l index.php
+          php -l runtime-ui-labels.php
+          php -l tests/sidebar-no-flash-nav-test.php
+          php tests/sidebar-no-flash-nav-test.php
           php -l tests/ai-learning-menu-order.php
           php tests/ai-learning-menu-order.php index.php
           php -l app/SmartFormatting.php
