@@ -16,6 +16,11 @@ $cases=[
     ['Dupla chance\nChelsea ou empate',false],
     ['Double chance\nTeam A or draw',false],
     ['Simple\nBet Builder\n1. Mais de 1,5 gols',false],
+    ['Simple\nCriar Aposta\n1. Mais de 1,5 gols\n2. Ambas equipes marcam',true],
+    ['Simple\nCrear Apuesta\n1. Más de 1.5 goles\n2. Sí - Ambos marcan',true],
+    ['Dupla R$5,00\nSantos Laguna x Cruz Azul\nMais de 1,5\nCF Reboceros x CD Irapuato\nMais de 2,5',true],
+    ['Múltipla de 3-seleções\nEscolha A\nEscolha B\nEscolha C',true],
+    ['Múltipla de 4-seleções\nEscolha A\nEscolha B\nEscolha C\nEscolha D',true],
     ['Aposta simples\nVencedor: Bayern',false]
 ];
 foreach($cases as [$source,$expected]){
@@ -26,6 +31,8 @@ foreach($cases as [$source,$expected]){
 $imageCases=[
     [['bet_kind'=>'single','selections_count'=>'2',
       'multiple_details'=>"1. Bayern: mais de 1,5 gols\n2. Partida: mais de 2,5 gols"],true],
+    [['bet_kind'=>'single','selections_count'=>'2',
+      'multiple_details'=>"1. FC Bayern München (F): Mais de 1,5 gols do time\n2. Bayern x Manchester City (F): Mais de 2,5 gols totais"],true],
     [['bet_kind'=>'multiple','selections_count'=>'3',
       'multiple_details'=>"1. Atlético vence\n2. Escanteios > 8,5\n3. Ambas marcam"],true],
     [['bet_kind'=>'bet_builder','selections_count'=>'2',
