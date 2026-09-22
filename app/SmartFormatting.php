@@ -160,8 +160,13 @@ final class SmartFormatting
     public static function sourceIndicatesMultiple(string $source): bool
     {
         if(trim($source)==='')return false;
-        if(preg_match('~(?:^|\\R)\\s*(?:bet\\s*builder|same[- ]game\\s+parlay|parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|multiple|dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',$source)===1)return true;
-        return preg_match_all('~(?:^|\\R)\\s*(?:sele[cç][aã]o|selection|pick)\\s*[:\\-]~iu',$source)>=2;
+        // Explicit slip headings, never a market such as "Dupla chance".
+        if(preg_match('~(?:^|\\R)\\s*(?:aposta\\s+)?(?:parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|multiple|dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',$source)===1)return true;
+        if(preg_match('~(?:^|\\R)\\s*(?:[2-9]|[1-9][0-9]+)\\s+(?:sele[cç][oõ]es|selections?|legs?|eventos?|events?)\\b~iu',$source)===1)return true;
+        if(preg_match_all('~(?:^|\\R)\\s*(?:sele[cç][aã]o|selection|pick)\\s*[:\\-]~iu',$source)>=2)return true;
+        // Bet Builder is not sufficient by itself: it may contain only one pick.
+        if(preg_match('~\\b(?:bet\\s*builder|same[- ]game\\s+parlay)\\b~iu',$source)!==1)return false;
+        return preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$source)>=2;
     }
 
     /** A same-match Bet Builder with two picks is multiple, regardless of "Simple". */
@@ -171,10 +176,12 @@ final class SmartFormatting
         $count=trim((string)($data['selections_count']??''));
         if(preg_match('/^[0-9]{1,3}$/D',$count) && (int)$count>=2)return true;
         $kind=mb_strtolower(trim((string)($data['bet_kind']??'')),'UTF-8');
-        if(!in_array($kind,['multiple','multi','dupla','múltipla','multipla','combinada','parlay','bet_builder'],true))return false;
-        if($count==='1')return false;
         $details=(string)($data['multiple_details']??'');
-        return preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$details)>=2;
+        $enumerated=preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$details);
+        if($enumerated>=2)return true;
+        // A named multi bet without two identifiable selections is ambiguous.
+        // Do not turn a one-pick Bet Builder or "Dupla chance" into a multiple.
+        return false;
     }
 
     public static function providerUnavailable(): bool
