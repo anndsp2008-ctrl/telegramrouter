@@ -8,6 +8,6 @@ if(!preg_match('~<nav class="saas-nav">.*?</nav>~s',$html,$m))
 $nav=$m[0];
 if(preg_match_all('~href="/ai-learning\\.php"~',$nav)!==1)
     throw new RuntimeException('LEARNING_LINK_COUNT_INVALID');
-$rules='~<a\\b[^>]*href="/\\?page=rules"[^>]*>.*?</a>\\s*<a\\b[^>]*href="/ai-learning\\.php"[^>]*>.*?</a>~s';
+$rules='~href="/\\?page=rules"[^>]*>.*?</a>\\s*<a\\b[^>]*href="/ai-learning\\.php"[^>]*>.*?</a>~s';
 if(!preg_match($rules,$nav))throw new RuntimeException('LEARNING_LINK_NOT_DIRECTLY_AFTER_RULES');
 echo "AI_LEARNING_NAV_ORDER_PASSED\n";
