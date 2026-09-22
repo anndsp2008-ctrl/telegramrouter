@@ -9,6 +9,12 @@ $fields=['sport'=>'Esporte','status'=>'Status da partida','match'=>'Confronto',
     'league'=>'Campeonato','market'=>'Mercado','selection'=>'Seleção','odd'=>'Odd',
     'time'=>'Horário','day'=>'Data ou dia','bookmaker'=>'Casa de apostas','analysis'=>'Análise original'];
 $notice='';$error='';
+if(isset($_GET['imported'])&&ctype_digit((string)$_GET['imported'])){
+    $created=min(9,(int)$_GET['imported']);
+    $skipped=min(9,max(0,(int)($_GET['skipped']??0)));
+    $notice=$created.' exemplo(s) sintético(s) salvo(s) para revisão; '.$skipped.
+        ' duplicado(s) ignorado(s). Nenhum exemplo foi aprovado automaticamente.';
+}
 function aiEscape(mixed $value): string {
     return htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 }
@@ -30,6 +36,59 @@ if(isset($_GET['image'])){
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, no-store');
     echo $plaintext;
+    exit;
+}
+// Upload 1-MB pieces because PHP's default file-upload limit is often 2 MB.
+// CSRF + admin session are checked for every piece; ZIP bytes stay in /tmp.
+if($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??null)==='import_zip_chunk'){
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    try{
+        \App\Auth::verifyCsrf($_POST['csrf']??null);
+        $index=filter_var($_POST['index']??null,FILTER_VALIDATE_INT,
+            ['options'=>['min_range'=>0,'max_range'=>23]]);
+        if($index===false||$index===null)throw new RuntimeException('Parte inválida do ZIP.');
+        $file=$_FILES['chunk']??null;
+        if(!is_array($file)||($file['error']??null)!==UPLOAD_ERR_OK
+            ||(int)($file['size']??0)<1||(int)($file['size']??0)>1048576
+            ||!is_uploaded_file((string)($file['tmp_name']??'')))
+            throw new RuntimeException('Falha ao receber parte do ZIP.');
+        if($index===0){
+            if(isset($_SESSION['tmr_ai_zip_upload']['path']))
+                @unlink((string)$_SESSION['tmr_ai_zip_upload']['path']);
+            $path=sys_get_temp_dir().'/tmr-ai-zip-'.bin2hex(random_bytes(16)).'.part';
+            if(file_put_contents($path,'',LOCK_EX)===false)throw new RuntimeException('Falha ao preparar importação.');
+            @chmod($path,0600);
+            $_SESSION['tmr_ai_zip_upload']=['path'=>$path,'next'=>0,'size'=>0,'at'=>time()];
+        }
+        $state=$_SESSION['tmr_ai_zip_upload']??null;
+        if(!is_array($state)||($state['next']??null)!==$index
+            ||time()-(int)($state['at']??0)>3600
+            ||!str_starts_with((string)($state['path']??''),sys_get_temp_dir().'/tmr-ai-zip-'))
+            throw new RuntimeException('Envio interrompido. Selecione o ZIP novamente.');
+        $part=file_get_contents((string)$file['tmp_name']);
+        if(!is_string($part)||strlen($part)!==(int)$file['size']
+            ||(int)$state['size']+strlen($part)>24*1024*1024)
+            throw new RuntimeException('Arquivo ZIP maior que o limite permitido.');
+        if(file_put_contents($state['path'],$part,FILE_APPEND|LOCK_EX)!==strlen($part))
+            throw new RuntimeException('Falha ao receber dados do ZIP.');
+        $_SESSION['tmr_ai_zip_upload']['size']=(int)$state['size']+strlen($part);
+        $_SESSION['tmr_ai_zip_upload']['next']=$index+1;
+        $result=null;
+        if(($_POST['last']??null)==='1'){
+            unset($_SESSION['tmr_ai_zip_upload']);
+            try{
+                $importer=new \App\AiLearningZipImporter(\App\Database::pdo(),$memory);
+                $result=$importer->import($state['path'],$directory,
+                    (int)$state['size']+strlen($part));
+            } finally { @unlink($state['path']); }
+        }
+        echo json_encode(['ok'=>true,'result'=>$result],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    }catch(Throwable $e){
+        http_response_code(400);
+        $message=$e instanceof RuntimeException?$e->getMessage():'Não foi possível importar o ZIP.';
+        echo json_encode(['ok'=>false,'error'=>$message],JSON_UNESCAPED_UNICODE);
+    }
     exit;
 }
 if($_SERVER['REQUEST_METHOD']==='POST'){
@@ -208,7 +267,7 @@ a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textare
       <p>Selecione o pacote ZIP rotulado com as nove imagens e seus rótulos. O sistema verifica as imagens, evita duplicatas e cria somente registros pendentes para conferência.</p>
     </div><span class="al-pill al-pill--pending">Revisão obrigatória</span>
   </div>
-  <form method="post" enctype="multipart/form-data" class="al-grid">
+  <form id="aiZipImportForm" method="post" enctype="multipart/form-data" class="al-grid">
     <input type="hidden" name="csrf" value="<?=aiEscape(\App\Auth::csrf())?>">
     <input type="hidden" name="action" value="import_zip">
     <label class="al-field al-full"><span>Arquivo ZIP rotulado (até 24 MB)</span>
@@ -218,6 +277,7 @@ a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textare
     <div class="al-footer-actions al-full">
       <p class="al-hint">As informações foram geradas para treino: confira cada print e seus campos antes de aprovar. Múltiplas exigem revisão de cada seleção.</p>
       <button class="al-action" type="submit">Importar bilhetes para revisão →</button>
+      <span class="al-hint" id="aiZipProgress" role="status" aria-live="polite"></span>
     </div>
   </form>
 </section>
@@ -354,5 +414,50 @@ a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textare
 </section>
 <p class="al-hint">A memória contextual utiliza exemplos revisados com texto semelhante. O envio de um print por si só não executa treinamento dos parâmetros da IA nem faz leitura automática nesta versão.</p>
 </main>
+<script>
+(function(){
+  'use strict';
+  const form=document.getElementById('aiZipImportForm');
+  if(!form || typeof FormData==='undefined' || typeof fetch==='undefined') return;
+  form.addEventListener('submit',async function(event){
+    const file=form.querySelector('input[name="dataset_zip"]').files[0];
+    if(!file)return;
+    event.preventDefault();
+    const progress=document.getElementById('aiZipProgress');
+    const button=form.querySelector('button[type="submit"]');
+    if(file.size>24*1024*1024 || file.size<100){
+      progress.textContent='Selecione um ZIP válido com até 24 MB.';return;
+    }
+    button.disabled=true;
+    try{
+      const parts=Math.ceil(file.size/1048576);
+      for(let i=0;i<parts;i++){
+        progress.textContent='Enviando ZIP: parte '+(i+1)+' de '+parts+'…';
+        const request=new FormData();
+        request.append('csrf',form.querySelector('input[name="csrf"]').value);
+        request.append('action','import_zip_chunk');
+        request.append('index',String(i));
+        request.append('last',i===parts-1?'1':'0');
+        request.append('chunk',file.slice(i*1048576,(i+1)*1048576),'dataset.part');
+        const response=await fetch('/ai-learning.php',{
+          method:'POST',body:request,credentials:'same-origin'
+        });
+        const data=await response.json();
+        if(!response.ok||!data.ok)throw new Error(data.error||'Falha na importação.');
+        if(data.result){
+          const url='/ai-learning.php?status=pending&imported='+
+            encodeURIComponent(String(data.result.created))+'&skipped='+
+            encodeURIComponent(String(data.result.skipped))+'#biblioteca';
+          window.location.assign(url);return;
+        }
+      }
+      throw new Error('O envio do arquivo não foi concluído.');
+    }catch(error){
+      progress.textContent=error instanceof Error?error.message:'Não foi possível importar o ZIP.';
+      button.disabled=false;
+    }
+  });
+})();
+</script>
 </body>
 </html>
