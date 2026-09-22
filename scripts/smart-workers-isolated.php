@@ -149,9 +149,7 @@ function tipResponseStatus(string $response): string {
     // A multi-leg ticket must not be discarded just because no single
     // match/market/selection can truthfully represent all its picks.
     $legs=trim((string)($result['selections_count']??''));
-    $kind=mb_strtolower(trim((string)($result['bet_kind']??'')),'UTF-8');
-    if(preg_match('/^[0-9]{1,3}$/D',$legs) && (int)$legs>=2
-       && in_array($kind,['multiple','multi','bet_builder','parlay','múltipla','multipla','dupla','combinada'],true)){
+    if(preg_match('/^[0-9]{1,3}$/D',$legs) && (int)$legs>=2){
         foreach($result as $value){
             if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
         }
