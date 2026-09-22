@@ -86,7 +86,7 @@ namespace {
        !str_contains($source,'WORKERS_AI_TEXT_RESCUE_FAILED')||
        !str_contains($source,'$visionEvidence!==\'\'')||
        !str_contains($source,'$forcedTextModel')||
-       !str_contains($source,'WorkersAITranslation::PREVIOUS_DEFAULT_MODEL);')||
+       !str_contains($source,"WorkersAITranslation::PREVIOUS_DEFAULT_MODEL,'',\$deadlineAt);")||
        !str_contains($transport,'collectVisualEvidence($result,$visualEvidence)')||
        !str_contains($transport,"'evidence'=>")||
        !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
