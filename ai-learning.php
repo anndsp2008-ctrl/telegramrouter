@@ -43,7 +43,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $tmp=(string)($zip['tmp_name']??'');
             $size=(int)($zip['size']??0);
             if(!is_uploaded_file($tmp))throw new RuntimeException('Arquivo de importação inválido.');
-            $importer=new \\App\\AiLearningZipImporter(\\App\\Database::pdo(),$memory);
+            $importer=new \App\AiLearningZipImporter(\App\Database::pdo(),$memory);
             $result=$importer->import($tmp,$directory,$size);
             $notice=$result['created'].' exemplo(s) sintético(s) salvo(s) para revisão; '.
                 $result['skipped'].' imagem(ns) já cadastrada(s) ignorada(s). Nenhum exemplo foi aprovado automaticamente.';
@@ -209,7 +209,7 @@ a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textare
     </div><span class="al-pill al-pill--pending">Revisão obrigatória</span>
   </div>
   <form method="post" enctype="multipart/form-data" class="al-grid">
-    <input type="hidden" name="csrf" value="<?=aiEscape(\\App\\Auth::csrf())?>">
+    <input type="hidden" name="csrf" value="<?=aiEscape(\App\Auth::csrf())?>">
     <input type="hidden" name="action" value="import_zip">
     <label class="al-field al-full"><span>Arquivo ZIP rotulado (até 24 MB)</span>
       <input type="file" name="dataset_zip" accept=".zip,application/zip,application/x-zip-compressed" required>
