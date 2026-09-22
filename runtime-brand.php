@@ -83,6 +83,52 @@ foreach (['login.php','index.php','connect.php','reset.php','install.php'] as $p
 
     $html = (string)file_get_contents($path);
 
+    if ($page === 'reset.php') {
+        // Reset is restored independently of index.php. Align ONLY its topbar
+        // after snapshot extraction; leave every reset action and safety guard intact.
+        $legacyHeader = <<<'HTML'
+<header class="saas-topbar"><div class="saas-user"><span class="saas-avatar">AD</span><span><?=rh(function_exists('config')?config('panel_username'):'Administrador')?></span></div></header>
+HTML;
+        $canonicalHeader = <<<'HTML'
+<header class="saas-topbar"><div class="tmr-app-header-brand" aria-label="TelegramRouter">
+  <span class="tmr-app-brand-symbol"><img src="/assets/brand/mark.svg?v=1" alt=""></span>
+  <span class="tmr-app-brand-name"><b>Telegram<span>Router</span></b><small>Conecte. Direcione. Automatize.</small></span>
+</div><div class="saas-user"><span class="saas-avatar">AN</span><span><?=rh($resetTopbarGreeting)?></span><?php if($resetTopbarPhone!==''):?><span class="connected-phone">Telegram: <?=rh($resetTopbarPhone)?></span><?php endif; ?><form method="post" action="/"><input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>"><input type="hidden" name="action" value="logout"><button class="saas-logout" type="submit" aria-label="Sair" title="Sair"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M14 16l4-4-4-4"/><path d="M18 12H8"/></svg></button></form></div></header>
+HTML;
+        $legacyAnchor = '$totalItems=0; foreach($inventory as $item)$totalItems+=(int)($item[\'rows\']??0);';
+        $resetVars = <<<'PHP'
+$resetTopbarHour=(int)(new \DateTimeImmutable('now',new \DateTimeZone('America/Sao_Paulo')))->format('G');
+$resetTopbarGreeting=($resetTopbarHour<12?'Bom dia':($resetTopbarHour<18?'Boa tarde':'Boa noite')).', Anderson';
+$resetTopbarPhone='';
+try {
+    $resetHeaderCredentials=\App\Repository::credentials();
+    $resetTopbarPhone=(string)($resetHeaderCredentials['telegram_phone']??'');
+    if($resetTopbarPhone!=='' && $resetTopbarPhone[0]!=='+')$resetTopbarPhone='+'.$resetTopbarPhone;
+} catch(\Throwable $ignored) {
+    // The reset screen must remain available even if Telegram credentials are absent.
+}
+PHP;
+        if (str_contains($html, $legacyHeader)) {
+            if (substr_count($html, $legacyHeader)!==1 || substr_count($html, $legacyAnchor)!==1) {
+                fwrite(STDERR, "BRAND_RESET_HEADER_ANCHOR_CHANGED\n"); exit(1);
+            }
+            $html = str_replace($legacyAnchor, $legacyAnchor."\n".$resetVars, $html);
+            $html = str_replace($legacyHeader, $canonicalHeader, $html);
+        } elseif (!str_contains($html, $canonicalHeader) || !str_contains($html, '$resetTopbarGreeting=')) {
+            fwrite(STDERR, "BRAND_RESET_HEADER_UNKNOWN_STATE\n"); exit(1);
+        }
+        foreach ([
+            '/assets/brand/mobile-app-header.css?v=2',
+            '/assets/brand/logout-icon.css?v=1'
+        ] as $stylesheet) {
+            if (str_contains($html, $stylesheet)) continue;
+            if (substr_count($html, '</head>')!==1) {
+                fwrite(STDERR, "BRAND_RESET_HEADER_HEAD_MISSING\n"); exit(1);
+            }
+            $html = str_replace('</head>', '<link rel="stylesheet" href="'.$stylesheet.'"></head>', $html);
+        }
+    }
+
     if ($page === 'index.php') {
         // Production startup restores an older snapshot before runtime patches.
         // Normalize only the configured-rules page size after that restore.
