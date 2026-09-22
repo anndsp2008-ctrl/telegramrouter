@@ -19,7 +19,7 @@ $checks=[
     'logout icon stylesheet' => str_contains($source,'/assets/brand/logout-icon.css?v=1'),
     'old reset-only header removed' => !str_contains($header,'<span class="saas-avatar">AD</span>'),
     'reset controls unchanged' => str_contains($source,'id="resetExecuteForm"')
-        && str_contains($source,"if ($action==='execute_reset')") 
+        && str_contains($source,"if (\$action==='execute_reset')") 
         && str_contains($source,'name="security_phrase"'),
 ];
 foreach($checks as $name=>$passed){
