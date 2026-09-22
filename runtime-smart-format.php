@@ -289,7 +289,7 @@ if(str_contains($errorSource,$oldErrorText)){
 // Keep the single learning link directly after Regras de roteamento in that
 // reconstructed menu. Preserve its existing markup, icon and all other links.
 $aiLinkPattern='~<a\\b[^>]*\\bhref="/ai-learning\\.php"[^>]*>.*?</a>~s';
-$rulesLinkPattern='~<a\\b[^>]*\\bhref="/\\?page=rules"[^>]*>.*?</a>~s';
+$rulesLinkPattern='~href="/\\?page=rules"[^>]*>.*?</a>~s';
 $aiCount=preg_match_all($aiLinkPattern,$index,$aiMatches);
 $rulesCount=preg_match_all($rulesLinkPattern,$index,$ruleMatches);
 if($rulesCount===1 && $aiCount!==false && $aiCount<=1){
