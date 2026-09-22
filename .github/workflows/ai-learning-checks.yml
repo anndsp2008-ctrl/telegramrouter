@@ -55,6 +55,9 @@ jobs:
             echo "=== PALETTE TOKEN LINES ==="
             grep -nE '^ *--[a-zA-Z0-9-]+:|color-scheme:' "$css" | head -n 75 | cut -c1-300 || true
           else echo BASELINE_SAAS_CSS_ABSENT; fi
+      - name: Identify exact dashboard UI color declarations
+        run: |
+          python3 -c 'import re; p="/tmp/ai-learning-runtime-fixture/assets/saas.css"; c=open(p).read(); rules=re.findall(r"([^{}]+)\\{([^{}]*)\\}",c); look=[":root","body",".saas-sidebar",".saas-topbar",".saas-main",".saas-content",".saas-card",".saas-metric",".saas-primary",".saas-secondary",".saas-kicker",".saas-heading",".saas-nav a",".saas-form-grid input",".saas-form-grid textarea",".saas-form-grid select"]; [print("PALETTE",sel[:160],"=>",re.sub(r"\\s+"," ",style[:350])) for sel,style in rules if sel.strip() in look][:45]'
       - name: Check syntax and memory invariants
         run: |
           php -l app/AiLearningMemory.php
