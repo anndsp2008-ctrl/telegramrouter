@@ -22,6 +22,16 @@ $checks=[
         str_contains($html,'class="tmr-nav-create"')
         && str_contains($html,'class="tmr-nav-more"')
         && str_contains($html,'aria-label="Navegação principal em celulares e tablets"'),
+    'AI Learning and Reset are present only in the More panel' =>
+        preg_match('~<details class="tmr-nav-more">[\\s\\S]*?<div class="tmr-more-panel">([\\s\\S]*?)</div>~',$html,$more)===1
+        && substr_count($more[1]??'','href="/ai-learning.php"')===1
+        && substr_count($more[1]??'','href="/reset.php"')===1
+        && substr_count($more[1]??'','href="/connect.php"')===1
+        && substr_count($more[1]??'','href="/?page=integrations"')===1
+        && strpos($more[1],'href="/ai-learning.php"') > strpos($more[1],'href="/connect.php"')
+        && strpos($more[1],'href="/reset.php"') > strpos($more[1],'href="/ai-learning.php"')
+        && substr_count($html,'href="/ai-learning.php"')===1
+        && substr_count($html,'href="/reset.php"')===1,
     'main panel content still present' =>
         str_contains($html,'<main class="saas-content">'),
 ];
