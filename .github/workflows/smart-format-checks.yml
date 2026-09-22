@@ -13,6 +13,9 @@ on:
       - 'app/AiLearningMemory.php'
       - 'runtime-workers-ai.php'
       - 'runtime-integrations-ui.php'
+      - 'runtime-mobile-bottom-nav.php'
+      - 'assets/brand/mobile-bottom-navigation.css'
+      - 'tests/mobile-bottom-nav-visibility.php'
       - 'assets/brand/integrations-v10.js'
       - 'tests/integrations-sidebar-no-flash.test.cjs'
       - 'app/WorkersAITranslation.php'
@@ -71,6 +74,8 @@ jobs:
           php -l runtime-ai-learning.php
           php -l runtime-workers-ai.php
           php -l runtime-integrations-ui.php
+          php -l runtime-mobile-bottom-nav.php
+          php -l tests/mobile-bottom-nav-visibility.php
           php -l app/WorkersAITranslation.php
           php -l app/workers-ai-card.php
           php -l scripts/workers-ai-request.php
@@ -93,6 +98,7 @@ jobs:
           test -s /tmp/tmr-smart-fixture/app/SmartFormatting.php
           cp runtime-workers-ai.php /tmp/tmr-smart-fixture/runtime-workers-ai.php
           cp runtime-brand.php /tmp/tmr-smart-fixture/runtime-brand.php
+          cp runtime-mobile-bottom-nav.php /tmp/tmr-smart-fixture/runtime-mobile-bottom-nav.php
           cp reset.php /tmp/tmr-smart-fixture/reset.php
           cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
           cp app/workers-ai-card.php /tmp/tmr-smart-fixture/app/workers-ai-card.php
@@ -110,6 +116,9 @@ jobs:
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
           php -l /tmp/tmr-smart-fixture/reset.php
           php tests/reset-header-parity.php /tmp/tmr-smart-fixture/reset.php
+          php /tmp/tmr-smart-fixture/runtime-mobile-bottom-nav.php | grep TMR_MOBILE_NAV_V1_APPLIED
+          php -l /tmp/tmr-smart-fixture/index.php
+          php tests/mobile-bottom-nav-visibility.php /tmp/tmr-smart-fixture/index.php
           mkdir -p /tmp/tmr-smart-fixture/tests
           cp runtime-ui-labels.php /tmp/tmr-smart-fixture/runtime-ui-labels.php
           cp tests/sidebar-canonical-icon-parity.php /tmp/tmr-smart-fixture/tests/sidebar-canonical-icon-parity.php
