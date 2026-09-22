@@ -25,6 +25,7 @@ on:
       - 'runtime-brand.php'
       - 'index.php'
       - 'tests/integration-badge-alignment-smoke.php'
+      - 'tests/ai-learning-menu-order.php'
       - 'tests/smart-format-smoke.php'
       - '.github/workflows/smart-format-checks.yml'
   workflow_dispatch:
@@ -40,6 +41,8 @@ jobs:
       - name: Lint standalone modules
         run: |
           php -l index.php
+          php -l tests/ai-learning-menu-order.php
+          php tests/ai-learning-menu-order.php index.php
           php -l app/SmartFormatting.php
           php -l app/PurePngVipCardRenderer.php
           php -l app/VipCardRenderer.php
@@ -81,6 +84,7 @@ jobs:
           grep -Fq 'TMR_AI_LEARNING_CONTEXT_V1' /tmp/tmr-smart-fixture/app/SmartFormatting.php
           grep -Fq 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php
           test "$(grep -o 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php | wc -l)" -eq 1
+          php tests/ai-learning-menu-order.php /tmp/tmr-smart-fixture/index.php
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
           php -l /tmp/tmr-smart-fixture/index.php
           php -l /tmp/tmr-smart-fixture/app/Repository.php
