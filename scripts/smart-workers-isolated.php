@@ -146,6 +146,17 @@ function tipResponseStatus(string $response): string {
     if(trim($response)==='')return 'RESPONSE_EMPTY';
     $result=parseTip($response);
     if($result===null)return 'RESPONSE_NOT_JSON';
+    // A multi-leg ticket must not be discarded just because no single
+    // match/market/selection can truthfully represent all its picks.
+    $legs=trim((string)($result['selections_count']??''));
+    $kind=mb_strtolower(trim((string)($result['bet_kind']??'')),'UTF-8');
+    if(preg_match('/^[0-9]{1,3}$/D',$legs) && (int)$legs>=2
+       && in_array($kind,['multiple','multi','bet_builder','parlay','múltipla','multipla','dupla','combinada'],true)){
+        foreach($result as $value){
+            if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
+        }
+        return 'OK';
+    }
     foreach(['match','market','selection'] as $key){
         if(!isset($result[$key])||!is_scalar($result[$key])||trim((string)$result[$key])===''){
             return 'RESPONSE_MISSING_REQUIRED_FIELDS';
