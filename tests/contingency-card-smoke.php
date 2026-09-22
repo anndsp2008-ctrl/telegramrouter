@@ -44,9 +44,34 @@ if(!str_contains($runtime,"throw new \\RuntimeException('SMART_CARD_CONTINGENCY_
     throw new RuntimeException('Mandatory card can still fall through to raw original delivery');
 }
 
+$runtime=(string)file_get_contents(__DIR__.'/../runtime-smart-format.php');
+foreach([
+    'TMR_SMART_CARD_STAGE_TIMING',
+    'SmartFormatting::timingCompact(',
+    '$telegramStarted=microtime(true)',
+    '$contingencyTranslationMs',
+    '$contingencyRenderMs'
+] as $timingAnchor){
+    if(!str_contains($runtime,$timingAnchor)){
+        throw new RuntimeException('Card stage timing anchor missing: '.$timingAnchor);
+    }
+}
+$smart=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+foreach([
+    'public static function timingCompact(',
+    "'render_ms'=>self::$renderMs",
+    'self::$aiFinishedAt=microtime(true)',
+    '$renderStarted=microtime(true)'
+] as $timingAnchor){
+    if(!str_contains($smart,$timingAnchor)){
+        throw new RuntimeException('Smart timing source anchor missing: '.$timingAnchor);
+    }
+}
 $labels=(string)file_get_contents(__DIR__.'/../runtime-ui-labels.php');
 if(!str_contains($labels,'ai_vip_card_contingency')||
-   !str_contains($labels,'Card VIP de contingência')){
+   !str_contains($labels,'Card VIP de contingência')||
+   !str_contains($labels,'Processamento + envio:')||
+   str_contains($labels,'Envio ao Telegram:')){
     throw new RuntimeException('Contingency activity label missing');
 }
 
