@@ -129,6 +129,8 @@ HTML;
         }
         $formatted=null;
         $sourceImage=null;
+        $contingencyTranslationMs=0;
+        $contingencyRenderMs=0;
         try {
             if($setting['enabled']){
                 if($analysisMedia!==null){
@@ -155,6 +157,7 @@ HTML;
                     $contingencyText=$text;
                     $contingencyTranslated=empty($rule['translation_enabled']);
                     if(!empty($rule['translation_enabled']) && trim($text)!==''){
+                        $translationStarted=microtime(true);
                         try {
                             $translationFallback=Transform::translateDetailed($text,$rule,[
                                 'rule_id'=>(int)($rule['id']??0),
@@ -171,10 +174,14 @@ HTML;
                             error_log('TMR_SMART_CARD_CONTINGENCY_TRANSLATION_FAILED '.json_encode([
                                 'exception'=>get_class($translationError)
                             ]));
+                        } finally {
+                            $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
                         }
                     }
                     try {
+                        $contingencyRenderStarted=microtime(true);
                         $contingencyCard=\App\ContingencyCardRenderer::render($contingencyText,$sourceImage);
+                        $contingencyRenderMs=max(0,(int)round((microtime(true)-$contingencyRenderStarted)*1000));
                         if($contingencyCard!==null){
                             $formatted=[
                                 'caption'=>\App\ContingencyCardRenderer::caption($contingencyText),
@@ -234,32 +241,48 @@ HTML;
                         }
                     }
                     if($formatted!==null){
+                        $telegramStarted=microtime(true);
+                        $partial=false;
                         $this->messages->sendMedia(
                             peer:$peer,
                             media:['_'=>'inputMediaUploadedPhoto','file'=>$card],
                             message:$summary,
                             entities:[]
                         );
-                        if($isContingency){
-                            $translationStatus=!empty($formatted['translation_ok'])?'OK':'indisponível';
-                            $diag=SmartFormatting::diagnosticsCompact();
-                            $this->deliveryMethod='ai_vip_card_contingency [tradução='.$translationStatus
-                                .($diag!==''?'; '.$diag:'').']';
-                        } else {
-                            $this->deliveryMethod='ai_vip_card';
-                        }
                         if($continuation!==''){
                             try {
                                 $this->sendContinuation($peer,$continuation.$footer,[]);
                             } catch(\Throwable $continuationError) {
-                                $this->deliveryMethod=$isContingency
-                                    ?'ai_vip_card_contingency_partial'
-                                    :'ai_vip_card_partial';
+                                $partial=true;
                                 error_log('TMR_SMART_CARD_CONTINUATION_FAILED '.json_encode([
                                     'exception'=>get_class($continuationError)
                                 ]));
                             }
                         }
+                        $telegramMs=max(0,(int)round((microtime(true)-$telegramStarted)*1000));
+                        $timing=SmartFormatting::timingCompact(
+                            $telegramMs,
+                            $isContingency?$contingencyRenderMs:0,
+                            $isContingency?$contingencyTranslationMs:0
+                        );
+                        if($isContingency){
+                            $translationStatus=!empty($formatted['translation_ok'])?'OK':'indisponível';
+                            $prefix=$partial?'ai_vip_card_contingency_partial':'ai_vip_card_contingency';
+                            $this->deliveryMethod=$prefix.' [tradução='.$translationStatus
+                                .($timing!==''?'; '.$timing:'').']';
+                        } else {
+                            $prefix=$partial?'ai_vip_card_partial':'ai_vip_card';
+                            $this->deliveryMethod=$prefix.($timing!==''?' ['.$timing.']':'');
+                        }
+                        $stageDiag=SmartFormatting::diagnostics();
+                        error_log('TMR_SMART_CARD_STAGE_TIMING '.json_encode([
+                            'ai_ms'=>(int)($stageDiag['ai_ms']??0),
+                            'render_ms'=>(int)($stageDiag['render_ms']??0)
+                                +($isContingency?$contingencyRenderMs:0),
+                            'translation_ms'=>$isContingency?$contingencyTranslationMs:0,
+                            'telegram_ms'=>$telegramMs,
+                            'contingency'=>$isContingency
+                        ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
                         return;
                     }
                 } finally {
