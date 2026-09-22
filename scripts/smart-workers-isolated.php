@@ -220,6 +220,14 @@ try{
     $prompt=(string)($input['prompt']??'');
     $image=$input['image']??null;
     $checkOnly=($input['check_only']??false)===true;
+    $budgetMs=(int)($input['budget_ms']??0);
+    if(!$checkOnly && $budgetMs>0)$budgetMs=max(2500,min(45000,$budgetMs));
+    else $budgetMs=0;
+    $budgetStarted=microtime(true);
+    $remainingBudgetMs=static function() use (&$budgetStarted,&$budgetMs): int {
+        if($budgetMs<=0)return PHP_INT_MAX;
+        return max(0,$budgetMs-(int)round((microtime(true)-$budgetStarted)*1000));
+    };
     // Only the rescue vision model uses guided_json; the selected Llama 3.2
     // primary and the existing translation transport remain unchanged.
     $fields=$input['fields']??[];
@@ -283,6 +291,9 @@ try{
     if(!$checkOnly && $image===null &&
        $model==='@cf/meta/llama-3.1-8b-instruct-fp8')$timeouts=[25,10];
     foreach($timeouts as $attempt=>$timeout){
+        $remainingMs=$remainingBudgetMs();
+        if($remainingMs<1000)reply(false,'BUDGET_EXHAUSTED',null,$visualEvidence!==''?$visualEvidence:null);
+        if($remainingMs!==PHP_INT_MAX)$timeout=max(1,min($timeout,(int)ceil($remainingMs/1000)));
         if($attempt===1&&!$checkOnly&&!($retryPrepared??false)){
             // Retry once with strict JSON output after an invalid, empty, or
             // transient response. Preserve the original image part in-place.
@@ -308,7 +319,7 @@ try{
             CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$encoded,
             CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$token,'Content-Type: application/json','Accept: application/json'],
             CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_MAXREDIRS=>0,
-            CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>$timeout,
+            CURLOPT_CONNECTTIMEOUT=>min(8,$timeout),CURLOPT_TIMEOUT=>$timeout,
             CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2
         ]);
         $body=curl_exec($ch);
@@ -365,12 +376,16 @@ try{
                     $encoded=$retryBody;
                     $retryPrepared=true;
                 }
+                if($remainingBudgetMs()<500)reply(false,'BUDGET_EXHAUSTED',null,$visualEvidence!==''?$visualEvidence:null);
                 usleep(250000);continue;
             }
             reply(false,$reason,null,$visualEvidence!==''?$visualEvidence:null);
         }
         if($attempt===0&&(in_array($http,[500,502,503,504],true)||
-            in_array($errno,[6,7,28,52,56],true))){usleep(450000);continue;}
+            in_array($errno,[6,7,28,52,56],true))){
+            if($remainingBudgetMs()<700)reply(false,'BUDGET_EXHAUSTED',null,$visualEvidence!==''?$visualEvidence:null);
+            usleep(450000);continue;
+        }
         reply(false,cloudflareFailureReason($http,$body,$errno));
     }
     reply(false,'UNAVAILABLE');

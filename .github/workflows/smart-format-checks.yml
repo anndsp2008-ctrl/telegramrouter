@@ -150,7 +150,7 @@ jobs:
           cp runtime-ai-learning.php /tmp/tmr-ai-prewired/runtime-ai-learning.php
           cp app/AiLearningMemory.php /tmp/tmr-ai-prewired/app/AiLearningMemory.php
           cp app/SmartFormatting.php /tmp/tmr-ai-prewired/app/SmartFormatting.php
-          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "97bbbd289e32"
+          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "14211d39f911"
           hash_before="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
           php /tmp/tmr-ai-prewired/runtime-ai-learning.php | grep -Fq 'AI_LEARNING_RUNTIME_READY_ALREADY_WIRED'
           test "$hash_before" = "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
@@ -243,7 +243,8 @@ jobs:
           grep -Fq 'MODEL_LICENSE_REQUIRED_5016' app/WorkersAITranslation.php
           grep -Fq '$checkOnly?12:2800' scripts/smart-workers-isolated.php
           grep -Fq '$timeouts=$checkOnly?[30,20]:[45,30]' scripts/smart-workers-isolated.php
-          grep -Fq 'CURLOPT_CONNECTTIMEOUT=>8' scripts/smart-workers-isolated.php
+          grep -Fq 'CURLOPT_CONNECTTIMEOUT=>min(8,$timeout)' scripts/smart-workers-isolated.php
+          grep -Fq 'BUDGET_EXHAUSTED' scripts/smart-workers-isolated.php
       - name: Run isolated Gemini model-routing checks
         run: SMART_GEMINI_MODEL_ROUTE_TEST=1 php scripts/smart-gemini-isolated.php
       - name: Run mandatory contingency card checks
