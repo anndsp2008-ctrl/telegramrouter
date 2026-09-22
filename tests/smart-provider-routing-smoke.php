@@ -75,9 +75,9 @@ namespace {
     // must attempt a SAME-CLOUDFLARE text structuring pass only when the
     // Vision outputs contain usable observations. No new provider or raw send.
 
-    if(!str_contains($source,"$maxLogicalAttempts=in_array($provider,['workers_ai','gemini'],true)?2:1") ||
+    if(!str_contains($source,'$maxLogicalAttempts=in_array($provider,[\'workers_ai\',\'gemini\'],true)?2:1') ||
        !str_contains($source,'for($logicalAttempt=1;$logicalAttempt<=$maxLogicalAttempts;$logicalAttempt++)') ||
-       !str_contains($source,"'attempt'=>$logicalAttempt") ||
+       !str_contains($source,"'attempt'=>\$logicalAttempt") ||
        !str_contains($source,'SMART_PROVIDER_RETRY_')){
         throw new \RuntimeException('Configured generative providers do not receive two logical card attempts');
     }
