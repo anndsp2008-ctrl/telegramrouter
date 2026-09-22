@@ -286,22 +286,29 @@ if(str_contains($errorSource,$oldErrorText)){
 }
 
 // The baseline source archive replaces index.php on every Railway start.
-// Keep the single learning link directly after Regras de roteamento in that
-// reconstructed menu. Preserve its existing markup, icon and all other links.
-$aiLinkPattern='~<a\\b[^>]*\\bhref="/ai-learning\\.php"[^>]*>.*?</a>~s';
-$rulesLinkPattern='~href="/\\?page=rules"[^>]*>.*?</a>~s';
-$aiCount=preg_match_all($aiLinkPattern,$index,$aiMatches);
-$rulesCount=preg_match_all($rulesLinkPattern,$index,$ruleMatches);
-if($rulesCount===1 && $aiCount!==false && $aiCount<=1){
-    $aiLink=$aiCount===1
-        ?$aiMatches[0][0]
-        :'<a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>';
-    if($aiCount===1)$index=str_replace($aiLink,'',$index);
-    $index=preg_replace_callback($rulesLinkPattern,
-        static fn(array $match): string=>$match[0].$aiLink,
-        $index,1);
+// Reorder only the single learning link within the sidebar; other page links
+// to the rules screen must never be interpreted as duplicate menu items.
+$navPattern='~<nav class="saas-nav">.*?</nav>~s';
+$aiLinkPattern='~<a\b[^>]*\bhref="/ai-learning\.php"[^>]*>.*?</a>~s';
+$rulesLinkPattern='~href="/\?page=rules"[^>]*>.*?</a>~s';
+if(preg_match_all($navPattern,$index,$navMatches)===1){
+    $nav=$navMatches[0][0];
+    $aiCount=preg_match_all($aiLinkPattern,$nav,$aiMatches);
+    $rulesCount=preg_match_all($rulesLinkPattern,$nav,$rulesMatches);
+    if($rulesCount===1 && $aiCount!==false && $aiCount<=1){
+        $aiLink=$aiCount===1
+            ?$aiMatches[0][0]
+            :'<a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>';
+        $newNav=$aiCount===1?str_replace($aiLink,'',$nav):$nav;
+        $newNav=preg_replace_callback($rulesLinkPattern,
+            static fn(array $match): string=>$match[0].$aiLink,
+            $newNav,1);
+        if(is_string($newNav))$index=str_replace($nav,$newNav,$index);
+    }else{
+        echo "AI_LEARNING_NAV_SKIPPED_UNKNOWN_MENU\n";
+    }
 }else{
-    echo "AI_LEARNING_NAV_SKIPPED_UNKNOWN_MENU\\n";
+    echo "AI_LEARNING_NAV_SKIPPED_UNKNOWN_MENU\n";
 }
 
 $paths=[$indexPath=>$index,$routerPath=>$router,$errorPath=>$errorSource];
