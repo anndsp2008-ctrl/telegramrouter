@@ -46,18 +46,6 @@ jobs:
           echo PRE_CHANGE_MAIN_INDEX_HASH=$(sha256sum /tmp/tmr-pre-change-index.php | cut -c1-12)
           if [ -f /tmp/ai-learning-runtime-fixture/runtime-smart-format.php ]; then echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=YES; else echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=NO; fi
           if [ -f /tmp/ai-learning-runtime-fixture/index.php ]; then echo SNAPSHOT_HAS_PANEL=YES; fi
-      - name: Audit baseline dashboard stylesheet palette (CSS only)
-        run: |
-          css=/tmp/ai-learning-runtime-fixture/assets/saas.css
-          if [ -f "$css" ]; then
-            echo "=== BASELINE CSS ROOT AND BODY COLORS ==="
-            grep -nE '^(:root|html|body|\\.saas-(sidebar|content|card|primary|secondary|kicker)|\\.saas-heading|\\.saas-nav|\\.saas-form-grid|@media)' "$css" | head -n 85 | cut -c1-300 || true
-            echo "=== PALETTE TOKEN LINES ==="
-            grep -nE '^ *--[a-zA-Z0-9-]+:|color-scheme:' "$css" | head -n 75 | cut -c1-300 || true
-          else echo BASELINE_SAAS_CSS_ABSENT; fi
-      - name: Identify exact dashboard UI color declarations
-        run: |
-          python3 -c 'import re; p="/tmp/ai-learning-runtime-fixture/assets/saas.css"; c=open(p).read(); rules=re.findall(r"([^{}]+)[{]([^{}]*)[}]",c); look=[":root","body",".saas-sidebar",".saas-topbar",".saas-main",".saas-content",".saas-card",".saas-metric",".saas-primary",".saas-secondary",".saas-kicker",".saas-heading",".saas-nav a",".saas-form-grid input",".saas-form-grid textarea",".saas-form-grid select"]; [print("PALETTE",sel[:160],"=>",re.sub(r"\\s+"," ",style[:350])) for sel,style in rules if sel.strip() in look][:45]'
       - name: Check syntax and memory invariants
         run: |
           php -l app/AiLearningMemory.php
@@ -74,3 +62,9 @@ jobs:
           grep -q "VipCardRenderer::render" app/SmartFormatting.php
           grep -q "Auth::requireLogin" ai-learning.php
           grep -q "Auth::verifyCsrf" ai-learning.php
+          # The learning screen must use the same navy/turquoise palette as the dashboard.
+          grep -Fq -- '--al-bg:#080b12' ai-learning.php
+          grep -Fq -- '--al-panel:#0d131e' ai-learning.php
+          grep -Fq -- '--al-accent:#61dfcb' ai-learning.php
+          ! grep -Fq '#88bc47' ai-learning.php
+          ! grep -Fq 'prefers-color-scheme:light' ai-learning.php
