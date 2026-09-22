@@ -6,6 +6,7 @@ on:
       - 'app/VipCardRenderer.php'
       - 'app/ContingencyCardRenderer.php'
       - 'tests/contingency-card-smoke.php'
+      - 'tests/multiple-bet-contingency-smoke.php'
       - 'runtime-smart-format.php'
       - 'runtime-ui-labels.php'
       - 'tests/sidebar-no-flash-nav-test.php'
@@ -77,6 +78,7 @@ jobs:
           php -l app/VipCardRenderer.php
           php -l app/ContingencyCardRenderer.php
           php -l tests/contingency-card-smoke.php
+          php -l tests/multiple-bet-contingency-smoke.php
           php -l runtime-smart-format.php
           php -l runtime-ai-learning.php
           php -l runtime-workers-ai.php
@@ -150,7 +152,7 @@ jobs:
           cp runtime-ai-learning.php /tmp/tmr-ai-prewired/runtime-ai-learning.php
           cp app/AiLearningMemory.php /tmp/tmr-ai-prewired/app/AiLearningMemory.php
           cp app/SmartFormatting.php /tmp/tmr-ai-prewired/app/SmartFormatting.php
-          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "3a5107ddb43e"
+          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "d6b4fa4fcaec"
           hash_before="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
           php /tmp/tmr-ai-prewired/runtime-ai-learning.php | grep -Fq 'AI_LEARNING_RUNTIME_READY_ALREADY_WIRED'
           test "$hash_before" = "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
@@ -249,5 +251,7 @@ jobs:
         run: SMART_GEMINI_MODEL_ROUTE_TEST=1 php scripts/smart-gemini-isolated.php
       - name: Run mandatory contingency card checks
         run: php tests/contingency-card-smoke.php
+      - name: Test doubles, multiples and Bet Builder classification
+        run: php tests/multiple-bet-contingency-smoke.php
       - name: Run isolated card and text smoke checks
         run: php tests/smart-format-smoke.php

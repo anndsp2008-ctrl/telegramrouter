@@ -20,6 +20,9 @@ final class SmartFormatting
     private static float $prepareStartedAt=0.0;
     private static float $aiFinishedAt=0.0;
     private static int $renderMs=0;
+    private static bool $multipleDetected=false;
+    private static string $multipleDetails='';
+    private static bool $multipleDetailsTranslated=false;
     /** Hard wall-clock budget for ONE logical Workers AI generation attempt. */
     private const WORKERS_LOGICAL_BUDGET_SECONDS=75.0;
 
@@ -133,6 +136,54 @@ final class SmartFormatting
         if($diag['ai_ms']>0)$parts[]='IA='.number_format($diag['ai_ms']/1000,1,'.','').'s';
         return mb_substr(implode('; ',$parts),0,220,'UTF-8');
     }
+    /** A multi-leg bet must never be rendered as one market and one selection. */
+    public static function multipleDetected(): bool
+    {
+        return self::$multipleDetected;
+    }
+
+    /** Already in the rule's target language when translation is enabled. */
+    public static function multipleDetails(): string
+    {
+        return self::$multipleDetails;
+    }
+
+    public static function multipleDetailsTranslated(): bool
+    {
+        return self::$multipleDetailsTranslated;
+    }
+
+    /**
+     * Explicit ticket headers/leg rows only. "Dupla chance" / "double chance"
+     * are single markets and must not trigger multi-bet contingency.
+     */
+    public static function sourceIndicatesMultiple(string $source): bool
+    {
+        if(trim($source)==='')return false;
+        // Explicit slip headings, never a market such as "Dupla chance".
+        if(preg_match('~(?:^|\\R)\\s*(?:aposta\\s+)?(?:parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|multiple|dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',$source)===1)return true;
+        if(preg_match('~(?:^|\\R)\\s*(?:[2-9]|[1-9][0-9]+)\\s+(?:sele[cç][oõ]es|selections?|legs?|eventos?|events?)\\b~iu',$source)===1)return true;
+        if(preg_match_all('~(?:^|\\R)\\s*(?:sele[cç][aã]o|selection|pick)\\s*[:\\-]~iu',$source)>=2)return true;
+        // Bet Builder is not sufficient by itself: it may contain only one pick.
+        if(preg_match('~\\b(?:bet\\s*builder|same[- ]game\\s+parlay|criar\\s+aposta|crear\\s+apuesta)\\b~iu',$source)!==1)return false;
+        return preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$source)>=2;
+    }
+
+    /** A same-match Bet Builder with two picks is multiple, regardless of "Simple". */
+    public static function isMultipleTicket(array $data,string $sourceText=''): bool
+    {
+        if(self::sourceIndicatesMultiple($sourceText))return true;
+        $count=trim((string)($data['selections_count']??''));
+        if(preg_match('/^[0-9]{1,3}$/D',$count) && (int)$count>=2)return true;
+        $kind=mb_strtolower(trim((string)($data['bet_kind']??'')),'UTF-8');
+        $details=(string)($data['multiple_details']??'');
+        $enumerated=preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$details);
+        if($enumerated>=2)return true;
+        // A named multi bet without two identifiable selections is ambiguous.
+        // Do not turn a one-pick Bet Builder or "Dupla chance" into a multiple.
+        return false;
+    }
+
     public static function providerUnavailable(): bool
     {
         return in_array('GEMINI_HTTP_429',self::$failureCodes,true)
@@ -225,11 +276,22 @@ final class SmartFormatting
         self::$prepareStartedAt=microtime(true);
         self::$aiFinishedAt=0.0;
         self::$renderMs=0;
+        self::$multipleDetected=false;
+        self::$multipleDetails='';
+        self::$multipleDetailsTranslated=false;
+        if($mode==='card' && ($localImage===null||!is_file($localImage))
+            && self::sourceIndicatesMultiple($sourceText)){
+            self::$multipleDetected=true;
+            self::$aiFinishedAt=microtime(true);
+            self::diag('MULTIPLE_TEXT_DIRECT_CONTINGENCY');
+            return null;
+        }
         if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
-        $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
+        $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
+            'bet_kind','selections_count','multiple_details'];
         // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
         $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
@@ -275,6 +337,33 @@ final class SmartFormatting
                         self::diag('SMART_PROVIDER_RETRY_'.$provider);
                         usleep(350000);
                     }
+                    continue;
+                }
+                if($mode==='card' && self::isMultipleTicket($json,$sourceText)){
+                    self::$multipleDetected=true;
+                    $details=trim((string)($json['multiple_details']??''));
+                    if($details==='' && $localImage!==null && is_file($localImage)){
+                        self::diag('MULTIPLE_DETAILS_MISSING_'.$provider);
+                        self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
+                        if($logicalAttempt<$maxLogicalAttempts)usleep(350000);
+                        continue;
+                    }
+                    self::$multipleDetails=mb_substr($details,0,12000,'UTF-8');
+                    self::$multipleDetailsTranslated=$translate&&self::$multipleDetails!=='';
+                    self::$aiFinishedAt=microtime(true);
+                    self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
+                    error_log('TMR_SMART_MULTIPLE_DETECTED '.json_encode([
+                        'provider'=>$provider,'attempt'=>$logicalAttempt,
+                        'has_image'=>$localImage!==null&&is_file($localImage),
+                        'translated'=>$translate&&$details!==''
+                    ]));
+                    return null;
+                }
+                if(self::$multipleDetected){
+                    // An earlier provider identified multiple legs but did not
+                    // return their text. Never accept a later partial single card.
+                    self::diag('MULTIPLE_DETAILS_STILL_MISSING_'.$provider);
+                    self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
                     continue;
                 }
                 $candidate=[];
@@ -324,7 +413,10 @@ final class SmartFormatting
             if($bet!==null)break;
         }
         self::$aiFinishedAt=microtime(true);
-        if($bet===null){self::diag('ALL_CONFIGURED_PROVIDERS_FAILED');return null;}
+        if($bet===null){
+            self::diag(self::$multipleDetected?'MULTIPLE_CONTINGENCY_REQUIRED':'ALL_CONFIGURED_PROVIDERS_FAILED');
+            return null;
+        }
         // Keep the underlying extraction untouched. Only card-mode presentation
         // suppresses tip-send time, bookmaker and receipt amounts. Text and
         // original-image caption modes continue to behave exactly as before.
@@ -604,6 +696,12 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
+            "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
+            "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
+            "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
+            "Se for multiple, não tente resumir tudo em market e selection: preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção de cada uma. Em acumuladas com vários jogos, preserve todos os jogos; em Bet Builder preserve todas as condições internas. Inclua odd individual/combinada somente quando visível. ".
+            "Para multiple_details transcreva com fidelidade o comprovante visual e traduza todas as descrições para o idioma solicitado, inclusive qualquer texto de análise da mensagem; preserve nomes, números e linhas originais. Nunca invente pernas, odds ou resultados. ".
+            "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
             "MERCADO é o tipo/categoria da aposta (ex.: Total de escanteios, Handicap Asiático, Vencedor da partida). ".
             "SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). ".
             "Nunca troque Mercado e Seleção. Se o comprovante trouxer rótulos próprios, respeite a relação mostrada; se houver dúvida real, deixe o campo duvidoso vazio em vez de adivinhar. ".
@@ -726,6 +824,12 @@ final class SmartFormatting
         $prompt="Você interpreta dicas de apostas, SEM CRIAR OU ALTERAR DADOS. ".
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
+            "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
+            "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
+            "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
+            "Se for multiple, não tente resumir tudo em market e selection: preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção de cada uma. Em acumuladas com vários jogos, preserve todos os jogos; em Bet Builder preserve todas as condições internas. Inclua odd individual/combinada somente quando visível. ".
+            "Para multiple_details transcreva com fidelidade o comprovante visual e traduza todas as descrições para o idioma solicitado, inclusive qualquer texto de análise da mensagem; preserve nomes, números e linhas originais. Nunca invente pernas, odds ou resultados. ".
+            "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
             "Diferencie stake sugerida do valor real do bilhete e aposta ao vivo de pré-jogo. ".
             "MERCADO é a categoria/tipo da aposta (ex.: Total de escanteios, Handicap Asiático, Vencedor da partida). ".
             "SELEÇÃO é a escolha efetiva dentro do mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). Nunca inverta esses dois campos. ".

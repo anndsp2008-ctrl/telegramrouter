@@ -154,9 +154,16 @@ HTML;
                     // Mandatory-card rescue: structured extraction may fail while
                     // plain text translation still succeeds. Translate first,
                     // then build a deterministic card without inventing fields.
-                    $contingencyText=$text;
-                    $contingencyTranslated=empty($rule['translation_enabled']);
-                    if(!empty($rule['translation_enabled']) && trim($text)!==''){
+                    $multipleDetected=SmartFormatting::multipleDetected();
+                    $multipleDetails=$multipleDetected?SmartFormatting::multipleDetails():'';
+                    $contingencyText=$multipleDetails!==''?$multipleDetails:$text;
+                    $contingencyTranslated=empty($rule['translation_enabled'])
+                        || ($multipleDetails!=='' && SmartFormatting::multipleDetailsTranslated());
+                    // Visual receipt descriptions from AI already respect the
+                    // configured target language. Only translate the original
+                    // Telegram caption when there is no usable AI transcription.
+                    if(!empty($rule['translation_enabled'])
+                        && $multipleDetails==='' && trim($text)!==''){
                         $translationStarted=microtime(true);
                         try {
                             $translationFallback=Transform::translateDetailed($text,$rule,[
@@ -188,10 +195,12 @@ HTML;
                                 'image'=>$contingencyCard,
                                 'mode'=>'card',
                                 'contingency'=>true,
+                                'multiple_bet'=>$multipleDetected,
                                 'translation_ok'=>$contingencyTranslated
                             ];
                             error_log('TMR_SMART_CARD_CONTINGENCY_READY '.json_encode([
                                 'translated'=>$contingencyTranslated,
+                                'multiple_bet'=>$multipleDetected,
                                 'has_image'=>$sourceImage!==null
                             ]));
                         }
@@ -268,7 +277,9 @@ HTML;
                         if($isContingency){
                             $translationStatus=!empty($formatted['translation_ok'])?'OK':'indisponível';
                             $prefix=$partial?'ai_vip_card_contingency_partial':'ai_vip_card_contingency';
-                            $this->deliveryMethod=$prefix.' [tradução='.$translationStatus
+                            $this->deliveryMethod=$prefix.' ['
+                                .(!empty($formatted['multiple_bet'])?'tipo=múltipla; ':'')
+                                .'tradução='.$translationStatus
                                 .($timing!==''?'; '.$timing:'').']';
                         } else {
                             $prefix=$partial?'ai_vip_card_partial':'ai_vip_card';
@@ -281,7 +292,8 @@ HTML;
                                 +($isContingency?$contingencyRenderMs:0),
                             'translation_ms'=>$isContingency?$contingencyTranslationMs:0,
                             'telegram_ms'=>$telegramMs,
-                            'contingency'=>$isContingency
+                            'contingency'=>$isContingency,
+                            'multiple_bet'=>$isContingency&&!empty($formatted['multiple_bet'])
                         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
                         return;
                     }
