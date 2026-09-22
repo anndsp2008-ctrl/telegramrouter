@@ -94,6 +94,22 @@ jobs:
           test "$(grep -o 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php | wc -l)" -eq 1
           php tests/ai-learning-menu-order.php /tmp/tmr-smart-fixture/index.php
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('/tmp/tmr-smart-fixture')
+          for p in ['index.php','reset.php','connect.php']:
+              s=(root/p).read_text(errors='replace') if (root/p).exists() else ''
+              nav=re.search(r'<nav class="saas-nav">.*?</nav>',s,re.S)
+              head=re.search(r'<head[^>]*>.*?</head>',s,re.S)
+              print('SIDEBAR_DIAGNOSTIC',p,'length',len(s),'nav',nav.group(0)[:4800] if nav else 'NONE','head',re.findall(r'href="([^\"]+\\.css[^\"]*)"',head.group(0)) if head else [])
+          css=root/'assets/saas.css'
+          if css.exists():
+              src=css.read_text(errors='replace')
+              for match in re.finditer(r'.{0,90}(?:\\.saas-nav \\.nav-icon|\\.saas-sidebar \\.nav-icon|\\.saas-nav\\s*\\{|\\.nav-icon\\s*\\{).{0,200}',src,re.I):
+                  print('SIDEBAR_CSS_DIAGNOSTIC',match.group(0)[:300])
+          PY
+
           php -l /tmp/tmr-smart-fixture/index.php
           php -l /tmp/tmr-smart-fixture/app/Repository.php
           php -l /tmp/tmr-smart-fixture/app/TranslationService.php
