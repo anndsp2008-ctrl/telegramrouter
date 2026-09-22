@@ -36,6 +36,7 @@ final class SmartFormatting
         return array_values(array_unique(array_filter($codes,
             static function(string $code): bool {
                 if(str_starts_with($code,'SMART_PROVIDER_FAILED_')
+                    || str_starts_with($code,'SMART_PROVIDER_RETRY_')
                     || $code==='ALL_CONFIGURED_PROVIDERS_FAILED')return false;
                 if(preg_match('/_(?:VISION|TEXT)_RESCUE_(?:STARTED|SUCCEEDED|FAILED)$/D',$code))return false;
                 return true;
