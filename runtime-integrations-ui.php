@@ -80,7 +80,7 @@ $source = preg_replace(
 
 $source = str_replace(
     '</body>',
-    '<script src="/assets/brand/integrations-v10.js?v=7" defer></script></body>',
+    '<script src="/assets/brand/integrations-v10.js?v=6" defer></script></body>',
     $source
 );
 
@@ -92,7 +92,7 @@ if (@file_put_contents($path, $source) === false) {
 $verify = (string)file_get_contents($path);
 if (
     !str_contains($verify, 'integrations_ui_v10') ||
-    !str_contains($verify, '/assets/brand/integrations-v10.js?v=7') ||
+    !str_contains($verify, '/assets/brand/integrations-v10.js?v=6') ||
     str_contains($verify, '/assets/integrations-layout.css')
 ) {
     fwrite(STDERR, "INTEGRATIONS_UI_V10_VERIFY_FAILED\n");
