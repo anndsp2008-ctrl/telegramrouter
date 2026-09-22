@@ -83,6 +83,20 @@ foreach (['login.php','index.php','connect.php','reset.php','install.php'] as $p
 
     $html = (string)file_get_contents($path);
 
+    if ($page === 'login.php') {
+        // The PWA pre-caches the old unversioned /assets/tmr-logo.svg using
+        // cache-first. A unique query string makes the login fetch the current
+        // canonical mark copied above, without changing any other assets.
+        $unversionedLogo = 'src="/assets/tmr-logo.svg"';
+        $versionedLogo = 'src="/assets/tmr-logo.svg?v=4"';
+        if (substr_count($html, $unversionedLogo) === 1) {
+            $html = str_replace($unversionedLogo, $versionedLogo, $html);
+        } elseif (substr_count($html, $versionedLogo) !== 1) {
+            fwrite(STDERR, "BRAND_LOGIN_LOGO_ANCHOR_CHANGED\n");
+            exit(1);
+        }
+    }
+
     if ($page === 'reset.php') {
         // Reset is restored independently of index.php. Align ONLY its topbar
         // after snapshot extraction; leave every reset action and safety guard intact.

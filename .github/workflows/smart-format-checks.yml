@@ -33,6 +33,7 @@ on:
       - 'assets/brand/mobile-visual-audit.css'
       - 'assets/brand/activity-status-badges.css'
       - 'runtime-brand.php'
+      - 'tests/login-logo-cache-smoke.php'
       - 'reset.php'
       - 'tests/reset-header-parity.php'
       - 'index.php'
@@ -55,6 +56,7 @@ jobs:
           php -l index.php
           php -l reset.php
           php -l runtime-brand.php
+          php -l tests/login-logo-cache-smoke.php
           php -l tests/reset-header-parity.php
           php -l runtime-ui-labels.php
           php -l tests/sidebar-no-flash-nav-test.php
@@ -116,6 +118,7 @@ jobs:
           test "$(grep -o 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php | wc -l)" -eq 1
           php tests/ai-learning-menu-order.php /tmp/tmr-smart-fixture/index.php
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
+          php tests/login-logo-cache-smoke.php /tmp/tmr-smart-fixture/login.php
           php -l /tmp/tmr-smart-fixture/reset.php
           php tests/reset-header-parity.php /tmp/tmr-smart-fixture/reset.php
           php /tmp/tmr-smart-fixture/runtime-mobile-bottom-nav.php | grep TMR_MOBILE_NAV_V1_APPLIED
