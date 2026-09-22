@@ -69,6 +69,12 @@ jobs:
         run: |
           mkdir -p /tmp/tmr-smart-fixture
           cat backup/production-source-2026-09-18.part*.b64 | tr -d '\r\n' | base64 -d | tar -xz -C /tmp/tmr-smart-fixture
+          echo 'DIAG_LIVE_JS_START'
+          if test -f /tmp/tmr-smart-fixture/assets/live.js; then grep -n -E 'saas-sidebar|saas-shell|saas-main|saas-nav|replaceWith|innerHTML|document|location|pagehide|fetch\\(|pushState|popstate|hide|visibility|transition' /tmp/tmr-smart-fixture/assets/live.js | head -80; else echo 'LIVE_JS_NOT_FOUND'; fi
+          echo 'DIAG_LIVE_JS_END'
+          echo 'DIAG_SAAS_CSS_START'
+          if test -f /tmp/tmr-smart-fixture/assets/saas.css; then grep -n -E '^\\.saas-(shell|sidebar|main|nav|content)|overflow-y|scrollbar-gutter|transition|animation' /tmp/tmr-smart-fixture/assets/saas.css | head -100; else echo 'SAAS_CSS_NOT_FOUND'; fi
+          echo 'DIAG_SAAS_CSS_END'
           cp runtime-smart-format.php /tmp/tmr-smart-fixture/runtime-smart-format.php
           cp runtime-ai-learning.php /tmp/tmr-smart-fixture/runtime-ai-learning.php
           cp app/AiLearningMemory.php /tmp/tmr-smart-fixture/app/AiLearningMemory.php
