@@ -28,7 +28,7 @@ foreach([
     "'context'=>'smart_card_contingency'",
     'ContingencyCardRenderer::render',
     'ContingencyCardRenderer::caption',
-    "deliveryMethod='ai_vip_card_contingency",
+    'ai_vip_card_contingency',
     'SMART_CARD_CONTINGENCY_UNAVAILABLE',
     '($setting[\'output_mode\']??\'\')===\'card\''
 ] as $anchor){
