@@ -102,10 +102,7 @@ function aiUrl(string $status,string $q,int $page=1): string {
 <title>Aprendizado da IA · TelegramRouter</title>
 <link rel="stylesheet" href="/assets/saas.css">
 <style>
-:root{color-scheme:dark;--al-bg:#0b171c;--al-panel:#11242a;--al-panel2:#152e33;--al-edge:#2c494b;--al-ink:#eaf5f0;--al-muted:#a5b9b6;--al-accent:#88bc47;--al-accent-ink:#13241d;--al-warning:#f2bd69;--al-danger:#ff9e9e;--al-ring:#b8e86c}
-@media(prefers-color-scheme:light){:root{color-scheme:light;--al-bg:#f1f6f2;--al-panel:#fff;--al-panel2:#eaf3ef;--al-edge:#cddfd5;--al-ink:#172c27;--al-muted:#4b6761;--al-accent:#487d25;--al-accent-ink:#fff;--al-warning:#976017;--al-danger:#ab3535;--al-ring:#487d25}}
-html[data-theme="dark"],body[data-theme="dark"],body.dark{color-scheme:dark;--al-bg:#0b171c;--al-panel:#11242a;--al-panel2:#152e33;--al-edge:#2c494b;--al-ink:#eaf5f0;--al-muted:#a5b9b6;--al-accent:#88bc47;--al-accent-ink:#13241d;--al-warning:#f2bd69;--al-danger:#ff9e9e;--al-ring:#b8e86c}
-html[data-theme="light"],body[data-theme="light"],body.light{color-scheme:light;--al-bg:#f1f6f2;--al-panel:#fff;--al-panel2:#eaf3ef;--al-edge:#cddfd5;--al-ink:#172c27;--al-muted:#4b6761;--al-accent:#487d25;--al-accent-ink:#fff;--al-warning:#976017;--al-danger:#ab3535;--al-ring:#487d25}
+:root{color-scheme:dark;--al-bg:#080b12;--al-panel:#0d131e;--al-panel2:#111b2a;--al-edge:#ffffff16;--al-ink:#e8eef7;--al-muted:#b6c5d7;--al-accent:#61dfcb;--al-accent-ink:#071218;--al-warning:#f2bd69;--al-danger:#ff9e9e;--al-ring:#67ddc7}
 *{box-sizing:border-box}body{margin:0;background:var(--al-bg);color:var(--al-ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textarea,summary{touch-action:manipulation}
 :focus-visible{outline:3px solid var(--al-ring);outline-offset:3px}
