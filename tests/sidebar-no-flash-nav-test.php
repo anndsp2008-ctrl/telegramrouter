@@ -67,4 +67,38 @@ $index=(string)ob_get_clean();
 if(!str_contains($index,'UNALTERED_INDEX')||!str_contains($index,'telegramrouter-sidebar-sync')
     ||str_contains($index,'replaceWith('))
     throw new RuntimeException('Index regression');
+// Integrations page must get only a defensive shell/navigation guard; the
+// provider markup, existing links, and feedback cards remain unchanged.
+$_SERVER['SCRIPT_FILENAME']='/tmp/index.php';
+ob_start();
+require __DIR__.'/../runtime-ui-labels.php';
+echo '<!doctype html><html><head><link rel="stylesheet" href="/assets/saas.css"></head>'
+    .'<body><div class="saas-shell"><aside class="saas-sidebar"><nav class="saas-nav">'
+    .'<a href="/?page=rules">Regras de roteamento</a>'
+    .'<a href="/ai-learning.php">Aprendizado da IA</a>'
+    .'<a class="active" href="/?page=integrations">Integrações</a>'
+    .'</nav></aside><div class="saas-main"><main class="saas-content">'
+    .'<div class="translation-provider-grid">PROVIDER_CONTENT_UNALTERED</div>'
+    .'</main></div></div><script src="/assets/brand/integrations-v10.js?v=6" defer></script></body></html>';
+ob_end_flush();
+$integrations=(string)ob_get_clean();
+if(substr_count($integrations,'id="tmr-sidebar-feedback-guard"')!==1
+    ||substr_count($integrations,'id="tmr-sidebar-feedback-style"')!==1)
+    throw new RuntimeException('Integrations sidebar safeguard not injected exactly once');
+if(strpos($integrations,'id="tmr-sidebar-feedback-style"')>strpos($integrations,'</head>'))
+    throw new RuntimeException('Navigation safeguard CSS loaded after first paint');
+if(strpos($integrations,'id="tmr-sidebar-feedback-guard"')<
+    strpos($integrations,'src="/assets/brand/integrations-v10.js?v=6"'))
+    throw new RuntimeException('Navigation guard no longer follows deferred integration reference');
+if(!str_contains($integrations,'PROVIDER_CONTENT_UNALTERED')
+    ||!str_contains($integrations,'<a class="active" href="/?page=integrations">Integrações</a>')
+    ||!str_contains($integrations,'<script src="/assets/brand/integrations-v10.js?v=6" defer></script>'))
+    throw new RuntimeException('Integrations provider content or active nav link changed');
+if(!str_contains($integrations,'href="/?page=rules"')||
+    strpos($integrations,'href="/?page=rules"')>strpos($integrations,'href="/ai-learning.php"'))
+    throw new RuntimeException('Sidebar ordering changed unexpectedly');
+
+// Ordinary pages must not load the integrations-only feedback safeguard.
+if(str_contains($index,'id="tmr-sidebar-feedback-guard"'))
+    throw new RuntimeException('Unrelated page received the integration navigation guard');
 echo "SIDEBAR_NO_FLASH_NAV_REGRESSION_PASSED\n";
