@@ -148,6 +148,52 @@ HTML;
                     }
                 }
                 $formatted=SmartFormatting::prepare($text,$rule,$sourceImage,$setting['output_mode']);
+                if($formatted===null && ($setting['output_mode']??'')==='card'){
+                    // Mandatory-card rescue: structured extraction may fail while
+                    // plain text translation still succeeds. Translate first,
+                    // then build a deterministic card without inventing fields.
+                    $contingencyText=$text;
+                    $contingencyTranslated=empty($rule['translation_enabled']);
+                    if(!empty($rule['translation_enabled']) && trim($text)!==''){
+                        try {
+                            $translationFallback=Transform::translateDetailed($text,$rule,[
+                                'rule_id'=>(int)($rule['id']??0),
+                                'context'=>'smart_card_contingency'
+                            ]);
+                            $translatedText=trim((string)($translationFallback['text']??''));
+                            if($translatedText!=='')$contingencyText=$translatedText;
+                            $contingencyTranslated=!empty($translationFallback['translated']);
+                            error_log('TMR_SMART_CARD_CONTINGENCY_TRANSLATION '.json_encode([
+                                'translated'=>$contingencyTranslated,
+                                'provider'=>(string)($translationFallback['provider']??'unknown')
+                            ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+                        } catch(\Throwable $translationError) {
+                            error_log('TMR_SMART_CARD_CONTINGENCY_TRANSLATION_FAILED '.json_encode([
+                                'exception'=>get_class($translationError)
+                            ]));
+                        }
+                    }
+                    try {
+                        $contingencyCard=\App\ContingencyCardRenderer::render($contingencyText,$sourceImage);
+                        if($contingencyCard!==null){
+                            $formatted=[
+                                'caption'=>\App\ContingencyCardRenderer::caption($contingencyText),
+                                'image'=>$contingencyCard,
+                                'mode'=>'card',
+                                'contingency'=>true,
+                                'translation_ok'=>$contingencyTranslated
+                            ];
+                            error_log('TMR_SMART_CARD_CONTINGENCY_READY '.json_encode([
+                                'translated'=>$contingencyTranslated,
+                                'has_image'=>$sourceImage!==null
+                            ]));
+                        }
+                    } catch(\Throwable $contingencyError) {
+                        error_log('TMR_SMART_CARD_CONTINGENCY_RENDER_FAILED '.json_encode([
+                            'exception'=>get_class($contingencyError)
+                        ]));
+                    }
+                }
                 if($formatted===null) error_log('TMR_SMART_FORMAT_UNAVAILABLE '.json_encode([
                     'rule_id'=>(int)($rule['id']??0),
                     'mode'=>(string)($setting['output_mode']??'unknown'),
@@ -173,6 +219,7 @@ HTML;
             $newText=$formatted['caption'];
             $output=$formatted['mode'];
             $card=$formatted['image'];
+            $isContingency=!empty($formatted['contingency']);
             if($output==='card' && $card!==null){
                 try {
                     // Split only at the Telegram caption boundary; keep the entire analysis.
@@ -193,12 +240,21 @@ HTML;
                             message:$summary,
                             entities:[]
                         );
-                        $this->deliveryMethod='ai_vip_card';
+                        if($isContingency){
+                            $translationStatus=!empty($formatted['translation_ok'])?'OK':'indisponível';
+                            $diag=SmartFormatting::diagnosticsCompact();
+                            $this->deliveryMethod='ai_vip_card_contingency [tradução='.$translationStatus
+                                .($diag!==''?'; '.$diag:'').']';
+                        } else {
+                            $this->deliveryMethod='ai_vip_card';
+                        }
                         if($continuation!==''){
                             try {
                                 $this->sendContinuation($peer,$continuation.$footer,[]);
                             } catch(\Throwable $continuationError) {
-                                $this->deliveryMethod='ai_vip_card_partial';
+                                $this->deliveryMethod=$isContingency
+                                    ?'ai_vip_card_contingency_partial'
+                                    :'ai_vip_card_partial';
                                 error_log('TMR_SMART_CARD_CONTINUATION_FAILED '.json_encode([
                                     'exception'=>get_class($continuationError)
                                 ]));
@@ -266,6 +322,11 @@ HTML;
                 'reason'=>SmartFormatting::failureSummary(),
                 'diagnostics'=>SmartFormatting::diagnostics()
             ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+            if(($setting['output_mode']??'')==='card'){
+                // A mandatory-card rule must never leak a raw/original delivery.
+                // Both GD and pure-PHP card renderers were already attempted.
+                throw new \RuntimeException('SMART_CARD_CONTINGENCY_UNAVAILABLE');
+            }
         }
         if($deliveryMedia===null){
             $this->messages->sendMessage(peer:$peer,message:$text,entities:$entities);
