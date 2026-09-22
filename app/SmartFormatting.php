@@ -696,10 +696,10 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            "Antes de preencher o card, conte as SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder com duas linhas de escolhas no MESMO jogo é múltipla, mesmo se o cabeçalho disser Simple/Simples. ".
+            "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
-            "Se for multiple, não tente resumir tudo em market e selection: preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção de cada uma, além da odd combinada somente se visível. ".
+            "Se for multiple, não tente resumir tudo em market e selection: preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção de cada uma. Em acumuladas com vários jogos, preserve todos os jogos; em Bet Builder preserve todas as condições internas. Inclua odd individual/combinada somente quando visível. ".
             "Para multiple_details transcreva com fidelidade o comprovante visual e traduza todas as descrições para o idioma solicitado, inclusive qualquer texto de análise da mensagem; preserve nomes, números e linhas originais. Nunca invente pernas, odds ou resultados. ".
             "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
             "MERCADO é o tipo/categoria da aposta (ex.: Total de escanteios, Handicap Asiático, Vencedor da partida). ".
