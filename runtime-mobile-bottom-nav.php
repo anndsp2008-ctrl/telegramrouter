@@ -24,7 +24,28 @@ $menu=<<<'HTML'
 HTML;
 
 $html=str_replace($anchor,'</header>'.$menu.'<main class="saas-content">',$html);
-$css='<link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation.css?v=1">';
+// Load the approved bottom-navigation stylesheet with a new cache revision.
+// Keep the responsive visibility/position as critical head CSS so a stale or
+// delayed stylesheet can never reveal the old horizontal sidebar on mobile.
+$css = <<<'HTML'
+<link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation.css?v=2">
+<style id="tmr-mobile-bottom-nav-critical">
+@media (max-width:1024px){
+  .saas-shell>.saas-sidebar{display:none!important}
+  .saas-shell> .saas-main{margin-left:0!important;width:100%!important;max-width:100%!important;padding-bottom:calc(105px + env(safe-area-inset-bottom,0px))!important}
+  nav.tmr-mobile-navigation{
+    display:grid!important;position:fixed!important;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    left:clamp(8px,2vw,20px);right:clamp(8px,2vw,20px);
+    bottom:calc(8px + env(safe-area-inset-bottom,0px));
+    z-index:1100;min-height:78px;padding:7px 6px;
+    background:#151f2b;border:1px solid rgba(142,163,184,.16);
+    border-radius:15px;box-sizing:border-box;
+  }
+}
+@media (min-width:1025px){nav.tmr-mobile-navigation{display:none!important}}
+</style>
+HTML;
 if (substr_count($html,'</head>')!==1) { fwrite(STDERR,"TMR_MOBILE_NAV_HEAD_MISSING\n"); exit(1); }
 $html=str_replace('</head>',$css.'</head>',$html);
 $temp=$path.'.mobile-nav-tmp';
