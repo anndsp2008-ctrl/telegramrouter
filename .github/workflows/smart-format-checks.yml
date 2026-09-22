@@ -27,6 +27,8 @@ on:
       - 'assets/brand/mobile-visual-audit.css'
       - 'assets/brand/activity-status-badges.css'
       - 'runtime-brand.php'
+      - 'reset.php'
+      - 'tests/reset-header-parity.php'
       - 'index.php'
       - 'tests/integration-badge-alignment-smoke.php'
       - 'tests/ai-learning-menu-order.php'
@@ -45,6 +47,9 @@ jobs:
       - name: Lint standalone modules
         run: |
           php -l index.php
+          php -l reset.php
+          php -l runtime-brand.php
+          php -l tests/reset-header-parity.php
           php -l runtime-ui-labels.php
           php -l tests/sidebar-no-flash-nav-test.php
           php tests/sidebar-no-flash-nav-test.php
@@ -83,6 +88,7 @@ jobs:
           test -s /tmp/tmr-smart-fixture/app/SmartFormatting.php
           cp runtime-workers-ai.php /tmp/tmr-smart-fixture/runtime-workers-ai.php
           cp runtime-brand.php /tmp/tmr-smart-fixture/runtime-brand.php
+          cp reset.php /tmp/tmr-smart-fixture/reset.php
           cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
           cp app/workers-ai-card.php /tmp/tmr-smart-fixture/app/workers-ai-card.php
           cp scripts/workers-ai-request.php /tmp/tmr-smart-fixture/scripts/workers-ai-request.php
@@ -97,6 +103,8 @@ jobs:
           test "$(grep -o 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php | wc -l)" -eq 1
           php tests/ai-learning-menu-order.php /tmp/tmr-smart-fixture/index.php
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
+          php -l /tmp/tmr-smart-fixture/reset.php
+          php tests/reset-header-parity.php /tmp/tmr-smart-fixture/reset.php
           mkdir -p /tmp/tmr-smart-fixture/tests
           cp runtime-ui-labels.php /tmp/tmr-smart-fixture/runtime-ui-labels.php
           cp tests/sidebar-canonical-icon-parity.php /tmp/tmr-smart-fixture/tests/sidebar-canonical-icon-parity.php
