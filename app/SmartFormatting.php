@@ -229,7 +229,7 @@ final class SmartFormatting
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
-        $fields=['sport','status','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
+        $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis'];
         // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
         $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
@@ -283,6 +283,12 @@ final class SmartFormatting
                 // even when the source has no stake or the model omits the field.
                 // Keep stake_amount (the receipt's real money amount) untouched.
                 $candidate['stake']=self::FIXED_STAKE;
+                $candidate=self::normalizeMarketSelection($candidate);
+                $candidate=self::normalizeLiveStatus(
+                    $candidate,
+                    $sourceText,
+                    $localImage!==null&&is_file($localImage)
+                );
                 $candidate['potential_profit']=self::calculatePotentialProfit(
                     $candidate['stake_amount'],$candidate['potential_return']);
                 if($candidate['selection']===''||$candidate['market']===''||$candidate['match']===''){
@@ -466,6 +472,90 @@ final class SmartFormatting
         return $bet;
     }
 
+    /** A market label describes the betting category, not the chosen outcome. */
+    private static function looksLikeMarketCategory(string $value): bool
+    {
+        $v=mb_strtolower(trim($value),'UTF-8');
+        if($v==='')return false;
+        return preg_match(
+            '~^(?:'
+            .'(?:total(?:\s+de)?\s+)?(?:gols?|goals?|escanteios?|corners?|cart[oõ]es?|cards?|pontos?|points?)'
+            .'|handicap(?:\s+asi[aá]tico)?|asian\s+handicap'
+            .'|vencedor(?:\s+da\s+partida)?|match\s+winner|moneyline|resultado(?:\s+final)?'
+            .'|ambas(?:\s+as\s+equipes)?\s+marcam|both\s+teams\s+to\s+score'
+            .'|dupla\s+chance|double\s+chance|draw\s+no\s+bet'
+            .'|team\s+total|total\s+da\s+equipe|player\s+props?|estat[ií]sticas?\s+do\s+jogador'
+            .')$~iu',
+            $v
+        )===1;
+    }
+
+    /**
+     * Repair only an obvious provider inversion. Ambiguous data is rejected so
+     * the next logical/provider attempt gets a chance instead of publishing it.
+     */
+    private static function normalizeMarketSelection(array $bet): array
+    {
+        $market=trim((string)($bet['market']??''));
+        $selection=trim((string)($bet['selection']??''));
+        if($market===''||$selection==='')return $bet;
+        if(mb_strtolower($market,'UTF-8')===mb_strtolower($selection,'UTF-8')){
+            self::diag('MARKET_SELECTION_IDENTICAL');
+            $bet['selection']='';
+            return $bet;
+        }
+        $marketIsCategory=self::looksLikeMarketCategory($market);
+        $selectionIsCategory=self::looksLikeMarketCategory($selection);
+        if(!$marketIsCategory && $selectionIsCategory){
+            $bet['market']=$selection;
+            $bet['selection']=$market;
+            self::diag('MARKET_SELECTION_SWAPPED');
+            return $bet;
+        }
+        if($marketIsCategory && $selectionIsCategory){
+            self::diag('MARKET_SELECTION_AMBIGUOUS');
+            $bet['selection']='';
+        }
+        return $bet;
+    }
+
+    /** Only unequivocal match-live phrases count; time/date never count. */
+    private static function hasExplicitLiveCue(string $text): bool
+    {
+        $text=mb_strtolower(trim($text),'UTF-8');
+        if($text==='')return false;
+        if(preg_match('~\b(?:live|livebet|in[- ]?play|ao\s+vivo|en\s+vivo|en\s+directo|en\s+direct|match\s+live)\b~iu',$text))return true;
+        return preg_match(
+            '~\b(?:partida|jogo|partido|match|game)\b.{0,30}\b(?:em\s+andamento|in\s+progress|en\s+curso|em\s+jogo)\b~iu',
+            $text
+        )===1;
+    }
+
+    /**
+     * AO VIVO requires a verifiable cue. For text-only tips, the cue must exist
+     * in the source text. For image tips, the model must also return a copied
+     * live_evidence marker; timestamps and timezone comparisons are ignored.
+     */
+    private static function normalizeLiveStatus(array $bet,string $sourceText,bool $hasImage): array
+    {
+        $status=trim((string)($bet['status']??''));
+        if(!self::hasExplicitLiveCue($status)){
+            if(isset($bet['live_evidence']))$bet['live_evidence']=trim((string)$bet['live_evidence']);
+            return $bet;
+        }
+        $sourceCue=self::hasExplicitLiveCue($sourceText);
+        $evidence=trim((string)($bet['live_evidence']??''));
+        $visualCue=$hasImage&&self::hasExplicitLiveCue($evidence);
+        if(!$sourceCue&&!$visualCue){
+            self::diag('LIVE_STATUS_UNVERIFIED');
+            $bet['status']='';
+            $bet['live_evidence']='';
+            return $bet;
+        }
+        $bet['status']='AO VIVO';
+        return $bet;
+    }
+
     public static function sourceHasAnalysis(string $text): bool
     {
         $plain=trim(preg_replace('/https?:\/\/\S+/iu',' ',strip_tags($text))??$text);
@@ -514,8 +604,13 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
+            "MERCADO é o tipo/categoria da aposta (ex.: Total de escanteios, Handicap Asiático, Vencedor da partida). ".
+            "SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). ".
+            "Nunca troque Mercado e Seleção. Se o comprovante trouxer rótulos próprios, respeite a relação mostrada; se houver dúvida real, deixe o campo duvidoso vazio em vez de adivinhar. ".
             "No campo analysis, preserve apenas a análise esportiva; omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
-            "Status AO VIVO somente se a PARTIDA estiver explicitamente em andamento; bilhete aberto não basta. ".
+            "Para status AO VIVO, o campo live_evidence deve copiar uma evidência textual/visual explícita de que A PARTIDA está em andamento (ex.: LIVE, IN-PLAY, AO VIVO, EN VIVO, MATCH IN PROGRESS). ".
+            "É PROIBIDO usar horário, data, relógio, hora de emissão do bilhete, horário da mensagem do Telegram, fuso horário ou comparação com a hora atual para decidir AO VIVO. ".
+            "Também não use status do bilhete como aberto/en curso/pendente como prova de partida ao vivo. Sem evidência explícita de jogo em andamento, status e live_evidence devem ficar vazios ou indicar pré-jogo sem AO VIVO. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
             "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
             $language." ".($memoryExamples!==''?$memoryExamples:'')." TEXTO ORIGINAL:\n".$text;
@@ -632,9 +727,14 @@ final class SmartFormatting
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
             "Diferencie stake sugerida do valor real do bilhete e aposta ao vivo de pré-jogo. ".
-            "Retorne status exatamente AO VIVO quando o TEXTO OU IMAGEM indicar explicitamente PARTIDA em andamento, live/in-play, ao vivo, en vivo, en directo ou jogo em curso. ".
-            "Nao use AO VIVO apenas porque o bilhete esta aberto (ex.: En curso na area de aposta pode ser somente ticket nao liquidado). ".
-            "Se partida ao vivo nao estiver comprovada, mantenha o status descritivo ou vazio, sem adivinhar. ".
+            "MERCADO é a categoria/tipo da aposta (ex.: Total de escanteios, Handicap Asiático, Vencedor da partida). ".
+            "SELEÇÃO é a escolha efetiva dentro do mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). Nunca inverta esses dois campos. ".
+            "Se os rótulos do comprovante forem ambíguos, deixe o campo duvidoso vazio em vez de completar por contexto. ".
+            "Retorne status exatamente AO VIVO somente quando TEXTO OU IMAGEM trouxer evidência inequívoca de que A PARTIDA está em andamento. ".
+            "Preencha live_evidence copiando a indicação explícita que comprova isso (ex.: LIVE, IN-PLAY, AO VIVO, EN VIVO, EN DIRECTO, MATCH IN PROGRESS). ".
+            "NUNCA deduza AO VIVO a partir de horário, data, relógio, hora de emissão do bilhete, horário da mensagem do Telegram, fuso horário ou comparação com a hora atual. Os canais de origem podem usar outro fuso. ".
+            "Nao use AO VIVO apenas porque o bilhete esta aberto, pendente ou mostra En curso; isso pode ser apenas o estado do ticket. ".
+            "Se a partida ao vivo nao estiver comprovada, status e live_evidence devem ficar vazios ou indicar pré-jogo sem AO VIVO. ".
             "Identifique o esporte específico quando explícito ou inequívoco pelo confronto e campeonato (ex.: La Liga = futebol). Não use o valor genérico esporte se houver evidência clara. ".
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
@@ -746,10 +846,8 @@ final class SmartFormatting
         // mode. Raw extraction, caption mode and original source are untouched.
         $status=mb_strtolower(trim((string)($bet['status']??'')),'UTF-8');
         $explicitLive=in_array($status,[
-            'ao vivo','live','livebet','in play','in-play','em jogo',
-            'partida em andamento','jogo em andamento','em andamento',
-            'en vivo','en directo','partido en curso','match live',
-            'match in progress','en direct'
+            'ao vivo','live','livebet','in play','in-play',
+            'en vivo','en directo','match live','match in progress','en direct'
         ],true);
         if($explicitLive)$bet['status']='AO VIVO';
         return $bet;

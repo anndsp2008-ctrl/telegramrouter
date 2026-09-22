@@ -366,16 +366,74 @@ foreach(['esportes','sports','unknown'] as $placeholder){
     if(($inferred['sport']??'')!=='Futebol')
         throw new RuntimeException('Generic sport placeholder was not replaced: '.$placeholder);
 }
-foreach(['live','in-play','em andamento','partido en curso','en directo'] as $status){
+foreach(['live','in-play','en directo'] as $status){
     $normal=SmartFormatting::cardView(['sport'=>'Futebol','status'=>$status]);
     if(($normal['status']??'')!=='AO VIVO')
         throw new RuntimeException('Explicit live match status not normalized: '.$status);
 }
-foreach(['En curso','bilhete em aberto','pré-jogo',''] as $notLive){
+foreach(['En curso','em andamento','partido en curso','bilhete em aberto','pré-jogo',''] as $notLive){
     $normal=SmartFormatting::cardView(['sport'=>'Futebol','status'=>$notLive]);
     if(($normal['status']??'')==='AO VIVO')
         throw new RuntimeException('Ticket status incorrectly inferred as live');
 }
+$reflection=new ReflectionClass(SmartFormatting::class);
+$marketSelection=$reflection->getMethod('normalizeMarketSelection');
+$swapped=$marketSelection->invoke(null,[
+    'market'=>'Mais de 8,5 escanteios',
+    'selection'=>'Total de escanteios'
+]);
+if(($swapped['market']??'')!=='Total de escanteios' ||
+   ($swapped['selection']??'')!=='Mais de 8,5 escanteios'){
+    throw new RuntimeException('Obvious market/selection inversion was not repaired');
+}
+$handicapSwap=$marketSelection->invoke(null,[
+    'market'=>'Athletic Bilbao +0,5',
+    'selection'=>'Handicap Asiático'
+]);
+if(($handicapSwap['market']??'')!=='Handicap Asiático' ||
+   ($handicapSwap['selection']??'')!=='Athletic Bilbao +0,5'){
+    throw new RuntimeException('Handicap market/selection inversion was not repaired');
+}
+$ambiguous=$marketSelection->invoke(null,[
+    'market'=>'Total de gols',
+    'selection'=>'Total de escanteios'
+]);
+if(($ambiguous['selection']??'')!==''){
+    throw new RuntimeException('Ambiguous market/selection pair was accepted');
+}
+
+$liveNormalizer=$reflection->getMethod('normalizeLiveStatus');
+$timezoneOnly=$liveNormalizer->invoke(null,[
+    'status'=>'AO VIVO',
+    'live_evidence'=>'15:40',
+    'time'=>'15:40'
+],'Bilhete criado às 15:40',true);
+if(($timezoneOnly['status']??'')==='AO VIVO'){
+    throw new RuntimeException('Receipt time incorrectly proved live status');
+}
+$textLive=$liveNormalizer->invoke(null,[
+    'status'=>'live',
+    'live_evidence'=>''
+],'LIVE - Athletic Bilbao x Alavés',false);
+if(($textLive['status']??'')!=='AO VIVO'){
+    throw new RuntimeException('Explicit text live cue was rejected');
+}
+$imageLive=$liveNormalizer->invoke(null,[
+    'status'=>'AO VIVO',
+    'live_evidence'=>'IN-PLAY'
+],'Bilhete 15:40',true);
+if(($imageLive['status']??'')!=='AO VIVO'){
+    throw new RuntimeException('Explicit visual live evidence was rejected');
+}
+$ticketOpen=$liveNormalizer->invoke(null,[
+    'status'=>'AO VIVO',
+    'live_evidence'=>'En curso'
+],'En curso',true);
+if(($ticketOpen['status']??'')==='AO VIVO'){
+    throw new RuntimeException('Open-ticket status incorrectly proved live match');
+}
+echo "SMART_FORMAT_MARKET_SELECTION_LIVE_EVIDENCE_TESTS_PASSED\n";
+
 $unknownSport=SmartFormatting::cardView(['sport'=>'','league'=>'Liga desconhecida']);
 if(($unknownSport['sport']??'')!=='')throw new RuntimeException('Sport invented from unknown league');
 $knownSport=SmartFormatting::cardView(['sport'=>'Basquete','league'=>'La Liga']);
