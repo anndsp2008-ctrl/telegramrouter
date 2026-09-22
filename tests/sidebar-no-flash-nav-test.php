@@ -63,7 +63,10 @@ ob_start();
 require __DIR__.'/../runtime-ui-labels.php';
 echo '<!doctype html><html><head></head><body><aside class="saas-sidebar">'
     .'<nav class="saas-nav"><a href="/?page=rules">Regras de roteamento</a>'
-    .$oldLearn.'</nav></aside><main>UNALTERED_INDEX</main></body></html>';
+    .$oldLearn.'</nav></aside>'
+    .'<nav class="tmr-mobile-navigation"><details class="tmr-nav-more"><div class="tmr-more-panel">'
+    .'<a href="/reset.php">Reset de dados</a></div></details></nav>'
+    .'<main>UNALTERED_INDEX</main></body></html>';
 ob_end_flush();
 $index=(string)ob_get_clean();
 if(!str_contains($index,'UNALTERED_INDEX')||!str_contains($index,'telegramrouter-sidebar-sync')
@@ -72,6 +75,11 @@ if(!str_contains($index,'UNALTERED_INDEX')||!str_contains($index,'telegramrouter
 if(strpos($index,'id="telegramrouter-sidebar-icon-compat"')>strpos($index,'</head>')
     ||substr_count($index,'id="telegramrouter-sidebar-icon-compat"')!==1)
     throw new RuntimeException('Sidebar icon geometry must load before first paint');
+if(preg_match('~<nav class="saas-nav">.*?</nav>~s',$index,$desktopMenu)!==1
+    ||substr_count($desktopMenu[0],'href="/reset.php"')!==1
+    ||substr_count($index,'<nav class="tmr-mobile-navigation"')!==1
+    ||substr_count($index,'href="/reset.php"')!==2)
+    throw new RuntimeException('Mobile Reset link must not suppress the desktop Reset link');
 // Integrations page must get only a defensive shell/navigation guard; the
 // provider markup, existing links, and feedback cards remain unchanged.
 $_SERVER['SCRIPT_FILENAME']='/tmp/index.php';
