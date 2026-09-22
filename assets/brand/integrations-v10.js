@@ -45,19 +45,43 @@
     });
   });
 
-  // Suppress only actual page-level connection-test notices. A previous
-  // whole-document text search also matched parent containers (including
-  // .saas-shell) and applied display:none!important to the entire sidebar.
-  // Never hide an ancestor, a navigation element, or a provider card.
-  const testFeedbackRx = /(?:conex[aã]o realizada com sucesso|falha ao testar conex[aã]o)/i;
-  document.querySelectorAll('.saas-flash, .toast, .tmr-toast, [role="alert"]')
-    .forEach(notice => {
-      if (notice.closest('.translation-provider-grid, .saas-sidebar, .saas-nav')) return;
-      if (notice.matches('.saas-shell, .saas-main, .saas-content, .saas-sidebar, .saas-nav')) return;
-      if (!testFeedbackRx.test((notice.textContent || '').trim())) return;
-      notice.classList.add('integrations-global-test-feedback');
-      notice.setAttribute('hidden', '');
-      notice.setAttribute('aria-hidden', 'true');
+  // Remove provider-test feedback rendered outside the provider grid,
+  // regardless of the notification component/class used by the base app.
+  const testFeedbackRx = /(conex[aã]o realizada com sucesso|falha ao testar conex[aã]o)/i;
+  const allOutside = Array.from(document.body.querySelectorAll('*')).filter(el =>
+    !el.closest('.translation-provider-grid') &&
+    testFeedbackRx.test((el.textContent || '').trim())
+  );
+
+  // Work from deepest nodes upward and hide the highest contiguous wrapper
+  // containing only that same feedback text. This removes both banner + toast
+  // without touching the surrounding page layout.
+  allOutside
+    .sort((a,b) => {
+      const depth = el => {
+        let n=0,p=el;
+        while(p && p.parentElement){ n++; p=p.parentElement; }
+        return n;
+      };
+      return depth(b)-depth(a);
+    })
+    .forEach(el => {
+      if (el.closest('.integrations-global-test-feedback')) return;
+
+      let target = el;
+      const normalized = (el.textContent || '').replace(/\s+/g,' ').trim();
+      while (
+        target.parentElement &&
+        target.parentElement !== document.body &&
+        !target.parentElement.closest('.translation-provider-grid') &&
+        (target.parentElement.textContent || '').replace(/\s+/g,' ').trim() === normalized
+      ) {
+        target = target.parentElement;
+      }
+
+      target.classList.add('integrations-global-test-feedback');
+      target.setAttribute('hidden','');
+      target.setAttribute('aria-hidden','true');
     });
 
   cards.forEach(card => {
