@@ -16,6 +16,7 @@ on:
       - 'runtime-mobile-bottom-nav.php'
       - 'assets/brand/mobile-bottom-navigation.css'
       - 'tests/mobile-bottom-nav-visibility.php'
+      - 'tests/reset-mobile-bottom-nav-parity.php'
       - 'assets/brand/integrations-v10.js'
       - 'tests/integrations-sidebar-no-flash.test.cjs'
       - 'app/WorkersAITranslation.php'
@@ -76,6 +77,7 @@ jobs:
           php -l runtime-integrations-ui.php
           php -l runtime-mobile-bottom-nav.php
           php -l tests/mobile-bottom-nav-visibility.php
+          php -l tests/reset-mobile-bottom-nav-parity.php
           php -l app/WorkersAITranslation.php
           php -l app/workers-ai-card.php
           php -l scripts/workers-ai-request.php
@@ -118,7 +120,12 @@ jobs:
           php tests/reset-header-parity.php /tmp/tmr-smart-fixture/reset.php
           php /tmp/tmr-smart-fixture/runtime-mobile-bottom-nav.php | grep TMR_MOBILE_NAV_V1_APPLIED
           php -l /tmp/tmr-smart-fixture/index.php
+          php -l /tmp/tmr-smart-fixture/reset.php
           php tests/mobile-bottom-nav-visibility.php /tmp/tmr-smart-fixture/index.php
+          php tests/reset-mobile-bottom-nav-parity.php /tmp/tmr-smart-fixture/index.php /tmp/tmr-smart-fixture/reset.php
+          reset_before="$(sha256sum /tmp/tmr-smart-fixture/reset.php | cut -d' ' -f1)"
+          php /tmp/tmr-smart-fixture/runtime-mobile-bottom-nav.php | grep TMR_RESET_MOBILE_NAV_ALREADY_APPLIED
+          test "$reset_before" = "$(sha256sum /tmp/tmr-smart-fixture/reset.php | cut -d' ' -f1)"
           mkdir -p /tmp/tmr-smart-fixture/tests
           cp runtime-ui-labels.php /tmp/tmr-smart-fixture/runtime-ui-labels.php
           cp tests/sidebar-canonical-icon-parity.php /tmp/tmr-smart-fixture/tests/sidebar-canonical-icon-parity.php
