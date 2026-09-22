@@ -147,6 +147,40 @@
     padding:10px 12px!important;
   }
 }
+@media (min-width:641px) and (max-width:1024px){
+  body:has(.connect-shell) .connect-panel .form-intro>a[href*="page=rules"],
+  body:has(.connect-shell) .connect-panel .disconnect-form{
+    vertical-align:top!important;
+  }
+
+  body:has(.connect-shell) .connect-panel .form-intro>a[href*="page=rules"]{
+    width:206px!important;
+    min-width:206px!important;
+    min-height:48px!important;
+    margin:18px 0 0!important;
+    padding:12px 18px!important;
+    border-radius:12px!important;
+    font-size:14px!important;
+  }
+
+  body:has(.connect-shell) .connect-panel .disconnect-form{
+    display:inline-flex!important;
+    width:auto!important;
+    min-width:0!important;
+    margin:18px 0 0 12px!important;
+    padding:0!important;
+  }
+
+  body:has(.connect-shell) .connect-panel .disconnect-button{
+    width:206px!important;
+    min-width:206px!important;
+    min-height:48px!important;
+    padding:12px 18px!important;
+    border-radius:12px!important;
+    font-size:14px!important;
+  }
+}
+
 @media (max-width:640px){
   body:has(.connect-shell) .connect-shell{padding:14px 12px 26px!important}
   body:has(.connect-shell) .connect-panel{
