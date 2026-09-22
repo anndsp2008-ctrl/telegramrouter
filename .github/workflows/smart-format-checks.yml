@@ -13,6 +13,8 @@ on:
       - 'app/AiLearningMemory.php'
       - 'runtime-workers-ai.php'
       - 'runtime-integrations-ui.php'
+      - 'assets/brand/integrations-v10.js'
+      - 'tests/integrations-sidebar-no-flash.test.cjs'
       - 'app/WorkersAITranslation.php'
       - 'app/workers-ai-card.php'
       - 'scripts/workers-ai-request.php'
@@ -57,6 +59,9 @@ jobs:
           php tests/sidebar-canonical-icon-parity.php
           node --check tests/sidebar-shell-guard.test.cjs
           node tests/sidebar-shell-guard.test.cjs
+          node --check assets/brand/integrations-v10.js
+          node --check tests/integrations-sidebar-no-flash.test.cjs
+          node tests/integrations-sidebar-no-flash.test.cjs
           php -l tests/ai-learning-menu-order.php
           php tests/ai-learning-menu-order.php index.php
           php -l app/SmartFormatting.php
