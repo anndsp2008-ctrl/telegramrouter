@@ -80,7 +80,6 @@ jobs:
           cp assets/brand/mark.svg /tmp/tmr-smart-fixture/assets/brand/mark.svg
           cp assets/brand/mark-maskable.svg /tmp/tmr-smart-fixture/assets/brand/mark-maskable.svg
           WORKERS_AI_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-workers-ai.php | grep WORKERS_AI_INSTALLED
-          grep -o '<nav class="saas-nav">.*</nav>' /tmp/tmr-smart-fixture/index.php | cut -c1-1500 || true
           SMART_FORMAT_TEST_ONLY=1 php /tmp/tmr-smart-fixture/runtime-smart-format.php
           grep -Fq 'TMR_AI_LEARNING_CONTEXT_V1' /tmp/tmr-smart-fixture/app/SmartFormatting.php
           grep -Fq 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php
