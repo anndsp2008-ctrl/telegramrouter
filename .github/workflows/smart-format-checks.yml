@@ -34,6 +34,8 @@ on:
       - 'assets/brand/workers-ai-provider.css'
       - 'assets/brand/integrations-v10.css'
       - 'assets/brand/mobile-visual-audit.css'
+      - 'assets/brand/service-status-responsive.css'
+      - 'tests/service-status-responsive-smoke.php'
       - 'assets/brand/activity-status-badges.css'
       - 'runtime-brand.php'
       - 'tests/login-logo-cache-smoke.php'
@@ -96,6 +98,8 @@ jobs:
           php -l tests/smart-provider-routing-smoke.php
           php -l tests/workers-ai-model-smoke.php
           php -l tests/integration-badge-alignment-smoke.php
+          php -l tests/service-status-responsive-smoke.php
+          php tests/service-status-responsive-smoke.php
       - name: Reconstruct sanitized baseline and patch it offline
         run: |
           mkdir -p /tmp/tmr-smart-fixture
