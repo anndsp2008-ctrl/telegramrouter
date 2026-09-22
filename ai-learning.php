@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
+require_once __DIR__.'/app/AiLearningZipImporter.php';
 \App\Auth::requireLogin();
 $memory=new \App\AiLearningMemory(\App\Database::pdo());
 $memory->migrate(); // Idempotent: this isolated admin page is the sole installer.
@@ -35,7 +36,18 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     try {
         \App\Auth::verifyCsrf($_POST['csrf']??null);
         $action=(string)($_POST['action']??'');
-        if($action==='save'){
+        if($action==='import_zip'){
+            $zip=$_FILES['dataset_zip']??null;
+            if(!is_array($zip)||($zip['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK)
+                throw new RuntimeException('Não foi possível receber o ZIP. Verifique o limite de upload do servidor.');
+            $tmp=(string)($zip['tmp_name']??'');
+            $size=(int)($zip['size']??0);
+            if(!is_uploaded_file($tmp))throw new RuntimeException('Arquivo de importação inválido.');
+            $importer=new \\App\\AiLearningZipImporter(\\App\\Database::pdo(),$memory);
+            $result=$importer->import($tmp,$directory,$size);
+            $notice=$result['created'].' exemplo(s) sintético(s) salvo(s) para revisão; '.
+                $result['skipped'].' imagem(ns) já cadastrada(s) ignorada(s). Nenhum exemplo foi aprovado automaticamente.';
+        }elseif($action==='save'){
             $file=$_FILES['image']??null; $filename=null;
             if(is_array($file)&&($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
                 if(($file['error']??null)!==UPLOAD_ERR_OK)throw new RuntimeException('Falha ao receber imagem.');
@@ -188,6 +200,27 @@ a{color:inherit}button,input,textarea,select{font:inherit}button,a,input,textare
 
 <?php if($notice!==''):?><div class="al-flash al-flash--success" role="status"><?=aiEscape($notice)?></div><?php endif;?>
 <?php if($error!==''):?><div class="al-flash al-flash--error" role="alert"><?=aiEscape($error)?></div><?php endif;?>
+
+<section class="al-card al-section" id="importar-dataset">
+  <div class="al-heading">
+    <div><div class="al-eyebrow">Importação · Exemplos sintéticos</div>
+      <h2>Importar os nove bilhetes de treinamento</h2>
+      <p>Selecione o pacote ZIP rotulado com as nove imagens e seus rótulos. O sistema verifica as imagens, evita duplicatas e cria somente registros pendentes para conferência.</p>
+    </div><span class="al-pill al-pill--pending">Revisão obrigatória</span>
+  </div>
+  <form method="post" enctype="multipart/form-data" class="al-grid">
+    <input type="hidden" name="csrf" value="<?=aiEscape(\\App\\Auth::csrf())?>">
+    <input type="hidden" name="action" value="import_zip">
+    <label class="al-field al-full"><span>Arquivo ZIP rotulado (até 24 MB)</span>
+      <input type="file" name="dataset_zip" accept=".zip,application/zip,application/x-zip-compressed" required>
+      <small>O arquivo deve conter labels/001.json a labels/009.json e as imagens correspondentes. Não são importados arquivos executáveis nem extraído conteúdo em pastas públicas.</small>
+    </label>
+    <div class="al-footer-actions al-full">
+      <p class="al-hint">As informações foram geradas para treino: confira cada print e seus campos antes de aprovar. Múltiplas exigem revisão de cada seleção.</p>
+      <button class="al-action" type="submit">Importar bilhetes para revisão →</button>
+    </div>
+  </form>
+</section>
 
 <section class="al-card al-section" id="novo-exemplo">
   <div class="al-heading"><div><div class="al-eyebrow">01 · Cadastro</div><h2>Novo exemplo de aposta</h2>
