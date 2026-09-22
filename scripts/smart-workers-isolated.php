@@ -221,7 +221,7 @@ try{
     $image=$input['image']??null;
     $checkOnly=($input['check_only']??false)===true;
     $budgetMs=(int)($input['budget_ms']??0);
-    if(!$checkOnly && $budgetMs>0)$budgetMs=max(2500,min(45000,$budgetMs));
+    if(!$checkOnly && $budgetMs>0)$budgetMs=max(2500,min(75000,$budgetMs));
     else $budgetMs=0;
     $budgetStarted=microtime(true);
     $remainingBudgetMs=static function() use (&$budgetStarted,&$budgetMs): int {

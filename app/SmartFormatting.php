@@ -21,7 +21,7 @@ final class SmartFormatting
     private static float $aiFinishedAt=0.0;
     private static int $renderMs=0;
     /** Hard wall-clock budget for ONE logical Workers AI generation attempt. */
-    private const WORKERS_LOGICAL_BUDGET_SECONDS=42.0;
+    private const WORKERS_LOGICAL_BUDGET_SECONDS=75.0;
 
     private static function diag(string $code): void
     {
@@ -551,7 +551,7 @@ final class SmartFormatting
             if($index>0)self::diag('WORKERS_AI_VISION_RESCUE_STARTED');
             $input=json_encode(['account'=>$account,'token'=>$token,'model'=>$activeModel,
                 'prompt'=>$prompt,'image'=>$photo,'fields'=>$fields,
-                'budget_ms'=>min(42000,$budgetMs)],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+                'budget_ms'=>min(75000,$budgetMs)],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if(!is_string($input)){self::diag('WORKERS_AI_INPUT_ERROR');return null;}
         $pipes=[];$process=@proc_open(['php',$transport],
             [0=>['pipe','r'],1=>['pipe','w'],2=>['file','/dev/null','w']],
