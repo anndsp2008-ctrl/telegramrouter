@@ -46,6 +46,15 @@ jobs:
           echo PRE_CHANGE_MAIN_INDEX_HASH=$(sha256sum /tmp/tmr-pre-change-index.php | cut -c1-12)
           if [ -f /tmp/ai-learning-runtime-fixture/runtime-smart-format.php ]; then echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=YES; else echo SNAPSHOT_HAS_RUNTIME_SMART_INSTALLER=NO; fi
           if [ -f /tmp/ai-learning-runtime-fixture/index.php ]; then echo SNAPSHOT_HAS_PANEL=YES; fi
+      - name: Audit baseline dashboard stylesheet palette (CSS only)
+        run: |
+          css=/tmp/ai-learning-runtime-fixture/assets/saas.css
+          if [ -f "$css" ]; then
+            echo "=== BASELINE CSS ROOT AND BODY COLORS ==="
+            grep -nE '^(:root|html|body|\\.saas-(sidebar|content|card|primary|secondary|kicker)|\\.saas-heading|\\.saas-nav|\\.saas-form-grid|@media)' "$css" | head -n 85 | cut -c1-300 || true
+            echo "=== PALETTE TOKEN LINES ==="
+            grep -nE '^ *--[a-zA-Z0-9-]+:|color-scheme:' "$css" | head -n 75 | cut -c1-300 || true
+          else echo BASELINE_SAAS_CSS_ABSENT; fi
       - name: Check syntax and memory invariants
         run: |
           php -l app/AiLearningMemory.php
