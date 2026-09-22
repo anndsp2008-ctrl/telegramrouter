@@ -4,7 +4,7 @@ $root=dirname(__DIR__);
 $index=file_get_contents($root.'/index.php');
 if(!is_string($index)||!preg_match('~<nav class="saas-nav">.*?</nav>~s',$index,$main))
     throw new RuntimeException('Main navigation is missing');
-$pattern='~<a\b[^>]*\bhref="([^"]+)"[^>]*>(.*?)</a>~s';
+$pattern='~\bhref="([^"]+)"[^>]*>(<span class="nav-icon">.*?</span>.*?)</a>~s';
 preg_match_all($pattern,$main[0],$sourceLinks,PREG_SET_ORDER);
 $expected=[
  '/?page=dashboard','/?page=rules','/ai-learning.php',
