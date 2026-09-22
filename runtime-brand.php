@@ -130,6 +130,16 @@ PHP;
     }
 
     if ($page === 'index.php') {
+        // Railway's immutable pre-deploy contract verifies the v6 source
+        // marker in runtime-integrations-ui.php. The branding patch runs after
+        // that installer, so update only the final HTML URL to v7 here to
+        // invalidate browsers' cached feedback script without changing the
+        // service configuration or the provider integration itself.
+        $html = str_replace(
+            'src="/assets/brand/integrations-v10.js?v=6"',
+            'src="/assets/brand/integrations-v10.js?v=7"',
+            $html
+        );
         // Production startup restores an older snapshot before runtime patches.
         // Normalize only the configured-rules page size after that restore.
         $rulesPaginationPatches = [
