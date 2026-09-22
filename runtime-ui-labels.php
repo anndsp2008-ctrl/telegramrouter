@@ -13,7 +13,7 @@ if (!in_array($script, ['index.php', 'reset.php'], true)) {
     return;
 }
 
-$resetIcon = '<svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+$resetIcon = '<svg class="tmr-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
 
 ob_start(static function (string $html) use ($script, $resetIcon): string {
     if ($script === 'index.php') {
@@ -152,46 +152,47 @@ HTML;
         );
     }
 
-    // Render the canonical menu before sending the page to the browser.
-    // Previously Reset displayed its old menu and later replaced the whole
-    // sidebar from sessionStorage, causing a visible flash/reflow.
+    // Use the deployed main panel's menu as the ONLY icon, order and label
+    // source. All dashboard/rules/activity/integrations routes share index.php.
+    // Reset previously reconstructed different SVGs for the same links.
+    // Read source markup (do not execute index.php or touch its application
+    // state); strip its dynamic active classes so Reset alone is highlighted.
+    $mainMarkup = @file_get_contents(__DIR__.'/index.php');
     $navPattern = '~<nav class="saas-nav">.*?</nav>~s';
-    $linkPattern = '~<a\b[^>]*\bhref="([^"]+)"[^>]*>.*?</a>~s';
-    $ruleLinkPattern = '~<a\b[^>]*\bhref="/\?page=rules"[^>]*>.*?</a>~s';
-    $learnLinkPattern = '~<a\b[^>]*\bhref="/ai-learning\.php"[^>]*>.*?</a>~s';
-    $svg = static fn(string $paths): string => '<svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$paths.'</svg>';
-    $menuIcons = [
-        '/?page=dashboard' => $svg('<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/>'),
-        '/?page=rules' => $svg('<path d="M4 6h10"/><path d="M18 6h2"/><path d="M4 12h2"/><path d="M10 12h10"/><path d="M4 18h7"/><path d="M15 18h5"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="13" cy="18" r="2"/>'),
-        '/ai-learning.php' => $svg('<path d="m12 2 2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2Z"/>'),
-        '/?page=events' => $svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
-        '/?page=integrations' => $svg('<path d="M8 12h8"/><path d="M12 8v8"/><path d="M7 3v4"/><path d="M17 3v4"/><path d="M7 17v4"/><path d="M17 17v4"/><path d="M5 7h14v10H5z"/>'),
-        '/connect.php' => $svg('<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>'),
-        '/reset.php' => $resetIcon,
+    $linkPattern = '~\bhref="([^"]+)"[^>]*>(<span class="nav-icon">.*?</span>.*?)</a>~s';
+    $expectedMenu = [
+        '/?page=dashboard','/?page=rules','/ai-learning.php',
+        '/?page=events','/?page=integrations','/connect.php'
     ];
-    $html = preg_replace_callback($navPattern,
-        static function (array $match) use ($ruleLinkPattern, $learnLinkPattern, $linkPattern, $menuIcons): string {
-            $nav = $match[0];
-            $rulesCount = preg_match_all($ruleLinkPattern, $nav);
-            $learningCount = preg_match_all($learnLinkPattern, $nav, $learnMatches);
-            if ($rulesCount !== 1 || $learningCount === false || $learningCount > 1) {
-                return $nav; // Unknown sidebar: preserve it untouched.
+    $mainNav = [];
+    $resetNav = [];
+    if (is_string($mainMarkup)
+        && preg_match_all($navPattern,$mainMarkup,$mainNav)===1
+        && preg_match_all($navPattern,$html,$resetNav)===1) {
+        $items = [];
+        preg_match_all($linkPattern,$mainNav[0][0],$items,PREG_SET_ORDER);
+        $destinations = array_map(static fn(array $item): string=>$item[1],$items);
+        $iconsValid = count($items)===count($expectedMenu);
+        foreach ($items as $item) {
+            if (substr_count($item[2],'class="nav-icon"')!==1
+                || str_contains($item[2],'<?')) $iconsValid=false;
+        }
+        if ($iconsValid && $destinations===$expectedMenu) {
+            $canonicalNav = '<nav class="saas-nav">';
+            foreach ($items as $item) {
+                // These hrefs were checked against the literal route whitelist.
+                // Keep the deployed index's icon markup and labels unchanged.
+                $canonicalNav .= '<a href="'.$item[1].'">'.$item[2].'</a>';
             }
-            $learn = $learningCount === 1 ? $learnMatches[0][0]
-                : '<a href="/ai-learning.php"><span class="nav-icon">✦</span>Aprendizado da IA</a>';
-            if ($learningCount === 1) $nav = str_replace($learn, '', $nav);
-            $nav = preg_replace_callback($ruleLinkPattern,
-                static fn(array $rule): string => $rule[0].$learn, $nav, 1) ?? $nav;
-            // Render icons on the server. Do not replace the sidebar (or its
-            // icons) after first paint; this also preserves keyboard focus.
-            return preg_replace_callback($linkPattern,
-                static function (array $link) use ($menuIcons): string {
-                    $icon = $menuIcons[$link[1]] ?? null;
-                    if ($icon === null || str_contains($link[0], '<svg')) return $link[0];
-                    return preg_replace('~<span class="nav-icon">.*?</span>~s',
-                        '<span class="nav-icon">'.$icon.'</span>', $link[0], 1) ?? $link[0];
-                }, $nav) ?? $nav;
-        }, $html, 1) ?? $html;
+            $canonicalNav .= '<a class="active" href="/reset.php">'
+                .'<span class="nav-icon">'.$resetIcon.'</span>Reset de dados</a></nav>';
+            $html = str_replace($resetNav[0][0],$canonicalNav,$html);
+        } else {
+            error_log('TMR_SIDEBAR_CANONICAL_MENU_UNEXPECTED_INDEX');
+        }
+    } else {
+        error_log('TMR_SIDEBAR_CANONICAL_MENU_SOURCE_UNAVAILABLE');
+    }
 
     if (!str_contains($html, 'id="telegramrouter-reset-sidebar-compat"')) {
         $compat = <<<'HTML'

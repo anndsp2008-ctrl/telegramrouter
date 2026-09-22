@@ -7,6 +7,7 @@ on:
       - 'runtime-smart-format.php'
       - 'runtime-ui-labels.php'
       - 'tests/sidebar-no-flash-nav-test.php'
+      - 'tests/sidebar-canonical-icon-parity.php'
       - 'tests/sidebar-shell-guard.test.cjs'
       - 'runtime-ai-learning.php'
       - 'app/AiLearningMemory.php'
@@ -47,6 +48,8 @@ jobs:
           php -l runtime-ui-labels.php
           php -l tests/sidebar-no-flash-nav-test.php
           php tests/sidebar-no-flash-nav-test.php
+          php -l tests/sidebar-canonical-icon-parity.php
+          php tests/sidebar-canonical-icon-parity.php
           node --check tests/sidebar-shell-guard.test.cjs
           node tests/sidebar-shell-guard.test.cjs
           php -l tests/ai-learning-menu-order.php
@@ -94,6 +97,11 @@ jobs:
           test "$(grep -o 'href="/ai-learning.php"' /tmp/tmr-smart-fixture/index.php | wc -l)" -eq 1
           php tests/ai-learning-menu-order.php /tmp/tmr-smart-fixture/index.php
           php /tmp/tmr-smart-fixture/runtime-brand.php | grep BRAND_CANONICAL_APPLIED
+          mkdir -p /tmp/tmr-smart-fixture/tests
+          cp runtime-ui-labels.php /tmp/tmr-smart-fixture/runtime-ui-labels.php
+          cp tests/sidebar-canonical-icon-parity.php /tmp/tmr-smart-fixture/tests/sidebar-canonical-icon-parity.php
+          php /tmp/tmr-smart-fixture/tests/sidebar-canonical-icon-parity.php
+
           php -l /tmp/tmr-smart-fixture/index.php
           php -l /tmp/tmr-smart-fixture/app/Repository.php
           php -l /tmp/tmr-smart-fixture/app/TranslationService.php
