@@ -69,6 +69,9 @@ $index=(string)ob_get_clean();
 if(!str_contains($index,'UNALTERED_INDEX')||!str_contains($index,'telegramrouter-sidebar-sync')
     ||str_contains($index,'replaceWith('))
     throw new RuntimeException('Index regression');
+if(strpos($index,'id="telegramrouter-sidebar-icon-compat"')>strpos($index,'</head>')
+    ||substr_count($index,'id="telegramrouter-sidebar-icon-compat"')!==1)
+    throw new RuntimeException('Sidebar icon geometry must load before first paint');
 // Integrations page must get only a defensive shell/navigation guard; the
 // provider markup, existing links, and feedback cards remain unchanged.
 $_SERVER['SCRIPT_FILENAME']='/tmp/index.php';
@@ -81,7 +84,7 @@ echo '<!doctype html><html><head><link rel="stylesheet" href="/assets/saas.css">
     .'<a class="active" href="/?page=integrations">Integrações</a>'
     .'</nav></aside><div class="saas-main"><main class="saas-content">'
     .'<div class="translation-provider-grid">PROVIDER_CONTENT_UNALTERED</div>'
-    .'</main></div></div><script src="/assets/brand/integrations-v10.js?v=6" defer></script></body></html>';
+    .'</main></div></div><script src="/assets/brand/integrations-v10.js?v=7" defer></script></body></html>';
 ob_end_flush();
 $integrations=(string)ob_get_clean();
 if(substr_count($integrations,'id="tmr-sidebar-feedback-guard"')!==1
@@ -90,11 +93,11 @@ if(substr_count($integrations,'id="tmr-sidebar-feedback-guard"')!==1
 if(strpos($integrations,'id="tmr-sidebar-feedback-style"')>strpos($integrations,'</head>'))
     throw new RuntimeException('Navigation safeguard CSS loaded after first paint');
 if(strpos($integrations,'id="tmr-sidebar-feedback-guard"')<
-    strpos($integrations,'src="/assets/brand/integrations-v10.js?v=6"'))
+    strpos($integrations,'src="/assets/brand/integrations-v10.js?v=7"'))
     throw new RuntimeException('Navigation guard no longer follows deferred integration reference');
 if(!str_contains($integrations,'PROVIDER_CONTENT_UNALTERED')
     ||!str_contains($integrations,'<a class="active" href="/?page=integrations">Integrações</a>')
-    ||!str_contains($integrations,'<script src="/assets/brand/integrations-v10.js?v=6" defer></script>'))
+    ||!str_contains($integrations,'<script src="/assets/brand/integrations-v10.js?v=7" defer></script>'))
     throw new RuntimeException('Integrations provider content or active nav link changed');
 if(!str_contains($integrations,'href="/?page=rules"')||
     strpos($integrations,'href="/?page=rules"')>strpos($integrations,'href="/ai-learning.php"'))

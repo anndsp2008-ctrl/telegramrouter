@@ -64,11 +64,16 @@ ob_start(static function (string $html) use ($script, $resetIcon): string {
         }
 
         if (!str_contains($html, 'id="telegramrouter-sidebar-sync"')) {
-            $sidebarSync = <<<'HTML'
+            // Icon geometry must be available before first paint. Injecting this
+            // stylesheet at the end of the body caused a momentary size change
+            // during navigation, especially when opening Integrations.
+            $sidebarStyle = <<<'HTML'
 <style id="telegramrouter-sidebar-icon-compat">
 .saas-sidebar .nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;width:22px;height:22px;min-width:22px;min-height:22px;line-height:0}
 .saas-sidebar .nav-icon .nav-icon-svg{display:block;width:20px;height:20px;min-width:20px;min-height:20px;stroke:currentColor}
 </style>
+HTML;
+            $sidebarSync = <<<'HTML'
 <script id="telegramrouter-sidebar-sync">
 (()=>{
     try {
@@ -81,6 +86,7 @@ ob_start(static function (string $html) use ($script, $resetIcon): string {
 })();
 </script>
 HTML;
+            $html = str_replace('</head>', $sidebarStyle.'</head>', $html);
             $html = str_replace('</body>', $sidebarSync.'</body>', $html);
         }
 
