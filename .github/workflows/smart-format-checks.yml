@@ -100,6 +100,8 @@ jobs:
           php -l tests/integration-badge-alignment-smoke.php
           php -l tests/service-status-responsive-smoke.php
           php tests/service-status-responsive-smoke.php
+          php -l tests/connect-tablet-actions-smoke.php
+          php tests/connect-tablet-actions-smoke.php
       - name: Reconstruct sanitized baseline and patch it offline
         run: |
           mkdir -p /tmp/tmr-smart-fixture
