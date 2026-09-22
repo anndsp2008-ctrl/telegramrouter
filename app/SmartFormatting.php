@@ -11,24 +11,104 @@ final class SmartFormatting
     /** Stake is a fixed publishing recommendation, not the monetary bet amount. */
     public const FIXED_STAKE='10';
     private const GEMINI_BACKOFF_FILE='/tmp/tmr-smart-gemini-backoff-until';
-    /** Sanitized per-tip codes only: never store message content, photos or keys. */
+    /** Sanitized per-tip diagnostics only: never store message content, photos or keys. */
     private static array $failureCodes=[];
+    /** @var list<string> */
+    private static array $providerOrder=[];
+    /** @var list<array{provider:string,success:bool,latency_ms:int,reasons:list<string>}> */
+    private static array $providerAttempts=[];
+    private static float $prepareStartedAt=0.0;
+
     private static function diag(string $code): void
     {
         $safe=strtoupper($code);
         if(!preg_match('/^[A-Z0-9_]{1,64}$/D',$safe))$safe='UNCLASSIFIED';
         self::$failureCodes[]=$safe;
-        if(count(self::$failureCodes)>12)array_shift(self::$failureCodes);
+        // A visual tip can legitimately produce several bounded rescue diagnostics.
+        // Keep enough entries to preserve BOTH configured providers in one event.
+        if(count(self::$failureCodes)>32)array_shift(self::$failureCodes);
         error_log('TMR_SMART_FORMAT_REASON '.$safe);
     }
+
+    /** @param list<string> $codes @return list<string> */
+    private static function meaningfulFailureCodes(array $codes): array
+    {
+        return array_values(array_unique(array_filter($codes,
+            static function(string $code): bool {
+                if(str_starts_with($code,'SMART_PROVIDER_FAILED_')
+                    || $code==='ALL_CONFIGURED_PROVIDERS_FAILED')return false;
+                if(preg_match('/_(?:VISION|TEXT)_RESCUE_(?:STARTED|SUCCEEDED|FAILED)$/D',$code))return false;
+                return true;
+            }
+        )));
+    }
+
     /** Called only after an enabled rule has failed before sending to Telegram. */
     public static function failureSummary(): string
     {
-        $causes=array_values(array_unique(array_filter(self::$failureCodes,
-            static fn(string $code): bool => !str_starts_with($code,'SMART_PROVIDER_FAILED_')
-                && $code!=='ALL_CONFIGURED_PROVIDERS_FAILED'
-        )));
-        return implode('; ',array_slice($causes,-4));
+        // Do not keep only the last four codes: doing so hid the first provider
+        // whenever Workers Vision emitted several rescue diagnostics afterwards.
+        return implode('; ',array_slice(self::meaningfulFailureCodes(self::$failureCodes),-10));
+    }
+
+    private static function recordProviderAttempt(
+        string $provider,
+        float $startedAt,
+        int $failureOffset,
+        bool $success
+    ): void {
+        $reasons=self::meaningfulFailureCodes(array_slice(self::$failureCodes,$failureOffset));
+        $latency=max(0,(int)round((microtime(true)-$startedAt)*1000));
+        self::$providerAttempts[]=[
+            'provider'=>$provider,
+            'success'=>$success,
+            'latency_ms'=>$latency,
+            'reasons'=>$reasons
+        ];
+        error_log('TMR_SMART_FORMAT_PROVIDER_ATTEMPT '.json_encode([
+            'provider'=>$provider,
+            'success'=>$success,
+            'latency_ms'=>$latency,
+            'reasons'=>$reasons
+        ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+    }
+
+    /** @return array{provider_order:list<string>,attempts:list<array{provider:string,success:bool,latency_ms:int,reasons:list<string>}>,reason:string,ai_ms:int} */
+    public static function diagnostics(): array
+    {
+        $elapsed=self::$prepareStartedAt>0
+            ?max(0,(int)round((microtime(true)-self::$prepareStartedAt)*1000))
+            :0;
+        return [
+            'provider_order'=>self::$providerOrder,
+            'attempts'=>self::$providerAttempts,
+            'reason'=>self::failureSummary(),
+            'ai_ms'=>$elapsed
+        ];
+    }
+
+    /** Compact, privacy-safe activity text. Never includes source text or credentials. */
+    public static function diagnosticsCompact(): string
+    {
+        $parts=[];
+        if(self::$providerOrder!==[])$parts[]='ordem='.implode('>',self::$providerOrder);
+        foreach(self::$providerAttempts as $attempt){
+            $provider=(string)$attempt['provider'];
+            if(!empty($attempt['success'])){
+                $parts[]=$provider.'=OK '.number_format(((int)$attempt['latency_ms'])/1000,1,'.','').'s';
+                continue;
+            }
+            $reasons=$attempt['reasons'];
+            $reason=$reasons!==[]?(string)end($reasons):'FALHA';
+            foreach(['WORKERS_AI_','GEMINI_'] as $prefix){
+                if(str_starts_with($reason,$prefix))$reason=substr($reason,strlen($prefix));
+            }
+            $parts[]=$provider.'='.$reason.' '.number_format(((int)$attempt['latency_ms'])/1000,1,'.','').'s';
+        }
+        $diag=self::diagnostics();
+        if($parts===[] && $diag['reason']!=='')$parts[]='motivo='.$diag['reason'];
+        if($diag['ai_ms']>0)$parts[]='IA='.number_format($diag['ai_ms']/1000,1,'.','').'s';
+        return mb_substr(implode('; ',$parts),0,220,'UTF-8');
     }
     public static function providerUnavailable(): bool
     {
@@ -117,6 +197,9 @@ final class SmartFormatting
     public static function prepare(string $sourceText,array $rule,?string $localImage,string $mode): ?array
     {
         self::$failureCodes=[]; // Never carry another message's errors into this event.
+        self::$providerOrder=[];
+        self::$providerAttempts=[];
+        self::$prepareStartedAt=microtime(true);
         if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
@@ -129,7 +212,13 @@ final class SmartFormatting
         // when the configured provider is Workers AI or translation-only.
         $bet=null;
         $providers=self::cardProviders($rule);
+        self::$providerOrder=$providers;
+        error_log('TMR_SMART_FORMAT_PROVIDER_ORDER '.json_encode([
+            'providers'=>$providers
+        ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
         foreach($providers as $provider){
+            $attemptStarted=microtime(true);
+            $attemptFailureOffset=count(self::$failureCodes);
             $json=null;
             if($provider==='workers_ai'){
                 $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples);
@@ -148,6 +237,7 @@ final class SmartFormatting
             }
             if(!is_array($json)){
                 self::diag('SMART_PROVIDER_FAILED_'.$provider);
+                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false);
                 continue;
             }
             $candidate=[];
@@ -160,12 +250,15 @@ final class SmartFormatting
                 $candidate['stake_amount'],$candidate['potential_return']);
             if($candidate['selection']===''||$candidate['market']===''||$candidate['match']===''){
                 self::diag('REQUIRED_FIELDS_INCOMPLETE_'.$provider);
+                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false);
                 continue;
             }
             if($candidate['analysis']==='' && self::sourceHasAnalysis($sourceText)){
                 self::diag('ANALYSIS_ABSENT_'.$provider);
+                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false);
                 continue;
             }
+            self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,true);
             $bet=self::sentenceCaseBet($candidate);
             error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
                 'provider'=>$provider,'fallback'=>$provider!==$providers[0]
