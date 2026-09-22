@@ -36,8 +36,10 @@ if(preg_match('~href="/\?page=rules".*?</a>\s*<a\b[^>]*href="/ai-learning\.php"~
 if(str_contains($out,'telegramrouter-reset-sidebar-sync')||str_contains($out,'replaceWith(')
     ||str_contains($out,'sessionStorage.getItem('))
     throw new RuntimeException('Post-paint sidebar replacement still present');
-if(substr_count($out,'class="nav-icon-svg"')!==7)
-    throw new RuntimeException('Sidebar icons are not rendered before paint');
+if(substr_count($out,'class="nav-icon"')!==7)
+    throw new RuntimeException('Canonical sidebar is missing its seven icon wrappers');
+if(substr_count($out,'class="tmr-icon"')<1)
+    throw new RuntimeException('Reset icon does not follow the main panel SVG style');
 if(strpos($out,'id="telegramrouter-reset-sidebar-compat"')>strpos($out,'</head>'))
     throw new RuntimeException('Sidebar style loaded after first paint');
 if(!str_contains($out,'<main id="app-content">UNALTERED_CONTENT</main>')
