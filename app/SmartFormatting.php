@@ -579,6 +579,23 @@ final class SmartFormatting
         return implode("\n",$clean);
     }
 
+    /**
+     * Visual card prose never contains emoji, regardless of per-rule message
+     * settings. Applies only to analysis/details drawn inside PNG cards.
+     */
+    public static function stripCardEmojis(string $text): string
+    {
+        $clean=preg_replace(
+            '/(?:[\\x{1F1E6}-\\x{1F1FF}]{2}|\\x{00A9}|\\x{00AE}|[\\x{203C}-\\x{3299}]|[\\x{1F000}-\\x{1FAFF}])(?:\\x{FE0F}|\\x{FE0E})?(?:\\x{200D}(?:[\\x{203C}-\\x{3299}]|[\\x{1F000}-\\x{1FAFF}])(?:\\x{FE0F}|\\x{FE0E})?)*|[\\x{FE0F}\\x{FE0E}\\x{200D}]/u',
+            '',
+            $text
+        );
+        if(!is_string($clean))return $text;
+        $clean=preg_replace('/[ \\t]{2,}/u',' ',$clean);
+        $clean=preg_replace('/ *\\R */u',"\n",$clean);
+        return trim(is_string($clean)?$clean:$text);
+    }
+
     /** Money/stake cues are checked only inside analysis, not in the bet fields. */
     private static function hasFinancialAnalysis(string $text): bool
     {
