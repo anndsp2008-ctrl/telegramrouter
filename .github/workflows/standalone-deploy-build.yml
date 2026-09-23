@@ -48,6 +48,11 @@ jobs:
           php tests/multiple-bet-contingency-smoke.php
           php tests/smart-format-smoke.php
           echo STANDALONE_ROUTING_TESTS_PASSED
+      - name: Report non-secret runtime code hashes for comparison
+        run: |
+          echo RELEASE_ROUTER_SHA256_12=$(sha256sum release/app/TelegramRouter.php | cut -c1-12)
+          echo RELEASE_SMART_SHA256_12=$(sha256sum release/app/SmartFormatting.php | cut -c1-12)
+          echo RELEASE_PANEL_SHA256_12=$(sha256sum release/index.php | cut -c1-12)
       - name: Confirm deploy cannot start without private configuration
         run: |
           if output="$(cd release && env -u APP_KEY -u DB_HOST -u DB_NAME -u DB_USER -u DB_PASS sh start.sh 2>&1)"; then
