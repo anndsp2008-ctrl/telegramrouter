@@ -90,7 +90,8 @@ foreach([
     'MULTIPLE_DETAILS_MISSING_',
     'MULTIPLE_CONTINGENCY_REQUIRED',
     'self::$multipleDetected=true',
-    "visual_selections_count"
+    "visual_selections_count",
+    'self::normalizePublishedStakeText($details)'
 ] as $anchor){
     if(!str_contains((string)$source,$anchor))
         throw new RuntimeException('Missing multi-bet card extraction guard: '.$anchor);
