@@ -3,8 +3,7 @@ set -eu
 cd /app
 
 for name in APP_KEY DB_HOST DB_NAME DB_USER DB_PASS; do
-  eval "value=\${$name:-}"
-  if [ -z "$value" ]; then
+  if [ -z "$(printenv "$name" 2>/dev/null || true)" ]; then
     printf 'Missing required environment variable: %s\n' "$name" >&2
     exit 1
   fi
