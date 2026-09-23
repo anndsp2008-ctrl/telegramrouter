@@ -8,12 +8,14 @@ on:
       - '.github/workflows/standalone-deploy-build.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
       - name: Install PHP and required extensions
         run: |
           sudo apt-get update -qq
@@ -54,3 +56,15 @@ jobs:
           fi
           printf '%s' "$output" | grep -Fq 'Missing required environment variable: APP_KEY'
           echo STANDALONE_PRIVATE_CONFIGURATION_REQUIRED
+      - name: Publish verified sources to the release branch
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'release/standalone-no-secrets-20260922' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A release/
+          if ! git diff --cached --quiet; then
+            git commit -m "build(release): materialize audited standalone source"
+            git push origin HEAD:refs/heads/release/standalone-no-secrets-20260922
+          else
+            echo STANDALONE_RELEASE_ALREADY_CURRENT
+          fi
