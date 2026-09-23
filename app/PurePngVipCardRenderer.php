@@ -74,7 +74,7 @@ final class PurePngVipCardRenderer
     public static function render(array $bet): ?string
     {
         if(!function_exists('gzcompress'))return null;
-        $analysis=trim((string)($bet['analysis']??''));
+        $analysis=SmartFormatting::stripCardEmojis(trim((string)($bet['analysis']??'')));
         $displayAnalysis=$analysis!==''?$analysis:'Análise não fornecida no conteúdo original.';
         $analysisLines=self::wrap($displayAnalysis,76,75);
         if($analysisLines===null)return null; // No visual truncation of original analysis.
