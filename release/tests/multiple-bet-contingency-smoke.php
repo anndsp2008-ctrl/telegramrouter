@@ -29,27 +29,47 @@ foreach($cases as [$source,$expected]){
 }
 
 $imageCases=[
-    [['bet_kind'=>'single','selections_count'=>'2',
-      'multiple_details'=>"1. Bayern: mais de 1,5 gols\n2. Partida: mais de 2,5 gols"],true],
-    [['bet_kind'=>'single','selections_count'=>'2',
-      'multiple_details'=>"1. FC Bayern München (F): Mais de 1,5 gols do time\n2. Bayern x Manchester City (F): Mais de 2,5 gols totais"],true],
-    [['bet_kind'=>'multiple','selections_count'=>'3',
-      'multiple_details'=>"1. Atlético vence\n2. Escanteios > 8,5\n3. Ambas marcam"],true],
-    [['bet_kind'=>'bet_builder','selections_count'=>'2',
-      'multiple_details'=>"1. Mais de 1,5 gols Bayern\n2. Mais de 2,5 gols total"],true],
-    [['bet_kind'=>'bet_builder','selections_count'=>'1',
-      'multiple_details'=>"1. Mais de 1,5 gols"],false],
-    [['bet_kind'=>'single','selections_count'=>'1',
-      'market'=>'Dupla chance','selection'=>'Bayern ou empate'],false],
-    [['bet_kind'=>'single','selections_count'=>'1',
-      'multiple_details'=>"1. Gol Bayern\n2. Gols totais"],true],
-    [['bet_kind'=>'single','selections_count'=>'1','market'=>'Resultado final'],false]
+    [[
+      'visual_bet_kind'=>'bet_builder','visual_selections_count'=>'2',
+      'visual_multiple_evidence'=>'Bet Builder',
+      'visual_multiple_details'=>"1. Bayern: mais de 1,5 gols\n2. Partida: mais de 2,5 gols"
+    ],true],
+    [[
+      'visual_bet_kind'=>'multiple','visual_selections_count'=>'3',
+      'visual_multiple_evidence'=>'Múltipla de 3-seleções',
+      'visual_multiple_details'=>"1. Atlético vence\n2. Escanteios > 8,5\n3. Ambas marcam"
+    ],true],
+    [[
+      'visual_bet_kind'=>'multiple','visual_selections_count'=>'2',
+      'visual_multiple_evidence'=>'Dupla',
+      'visual_multiple_details'=>"1. Santos Laguna: Mais de 1,5 gols\n2. CF Reboceros: Mais de 2,5 gols"
+    ],true],
+    [[
+      'visual_bet_kind'=>'bet_builder','visual_selections_count'=>'1',
+      'visual_multiple_evidence'=>'Bet Builder',
+      'visual_multiple_details'=>"1. Mais de 1,5 gols"
+    ],false],
+    [[
+      'visual_bet_kind'=>'single','visual_selections_count'=>'1',
+      'visual_multiple_evidence'=>'','visual_multiple_details'=>'',
+      'market'=>'Dupla chance','selection'=>'Bayern ou empate'
+    ],false],
+    [[
+      // Regression for event #53266: caption has four numbered alternatives,
+      // but the attached receipt contains one actual selection.
+      'match'=>'OL Lyonnes (F) x Servette FC Chenois (F)',
+      'market'=>'Ganhar ambas as metades','selection'=>'OL Lyonnes (F)',
+      'bet_kind'=>'multiple','selections_count'=>'4',
+      'multiple_details'=>"1. 1X2 - Vitória do Lyon @1.85\n2. Mais de 1.5 gols @1.90\n3. OL Feminino ganha ambas partes @1.50\n4. OL Feminino ganha ou empata @1.40",
+      'visual_bet_kind'=>'single','visual_selections_count'=>'1',
+      'visual_multiple_evidence'=>'','visual_multiple_details'=>''
+    ],false]
 ];
 foreach($imageCases as [$data,$expected]){
-    if(SmartFormatting::isMultipleTicket($data)!==$expected)
+    if(SmartFormatting::isMultipleTicket($data,'',true)!==$expected)
         throw new RuntimeException('Wrong image-extracted multiple classification: '.json_encode($data));
 }
-if(!SmartFormatting::isMultipleTicket(['bet_kind'=>'single','selections_count'=>'2'],$sample))
+if(!SmartFormatting::isMultipleTicket(['bet_kind'=>'single','selections_count'=>'2'],$sample,false))
     throw new RuntimeException('Two-leg Bet Builder was misclassified as single');
 $runtime=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 foreach([
@@ -65,12 +85,12 @@ foreach([
 }
 $source=file_get_contents(__DIR__.'/../app/SmartFormatting.php');
 foreach([
-    'self::isMultipleTicket($json,$sourceText)',
-    "'selections_count','multiple_details'",
+    'self::isMultipleTicket($json,$sourceText,$hasImage)',
+    "'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details'",
     'MULTIPLE_DETAILS_MISSING_',
     'MULTIPLE_CONTINGENCY_REQUIRED',
     'self::$multipleDetected=true',
-    "selections_count"
+    "visual_selections_count"
 ] as $anchor){
     if(!str_contains((string)$source,$anchor))
         throw new RuntimeException('Missing multi-bet card extraction guard: '.$anchor);
