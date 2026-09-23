@@ -335,7 +335,8 @@ final class SmartFormatting
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
             'bet_kind','selections_count','multiple_details',
-            'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details'];
+            'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details',
+            'visual_market_evidence','visual_selection_evidence'];
         // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
         $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
@@ -418,7 +419,7 @@ final class SmartFormatting
                 // even when the source has no stake or the model omits the field.
                 // Keep stake_amount (the receipt's real money amount) untouched.
                 $candidate['stake']=self::FIXED_STAKE;
-                $candidate=self::normalizeMarketSelection($candidate);
+                $candidate=self::normalizeMarketSelection($candidate,$hasImage,$translate);
                 $candidate=self::normalizeLiveStatus(
                     $candidate,
                     $sourceText,
@@ -617,7 +618,7 @@ final class SmartFormatting
         if($v==='')return false;
         return preg_match(
             '~^(?:'
-            .'(?:total(?:\s+de)?\s+)?(?:gols?|goals?|escanteios?|corners?|cart[oõ]es?|cards?|pontos?|points?)'
+            .'(?:total(?:\s+de)?\s+)?(?:gols?|goals?|goles|escanteios?|corners?|c[oó]rners|cart[oõ]es?|tarjetas?|cards?|pontos?|points?)'
             .'|handicap(?:\s+asi[aá]tico)?|asian\s+handicap'
             .'|vencedor(?:\s+da\s+partida)?|match\s+winner|moneyline|resultado(?:\s+final)?'
             .'|ambas(?:\s+as\s+equipes)?\s+marcam|both\s+teams\s+to\s+score'
@@ -632,16 +633,31 @@ final class SmartFormatting
      * Repair only an obvious provider inversion. Ambiguous data is rejected so
      * the next logical/provider attempt gets a chance instead of publishing it.
      */
-    private static function normalizeMarketSelection(array $bet): array
+    private static function normalizeMarketSelection(array $bet,bool $hasImage=false,bool $translate=false): array
     {
         $market=trim((string)($bet['market']??''));
         $selection=trim((string)($bet['selection']??''));
         if($market===''||$selection==='')return $bet;
+
         if(mb_strtolower($market,'UTF-8')===mb_strtolower($selection,'UTF-8')){
+            if($hasImage){
+                $visualMarket=trim((string)($bet['visual_market_evidence']??''));
+                $visualSelection=trim((string)($bet['visual_selection_evidence']??''));
+                if($visualMarket!=='' && $visualSelection!=='' &&
+                   mb_strtolower($visualMarket,'UTF-8')!==mb_strtolower($visualSelection,'UTF-8') &&
+                   self::looksLikeMarketCategory($visualMarket) &&
+                   !self::looksLikeMarketCategory($visualSelection)){
+                    $bet['market']=$translate?self::betEvidenceToPortuguese($visualMarket):$visualMarket;
+                    $bet['selection']=$translate?self::betEvidenceToPortuguese($visualSelection,$visualMarket):$visualSelection;
+                    self::diag('MARKET_SELECTION_REPAIRED_FROM_VISUAL_EVIDENCE');
+                    return $bet;
+                }
+            }
             self::diag('MARKET_SELECTION_IDENTICAL');
             $bet['selection']='';
             return $bet;
         }
+
         $marketIsCategory=self::looksLikeMarketCategory($market);
         $selectionIsCategory=self::looksLikeMarketCategory($selection);
         if(!$marketIsCategory && $selectionIsCategory){
@@ -655,6 +671,49 @@ final class SmartFormatting
             $bet['selection']='';
         }
         return $bet;
+    }
+
+    /** Translate only deterministic betting labels used as visual recovery evidence. */
+    private static function betEvidenceToPortuguese(string $value,string $marketEvidence=''): string
+    {
+        $original=trim($value);
+        if($original==='')return '';
+        $v=mb_strtolower($original,'UTF-8');
+        $replacements=[
+            '~\\btotal\\s+de\\s+goles\\b~iu'=>'Total de gols',
+            '~\\btotal\\s+goals?\\b~iu'=>'Total de gols',
+            '~\\btotal\\s+de\\s+c[oó]rners\\b~iu'=>'Total de escanteios',
+            '~\\btotal\\s+corners?\\b~iu'=>'Total de escanteios',
+            '~\\bambos\\s+equipos\\s+marcan\\b~iu'=>'Ambas as equipes marcam',
+            '~\\bboth\\s+teams\\s+to\\s+score\\b~iu'=>'Ambas as equipes marcam',
+            '~\\bresultado\\s+final\\b~iu'=>'Resultado final',
+            '~\\bmatch\\s+winner\\b~iu'=>'Vencedor da partida',
+            '~\\bdouble\\s+chance\\b~iu'=>'Dupla chance',
+            '~\\bchance\\s+doble\\b~iu'=>'Dupla chance',
+            '~\\basian\\s+handicap\\b~iu'=>'Handicap Asiático'
+        ];
+        foreach($replacements as $pattern=>$replacement){
+            if(preg_match($pattern,$original)===1)return $replacement;
+        }
+
+        if(preg_match('~\\b(?:menos\\s+de|under)\\s*([0-9]+(?:[.,][0-9]+)?)~iu',$original,$m)){
+            $number=str_replace('.',',',$m[1]);
+            $suffix=self::looksLikeGoalMarket($marketEvidence)?' gols':'';
+            return 'Menos de '.$number.$suffix;
+        }
+        if(preg_match('~\\b(?:m[aá]s\\s+de|mais\\s+de|over)\\s*([0-9]+(?:[.,][0-9]+)?)~iu',$original,$m)){
+            $number=str_replace('.',',',$m[1]);
+            $suffix=self::looksLikeGoalMarket($marketEvidence)?' gols':'';
+            return 'Mais de '.$number.$suffix;
+        }
+        if(preg_match('~\\bs[ií]\\b~iu',$original)===1)return 'Sim';
+        if(preg_match('~\\bno\\b~iu',$original)===1)return 'Não';
+        return $original;
+    }
+
+    private static function looksLikeGoalMarket(string $value): bool
+    {
+        return preg_match('~\\b(?:gols?|goals?|goles)\\b~iu',$value)===1;
     }
 
     /** Only unequivocal match-live phrases count; time/date never count. */
@@ -750,6 +809,8 @@ final class SmartFormatting
             "Para multiple_details transcreva com fidelidade o comprovante visual e traduza todas as descrições para o idioma solicitado, inclusive qualquer texto de análise da mensagem; preserve nomes, números e linhas originais. Nunca invente pernas, odds ou resultados. ".
             "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
             "MERCADO é o tipo/categoria da aposta (ex.: Total de escanteios, Handicap Asiático, Vencedor da partida). ".
+            "Quando houver imagem, copie em visual_market_evidence exatamente o rótulo de mercado visto no comprovante e em visual_selection_evidence exatamente a seleção vista no comprovante, SEM traduzir esses dois campos de evidência. ".
+            "Os campos finais market e selection, porém, DEVEM obedecer ao idioma solicitado. Se o idioma alvo for pt-BR, traduza os rótulos do comprovante para português brasileiro mantendo nomes próprios, números e odds. ".
             "SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). ".
             "Nunca troque Mercado e Seleção. Se o comprovante trouxer rótulos próprios, respeite a relação mostrada; se houver dúvida real, deixe o campo duvidoso vazio em vez de adivinhar. ".
             "No campo analysis, preserve apenas a análise esportiva; omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
