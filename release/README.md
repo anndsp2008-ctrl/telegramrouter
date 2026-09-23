@@ -12,6 +12,6 @@ Este diretório contém uma versão **sem credenciais**, montada a partir do sna
 6. Rode o instalador `/install.php` quando estiver configurando uma base nova, ou restaure **separadamente**, de backup privado, o banco e o volume de uma instância existente. A aplicação não transfere contas, regras nem sessões pelo código.
 7. Verifique `/health`, faça login, conecte o Telegram e teste uma regra de encaminhamento em ambiente isolado antes de direcionar tráfego real.
 
-O script `start.sh` falha de forma explícita se as variáveis obrigatórias estiverem ausentes. `Caddyfile` bloqueia acesso HTTP a código-fonte, banco, variáveis, logs e diretórios internos, preservando as rotas de API previstas.
+O script `start.sh` falha de forma explícita se as variáveis obrigatórias estiverem ausentes. `Caddyfile` bloqueia acesso HTTP a código-fonte, banco, variáveis, logs e diretórios internos, impedindo a execução HTTP de componentes incluídos e scripts destinados apenas à linha de comando.
 
 **Nota:** o código do snapshot sanitizado é de 18–19/09/2026 e os módulos versionados desta branch incluem mudanças posteriores. A equivalência integral com todos os artefatos injetados apenas por variáveis na instância anterior exige comparação adicional de runtime; a instância original não é alterada por esta preparação.
