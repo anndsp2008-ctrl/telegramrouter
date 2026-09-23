@@ -159,7 +159,7 @@ jobs:
           cp runtime-ai-learning.php /tmp/tmr-ai-prewired/runtime-ai-learning.php
           cp app/AiLearningMemory.php /tmp/tmr-ai-prewired/app/AiLearningMemory.php
           cp app/SmartFormatting.php /tmp/tmr-ai-prewired/app/SmartFormatting.php
-          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "5229a0f35e12"
+          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "c29d05822713"
           hash_before="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
           php /tmp/tmr-ai-prewired/runtime-ai-learning.php | grep -Fq 'AI_LEARNING_RUNTIME_READY_ALREADY_WIRED'
           test "$hash_before" = "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
