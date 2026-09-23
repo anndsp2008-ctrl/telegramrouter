@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-cd /app
+cd "$(dirname "$0")"
 
 for name in APP_KEY DB_HOST DB_NAME DB_USER DB_PASS; do
   if [ -z "$(printenv "$name" 2>/dev/null || true)" ]; then
