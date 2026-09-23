@@ -4,6 +4,7 @@ on:
     paths:
       - 'app/SmartFormatting.php'
       - 'app/VipCardRenderer.php'
+      - 'app/PurePngVipCardRenderer.php'
       - 'app/ContingencyCardRenderer.php'
       - 'tests/contingency-card-smoke.php'
       - 'tests/multiple-bet-contingency-smoke.php'
