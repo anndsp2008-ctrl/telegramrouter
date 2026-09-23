@@ -386,6 +386,17 @@ if(($swapped['market']??'')!=='Total de escanteios' ||
    ($swapped['selection']??'')!=='Mais de 8,5 escanteios'){
     throw new RuntimeException('Obvious market/selection inversion was not repaired');
 }
+$foreignReceiptRepair=$marketSelection->invoke(null,[
+    'market'=>'Menos de 5.5',
+    'selection'=>'Menos de 5.5',
+    'visual_market_evidence'=>'Total de goles',
+    'visual_selection_evidence'=>'Menos de 5.5'
+],true,true);
+if(($foreignReceiptRepair['market']??'')!=='Total de gols' ||
+   ($foreignReceiptRepair['selection']??'')!=='Menos de 5,5 gols'){
+    throw new RuntimeException('Foreign visual market/selection evidence was not repaired in pt-BR');
+}
+
 $handicapSwap=$marketSelection->invoke(null,[
     'market'=>'Athletic Bilbao +0,5',
     'selection'=>'Handicap Asiático'
