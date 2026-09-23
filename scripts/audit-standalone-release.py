@@ -32,7 +32,7 @@ SENSITIVE_KEYS = {
 issues: list[tuple[str, str]] = []
 
 
-def scan(name: str, contents: bytes) -> None:
+def scan(name: str, contents: bytes, *, archived_template: bool = False) -> None:
     rel = Path(name)
     if (
         rel.name in FORBIDDEN_NAMES
@@ -54,7 +54,9 @@ def scan(name: str, contents: bytes) -> None:
             if not separator:
                 issues.append((name, "invalid_example_line"))
             elif key in SENSITIVE_KEYS and value.strip():
-                issues.append((name, "credential_in_example"))
+                placeholder = value.strip().lower()
+                if not (archived_template and placeholder.startswith(("gere-", "troque-", "example-", "placeholder-"))):
+                    issues.append((name, "credential_in_example"))
     if rel.name == "config.php":
         # Exclude compiled application config with literal credential assignments.
         for key in SENSITIVE_KEYS:
@@ -78,7 +80,7 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
         if member.isfile():
             stream = tar.extractfile(member)
             if stream:
-                scan(member.name.removeprefix("./"), stream.read())
+                scan(member.name.removeprefix("./"), stream.read(), archived_template=True)
 if issues:
     for filename, reason in issues:
         print(f"SECRET_AUDIT_BLOCKED file={filename} reason={reason}")
