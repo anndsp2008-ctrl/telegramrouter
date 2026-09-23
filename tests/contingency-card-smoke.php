@@ -20,6 +20,14 @@ if(preg_match('/(?:\\p{Extended_Pictographic}|[\\x{2600}-\\x{27BF}])/u',$emojiCl
     throw new RuntimeException('Contingency output ignored remove_emojis rule');
 }
 
+$emojiVisual=ContingencyCardRenderer::render("⚽ Menos de 5,5 gols 📊 análise sólida",null);
+$plainVisual=ContingencyCardRenderer::render("Menos de 5,5 gols análise sólida",null);
+if($emojiVisual===null||$plainVisual===null||
+   hash_file('sha256',$emojiVisual)!==hash_file('sha256',$plainVisual)){
+    throw new RuntimeException('Contingency DETAILS panel still renders emoji');
+}
+@unlink($emojiVisual);@unlink($plainVisual);
+
 $translated='Vitória do time da casa. A odd informada no conteúdo original foi preservada somente quando explicitamente disponível.';
 $caption=ContingencyCardRenderer::caption($translated);
 if(!str_contains($caption,'Detalhes da aposta')||!str_contains($caption,$translated)){
