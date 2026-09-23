@@ -376,6 +376,13 @@ foreach(['En curso','em andamento','partido en curso','bilhete em aberto','pré-
     if(($normal['status']??'')==='AO VIVO')
         throw new RuntimeException('Ticket status incorrectly inferred as live');
 }
+$cardProse=SmartFormatting::stripCardEmojis("⚽ Análise do confronto 📊 com ritmo forte ⏰");
+if($cardProse!=='Análise do confronto com ritmo forte' ||
+   preg_match('/(?:\\p{Extended_Pictographic}|[\\x{2600}-\\x{27BF}])/u',$cardProse)===1){
+    throw new RuntimeException('Card analysis/details emoji sanitizer failed');
+}
+echo "SMART_FORMAT_CARD_PROSE_NO_EMOJI_TESTS_PASSED\n";
+
 $reflection=new ReflectionClass(SmartFormatting::class);
 $marketSelection=$reflection->getMethod('normalizeMarketSelection');
 $swapped=$marketSelection->invoke(null,[
