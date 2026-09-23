@@ -48,6 +48,9 @@ jobs:
           echo STANDALONE_ROUTING_TESTS_PASSED
       - name: Confirm deploy cannot start without private configuration
         run: |
-          output="$(cd release && env -u APP_KEY -u DB_HOST -u DB_NAME -u DB_USER -u DB_PASS sh start.sh 2>&1)" && exit 1
+          if output="$(cd release && env -u APP_KEY -u DB_HOST -u DB_NAME -u DB_USER -u DB_PASS sh start.sh 2>&1)"; then
+            echo STANDALONE_STARTED_WITHOUT_PRIVATE_CONFIGURATION
+            exit 1
+          fi
           printf '%s' "$output" | grep -Fq 'Missing required environment variable: APP_KEY'
           echo STANDALONE_PRIVATE_CONFIGURATION_REQUIRED
