@@ -174,14 +174,14 @@ $stakeTexts=[
 ];
 foreach($stakeTexts as $sourceStake){
     $normalized=SmartFormatting::normalizePublishedStakeText($sourceStake);
-    if(substr_count(mb_strtolower($normalized,'UTF-8'),'stake 10')!==1 ||
+    if(substr_count(mb_strtolower($normalized,'UTF-8'),'stake: 10')!==1 ||
        preg_match('~\\bstake\\b\\s*(?:(?:[:=\\-]|de|of)\\s*)?(?:2|3|4|6|999)(?:[.,]0+)?(?:\\s*/\\s*10)?~iu',$normalized)===1){
         throw new RuntimeException('Source stake leaked instead of fixed Stake 10: '.bin2hex($sourceStake));
     }
 }
 $receiptAmountText=SmartFormatting::normalizePublishedStakeText('Valor apostado: R$ 200,00 | Stake 4');
 if(!str_contains($receiptAmountText,'Valor apostado: R$ 200,00') ||
-   !str_contains($receiptAmountText,'Stake 10')){
+   !str_contains($receiptAmountText,'Stake: 10')){
     throw new RuntimeException('Stake normalization altered real receipt amount');
 }
 echo "SMART_FORMAT_SOURCE_STAKE_NORMALIZATION_TESTS_PASSED\\n";
