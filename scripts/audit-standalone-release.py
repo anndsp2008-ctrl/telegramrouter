@@ -75,8 +75,10 @@ parts = sorted((ROOT / "backup").glob("production-source-2026-09-18.part*.b64"))
 if len(parts) != 9:
     raise SystemExit("SOURCE_BACKUP_PARTS_MISSING")
 archive = base64.b64decode(b"".join(part.read_bytes().strip() for part in parts))
+archive_file_count = 0
 with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
     for member in tar:
+        archive_file_count += int(member.isfile())
         if member.isfile():
             stream = tar.extractfile(member)
             if stream:
@@ -85,4 +87,4 @@ if issues:
     for filename, reason in issues:
         print(f"SECRET_AUDIT_BLOCKED file={filename} reason={reason}")
     raise SystemExit("SECRET_AUDIT_FAILED")
-print(f"SECRET_AUDIT_PASSED release_files={sum(p.is_file() for p in RELEASE.rglob('*'))} archive_files={len(tar.getmembers())}")
+print(f"SECRET_AUDIT_PASSED release_files={sum(p.is_file() for p in RELEASE.rglob('*'))} archive_files={archive_file_count}")
