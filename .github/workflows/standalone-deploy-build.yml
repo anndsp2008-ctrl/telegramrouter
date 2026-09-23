@@ -9,6 +9,12 @@ on:
       - 'scripts/smart-workers-isolated.php'
       - 'tests/multiple-bet-contingency-smoke.php'
       - 'runtime-ai-learning.php'
+      - 'runtime-smart-format.php'
+      - 'app/VipCardRenderer.php'
+      - 'app/PurePngVipCardRenderer.php'
+      - 'app/ContingencyCardRenderer.php'
+      - 'tests/smart-format-smoke.php'
+      - 'tests/contingency-card-smoke.php'
       - '.github/workflows/standalone-deploy-build.yml'
   workflow_dispatch:
 permissions:
