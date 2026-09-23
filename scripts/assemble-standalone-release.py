@@ -26,7 +26,7 @@ def safe_name(name: str) -> Path:
     p = PurePosixPath(normalized)
     if not normalized or p.is_absolute() or ".." in p.parts:
         raise ValueError("UNSAFE_SNAPSHOT_PATH")
-    if any(part in FORBIDDEN_PARTS or part.startswith(".env") for part in p.parts):
+    if any(part in FORBIDDEN_PARTS or (part.startswith(".env") and part != ".env.example") for part in p.parts):
         raise ValueError("FORBIDDEN_SNAPSHOT_PATH")
     if p.suffix.lower() in FORBIDDEN_SUFFIXES:
         raise ValueError("FORBIDDEN_SNAPSHOT_FILE")
