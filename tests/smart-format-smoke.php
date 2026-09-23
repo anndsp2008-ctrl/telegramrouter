@@ -164,6 +164,28 @@ if(!str_contains($moneyText,'Stake: 10') ||
    !str_contains($moneyText,'Odd: 2,00'))
     throw new RuntimeException('Fixed stake overwrote receipt money or odds');
 echo "SMART_FORMAT_FIXED_STAKE_10_TESTS_PASSED\\n";
+// Source-channel stake labels in free text must never survive any formatted path.
+$stakeTexts=[
+    '⚽ PALPITE | STAKE 4 | ODD 1.50',
+    'Stake: 2/10',
+    'stake de 6 unidades',
+    'STAKE=999 units',
+    'Análise esportiva. Stake 3. Mercado mantido.'
+];
+foreach($stakeTexts as $sourceStake){
+    $normalized=SmartFormatting::normalizePublishedStakeText($sourceStake);
+    if(substr_count(mb_strtolower($normalized,'UTF-8'),'stake 10')!==1 ||
+       preg_match('~\\bstake\\b\\s*(?:(?:[:=\\-]|de|of)\\s*)?(?:2|3|4|6|999)(?:[.,]0+)?(?:\\s*/\\s*10)?~iu',$normalized)===1){
+        throw new RuntimeException('Source stake leaked instead of fixed Stake 10: '.bin2hex($sourceStake));
+    }
+}
+$receiptAmountText=SmartFormatting::normalizePublishedStakeText('Valor apostado: R$ 200,00 | Stake 4');
+if(!str_contains($receiptAmountText,'Valor apostado: R$ 200,00') ||
+   !str_contains($receiptAmountText,'Stake 10')){
+    throw new RuntimeException('Stake normalization altered real receipt amount');
+}
+echo "SMART_FORMAT_SOURCE_STAKE_NORMALIZATION_TESTS_PASSED\\n";
+
 // Regression: the author's complete long analysis must never be reduced to 480 chars.
 $longBet=$bet;
 $longBet['analysis']=str_repeat('Análise completa do autor, mantida na mensagem sem cortes. ',32).'FIM_DA_ANALISE_ORIGINAL';
