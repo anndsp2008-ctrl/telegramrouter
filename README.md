@@ -6,13 +6,19 @@ Aplicação PHP para monitorar uma conta de usuário do Telegram, aplicar regras
 
 > O painel inclui um módulo protegido de reset de dados com modos personalizado e completo, confirmação por frase de segurança e auditoria das operações destrutivas.
 
+## Deploy independente a partir do GitHub (sem credenciais)
+
+A aplicação operacional completa é gerada e mantida em **[release/](release/README.md)** a partir do backup sanitizado e dos módulos versionados. Para criar uma **nova instalação**, conecte o repositório ao Railway e defina **Root Directory = `/release`**; veja o passo a passo em [release/README.md](release/README.md). O diretório raiz conserva o código de desenvolvimento e os instaladores legados, e **não é uma fonte de deploy independente** sem a pasta `release/`.
+
+Credenciais, sessão Telegram, configurações privadas, dados do MySQL e volume `storage` **não acompanham o repositório**. Cada nova instalação precisa fornecer os segredos em variáveis privadas, usar banco persistente próprio e configurar seu volume. A instância `telegramrouter` que já está funcionando mantém seu comando legado e não deve ter sua configuração substituída sem migração e testes separados.
+
 ## Requisitos
 
 O servidor precisa ter PHP 8.2 ou superior, MySQL ou MariaDB, Composer ou a pasta `vendor` já incluída, além das extensões `pdo_mysql`, `openssl`, `mbstring`, `curl`, `json`, `gmp`, `xml`, `fileinfo` e `iconv`. O projeto não possui pasta `public`: o document root deve apontar diretamente para a pasta onde estão `index.php`, `login.php` e `install.php`.
 
 ## Instalação pelo navegador
 
-Envie todos os arquivos do projeto para o servidor e aponte o domínio ou subdomínio diretamente para a raiz do projeto. Se a hospedagem permitir, mantenha a pasta fora do diretório público e configure o document root para ela. A pasta `vendor` já acompanha o pacote, portanto não é obrigatório executar Composer no servidor.
+Envie todos os arquivos do projeto para o servidor e aponte o domínio ou subdomínio diretamente para a raiz do projeto. Se a hospedagem permitir, mantenha a pasta fora do diretório público e configure o document root para ela. O GitHub não versiona a pasta `vendor`: ela deve ser instalada com `composer install --no-interaction --no-scripts --optimize-autoloader` durante o build, como na configuração da versão `release/`.
 
 Abra:
 
