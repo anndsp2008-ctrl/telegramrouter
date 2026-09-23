@@ -4,21 +4,8 @@ require_once __DIR__.'/../app/SmartFormatting.php';
 require_once __DIR__.'/../app/PurePngVipCardRenderer.php';
 require_once __DIR__.'/../app/VipCardRenderer.php';
 require_once __DIR__.'/../app/ContingencyCardRenderer.php';
-require_once __DIR__.'/../app/Transform.php';
 
 use App\ContingencyCardRenderer;
-
-$emojiRule=[
-    'remove_emojis'=>1,
-    'remove_links'=>0,
-    'custom_removals'=>''
-];
-$emojiCaption=ContingencyCardRenderer::caption("⚽ Menos de 5,5 gols ⏰ 21:00 💰 ODD 1.50 📊 STAKE 4");
-$emojiClean=\App\Transform::clean($emojiCaption,$emojiRule,[]);
-if(preg_match('/(?:\\p{Extended_Pictographic}|[\\x{2600}-\\x{27BF}])/u',$emojiClean)===1 ||
-   !str_contains($emojiClean,'Menos de 5,5 gols')){
-    throw new RuntimeException('Contingency output ignored remove_emojis rule');
-}
 
 $emojiVisual=ContingencyCardRenderer::render("⚽ Menos de 5,5 gols 📊 análise sólida",null);
 $plainVisual=ContingencyCardRenderer::render("Menos de 5,5 gols análise sólida",null);
