@@ -35,7 +35,7 @@ final class VipCardRenderer
         $font=self::font(false); $bold=self::font(true);
         if(!$font || !$bold)return PurePngVipCardRenderer::render($bet);
 
-        $analysis=trim((string)($bet['analysis']??''));
+        $analysis=SmartFormatting::stripCardEmojis(trim((string)($bet['analysis']??'')));
         $displayAnalysis=$analysis!==''?$analysis:'Análise não fornecida no conteúdo original.';
         $analysisLines=self::wrapAnalysis($displayAnalysis,$font,19,930);
         if($analysisLines===null)return null; // Never truncate the author's analysis.
