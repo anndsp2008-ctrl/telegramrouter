@@ -97,7 +97,6 @@ def main() -> None:
     env = dict(os.environ, SMART_FORMAT_TEST_ONLY="1", WORKERS_AI_TEST_ONLY="1",
                AI_LEARNING_ENABLED="0")
     for installer in [
-        "runtime-live-form-fix.php",
         "runtime-integrations-ui.php",
         "runtime-brand.php",
         "runtime-db-reconnect.php",
