@@ -61,7 +61,8 @@ foreach([
     '$contingencyRenderMs',
     'TMR_SMART_CARD_CONTINGENCY_RULE_CLEAN',
     'Transform::clean($contingencyText,$rule,[])',
-    'Transform::clean((string)$formatted[\'caption\'],$rule,[])'
+    'Transform::clean((string)$formatted[\'caption\'],$rule,[])',
+    'SmartFormatting::normalizePublishedStakeText('
 ] as $timingAnchor){
     if(!str_contains($runtime,$timingAnchor)){
         throw new RuntimeException('Card stage timing anchor missing: '.$timingAnchor);
