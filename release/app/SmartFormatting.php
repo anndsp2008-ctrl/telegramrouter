@@ -608,7 +608,7 @@ final class SmartFormatting
             '~\bstake\b\s*(?:(?:[:=\-]|de|of)\s*)?'.
             '(?:\d+(?:[.,]\d+)?(?:\s*/\s*\d+(?:[.,]\d+)?)?)'.
             '\s*(?:u(?:nidades?)?|units?)?\b~iu',
-            'Stake '.self::FIXED_STAKE,
+            'Stake: '.self::FIXED_STAKE,
             $text
         );
         return is_string($normalized)?$normalized:$text;
