@@ -7,6 +7,14 @@ require_once __DIR__.'/../app/ContingencyCardRenderer.php';
 
 use App\ContingencyCardRenderer;
 
+$emojiVisual=ContingencyCardRenderer::render("⚽ Menos de 5,5 gols 📊 análise sólida",null);
+$plainVisual=ContingencyCardRenderer::render("Menos de 5,5 gols análise sólida",null);
+if($emojiVisual===null||$plainVisual===null||
+   hash_file('sha256',$emojiVisual)!==hash_file('sha256',$plainVisual)){
+    throw new RuntimeException('Contingency DETAILS panel still renders emoji');
+}
+@unlink($emojiVisual);@unlink($plainVisual);
+
 $translated='Vitória do time da casa. A odd informada no conteúdo original foi preservada somente quando explicitamente disponível.';
 $caption=ContingencyCardRenderer::caption($translated);
 if(!str_contains($caption,'Detalhes da aposta')||!str_contains($caption,$translated)){
@@ -50,7 +58,10 @@ foreach([
     'SmartFormatting::timingCompact(',
     '$telegramStarted=microtime(true)',
     '$contingencyTranslationMs',
-    '$contingencyRenderMs'
+    '$contingencyRenderMs',
+    'TMR_SMART_CARD_CONTINGENCY_RULE_CLEAN',
+    'Transform::clean($contingencyText,$rule,[])',
+    'Transform::clean((string)$formatted[\'caption\'],$rule,[])'
 ] as $timingAnchor){
     if(!str_contains($runtime,$timingAnchor)){
         throw new RuntimeException('Card stage timing anchor missing: '.$timingAnchor);

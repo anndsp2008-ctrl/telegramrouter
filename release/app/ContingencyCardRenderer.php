@@ -162,6 +162,7 @@ final class ContingencyCardRenderer
 
     private static function visualExcerpt(string $text): string
     {
+        $text=SmartFormatting::stripCardEmojis($text);
         $text=trim(preg_replace('/\s+/u',' ',strip_tags($text))??$text);
         if($text==='')return '';
         if(mb_strlen($text,'UTF-8')<=1400)return $text;
