@@ -1,0 +1,75 @@
+name: Verify standalone deployment package
+on:
+  pull_request:
+    paths:
+      - 'scripts/assemble-standalone-release.py'
+      - 'scripts/audit-standalone-release.py'
+      - 'deploy/standalone/**'
+      - '.github/workflows/standalone-deploy-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      - name: Install PHP and required extensions
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-mbstring php-gd php-gmp php-mysql php-curl php-xml fonts-dejavu-core
+      - name: Assemble self-contained release without production environment
+        run: python3 scripts/assemble-standalone-release.py
+      - name: Audit the repository snapshot and standalone source for embedded credentials
+        run: python3 scripts/audit-standalone-release.py
+      - name: Lint complete operational PHP tree and launcher
+        run: |
+          find release -type f -name '*.php' -print0 | xargs -0 -n1 php -l > /tmp/tmr-release-lint.log
+          sh -n release/start.sh
+          python3 -m json.tool release/railway.json >/dev/null
+          test -s release/app/TelegramRouter.php
+          test -s release/database/schema.sql
+          test -s release/config/config.php
+          test -s release/assets/brand/connect-responsive.css
+          grep -Fq 'TMR_SMART_FORMAT_V1' release/app/TelegramRouter.php
+          grep -Fq 'tmr-smart-format-choice' release/index.php
+          echo STANDALONE_PHP_LINT_PASSED
+      - name: Install standalone application dependencies
+        run: |
+          cd release
+          composer install --no-interaction --no-scripts --optimize-autoloader --prefer-dist
+          php -r 'require "vendor/autoload.php"; echo "STANDALONE_VENDOR_AUTOLOAD_PASSED\n";'
+      - name: Check card and multiple-selection logic in standalone package
+        run: |
+          cd release
+          php tests/contingency-card-smoke.php
+          php tests/multiple-bet-contingency-smoke.php
+          php tests/smart-format-smoke.php
+          echo STANDALONE_ROUTING_TESTS_PASSED
+      - name: Report non-secret runtime code hashes for comparison
+        run: |
+          echo RELEASE_ROUTER_SHA256_12=$(sha256sum release/app/TelegramRouter.php | cut -c1-12)
+          echo RELEASE_SMART_SHA256_12=$(sha256sum release/app/SmartFormatting.php | cut -c1-12)
+          echo RELEASE_PANEL_SHA256_12=$(sha256sum release/index.php | cut -c1-12)
+      - name: Confirm deploy cannot start without private configuration
+        run: |
+          if output="$(cd release && env -u APP_KEY -u DB_HOST -u DB_NAME -u DB_USER -u DB_PASS sh start.sh 2>&1)"; then
+            echo STANDALONE_STARTED_WITHOUT_PRIVATE_CONFIGURATION
+            exit 1
+          fi
+          printf '%s' "$output" | grep -Fq 'Missing required environment variable: APP_KEY'
+          echo STANDALONE_PRIVATE_CONFIGURATION_REQUIRED
+      - name: Publish verified sources to the release branch
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'release/standalone-no-secrets-20260922' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A release/
+          if ! git diff --cached --quiet; then
+            git commit -m "build(release): materialize audited standalone source"
+            git push origin HEAD:refs/heads/release/standalone-no-secrets-20260922
+          else
+            echo STANDALONE_RELEASE_ALREADY_CURRENT
+          fi

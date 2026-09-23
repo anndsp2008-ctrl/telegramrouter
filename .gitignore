@@ -3,3 +3,15 @@ vendor/
 storage/*.log
 storage/sessions/
 storage/cache/
+
+# Independent release runtime files and private settings
+release/.env
+release/.env.*
+!release/.env.example
+release/vendor/
+release/storage/
+release/health
+release/*.log
+release/*.pid
+release/*.tgz
+release/*.tar.gz

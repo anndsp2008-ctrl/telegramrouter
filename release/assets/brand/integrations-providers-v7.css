@@ -1,0 +1,215 @@
+/*
+ * Telegram Router — Provider cards v7
+ * Visual redesign only. Keeps v6 behavior and DOM untouched.
+ */
+
+.translation-provider-grid{
+  gap:12px!important;
+}
+
+/* Card shell */
+.translation-provider-grid>*:has(.provider-form input[name="provider"]){
+  position:relative!important;
+  overflow:hidden!important;
+  border:1px solid rgba(148,163,184,.12)!important;
+  border-radius:16px!important;
+  background:
+    linear-gradient(180deg,rgba(15,23,42,.76),rgba(8,14,25,.76))!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.10)!important;
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"]):hover{
+  border-color:rgba(148,163,184,.22)!important;
+  background:
+    linear-gradient(180deg,rgba(18,27,45,.86),rgba(10,16,29,.86))!important;
+}
+.translation-provider-grid>*.is-expanded{
+  border-color:color-mix(in srgb,var(--provider-accent) 42%,rgba(148,163,184,.15))!important;
+  box-shadow:0 16px 34px rgba(0,0,0,.16)!important;
+}
+
+/* Provider color accent */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])::after{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:3px;
+  background:linear-gradient(180deg,var(--provider-accent),color-mix(in srgb,var(--provider-accent) 38%,transparent));
+  opacity:.88;
+  pointer-events:none;
+}
+
+/* Header = clickable area */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head,
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head{
+  display:grid!important;
+  grid-template-columns:44px minmax(0,1fr) auto 36px!important;
+  align-items:center!important;
+  gap:13px!important;
+  min-height:78px!important;
+  padding:15px 16px 15px 18px!important;
+  background:transparent!important;
+}
+
+/* Provider icon tile */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head::before,
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head::before{
+  content:""!important;
+  display:block!important;
+  width:42px!important;
+  height:42px!important;
+  border-radius:12px!important;
+  background-color:color-mix(in srgb,var(--provider-accent) 15%,rgba(15,23,42,.78))!important;
+  border:1px solid color-mix(in srgb,var(--provider-accent) 32%,rgba(148,163,184,.08))!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:21px 21px!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)!important;
+}
+
+/* Azure icon */
+.translation-provider-grid>*:has(input[name="provider"][value="azure"])>.provider-head::before,
+.translation-provider-grid>*:has(input[name="provider"][value="azure"])>.saas-card-head::before{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.5 17.5h12.2a3.3 3.3 0 0 0 .6-6.55A5.4 5.4 0 0 0 8.15 9.3a4.1 4.1 0 0 0-2.65 8.2Z' fill='none' stroke='%2360a5fa' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m11.2 10.3-1.6 3h2l-1 2.2 3-3.8h-2l1-1.4' fill='none' stroke='%2360a5fa' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important;
+}
+
+/* Gemini icon */
+.translation-provider-grid>*:has(input[name="provider"][value="gemini"])>.provider-head::before,
+.translation-provider-grid>*:has(input[name="provider"][value="gemini"])>.saas-card-head::before{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3c.72 5.08 3.92 8.28 9 9-5.08.72-8.28 3.92-9 9-.72-5.08-3.92-8.28-9-9 5.08-.72 8.28-3.92 9-9Z' fill='none' stroke='%23a78bfa' stroke-width='1.7' stroke-linejoin='round'/%3E%3Cpath d='M18.5 4.5v3M17 6h3' stroke='%23a78bfa' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")!important;
+}
+
+/* Google Cloud icon */
+.translation-provider-grid>*:has(input[name="provider"][value="google_cloud"])>.provider-head::before,
+.translation-provider-grid>*:has(input[name="provider"][value="google_cloud"])>.saas-card-head::before{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 17.5h11.7a3.25 3.25 0 0 0 .7-6.42A5.55 5.55 0 0 0 8.1 9.2 4.15 4.15 0 0 0 6 17.5Z' fill='none' stroke='%23fbbf24' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='13.5' r='1.8' fill='none' stroke='%23fbbf24' stroke-width='1.5'/%3E%3C/svg%3E")!important;
+}
+
+/* Provider copy */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head h2,
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head h3,
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head h2,
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head h3{
+  font-size:15px!important;
+  font-weight:780!important;
+  letter-spacing:-.01em!important;
+}
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head p,
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head p{
+  margin-top:4px!important;
+  color:rgba(203,213,225,.50)!important;
+  font-size:11px!important;
+}
+
+/* Status chip */
+.translation-provider-grid .provider-badge{
+  min-height:28px!important;
+  padding:6px 10px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(148,163,184,.12)!important;
+  background:rgba(15,23,42,.46)!important;
+  color:#cbd5e1!important;
+  font-size:9px!important;
+  font-weight:850!important;
+  letter-spacing:.02em!important;
+}
+
+/* Chevron control */
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head::after,
+.translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head::after{
+  width:34px!important;
+  height:34px!important;
+  border-radius:10px!important;
+  border:1px solid rgba(148,163,184,.13)!important;
+  background-color:rgba(15,23,42,.48)!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 9.5 5 5 5-5' fill='none' stroke='%23cbd5e1' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important;
+  background-position:center!important;
+  background-size:18px 18px!important;
+  background-repeat:no-repeat!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.01)!important;
+}
+.translation-provider-grid>*.is-expanded>.provider-head::after,
+.translation-provider-grid>*.is-expanded>.saas-card-head::after{
+  border-color:color-mix(in srgb,var(--provider-accent) 34%,rgba(148,163,184,.12))!important;
+  background-color:color-mix(in srgb,var(--provider-accent) 9%,rgba(15,23,42,.48))!important;
+}
+
+/* Expanded body */
+.translation-provider-grid>*.is-expanded>.provider-form{
+  padding:20px 18px 16px!important;
+  gap:16px!important;
+  border-top:1px solid rgba(148,163,184,.08)!important;
+  background:
+    linear-gradient(180deg,rgba(4,9,17,.24),rgba(6,11,20,.34))!important;
+}
+.translation-provider-grid .provider-form .saas-form-grid{
+  gap:14px 16px!important;
+}
+.translation-provider-grid .provider-form label{
+  display:block!important;
+  padding:0!important;
+}
+.translation-provider-grid .provider-form input,
+.translation-provider-grid .provider-form select,
+.translation-provider-grid .provider-form textarea{
+  border-radius:10px!important;
+  border-color:rgba(148,163,184,.14)!important;
+  background:rgba(7,13,23,.72)!important;
+}
+.translation-provider-grid .provider-form input:focus,
+.translation-provider-grid .provider-form select:focus,
+.translation-provider-grid .provider-form textarea:focus{
+  border-color:color-mix(in srgb,var(--provider-accent) 48%,rgba(148,163,184,.16))!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--provider-accent) 10%,transparent)!important;
+}
+
+/* Action footer */
+.translation-provider-grid .provider-actions{
+  margin-top:4px!important;
+  padding-top:15px!important;
+  border-top:1px solid rgba(148,163,184,.08)!important;
+}
+.translation-provider-grid .provider-actions button{
+  min-height:41px!important;
+  border-radius:10px!important;
+}
+
+/* Test result */
+.translation-provider-grid>*.is-expanded>.provider-test{
+  padding:12px 18px 14px!important;
+  background:rgba(7,12,21,.36)!important;
+}
+.translation-provider-grid>*.is-expanded>.provider-test>span{
+  font-size:11.5px!important;
+}
+.translation-provider-grid>*.is-expanded>.provider-test>em{
+  margin-top:4px!important;
+  padding-top:8px!important;
+  border-top:1px solid rgba(148,163,184,.07)!important;
+}
+
+@media(max-width:640px){
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head,
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head{
+    grid-template-columns:40px minmax(0,1fr) 32px!important;
+    gap:11px!important;
+    min-height:72px!important;
+    padding:13px 12px 13px 14px!important;
+  }
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head::before,
+  .translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head::before{
+    width:38px!important;
+    height:38px!important;
+    border-radius:11px!important;
+    background-size:19px 19px!important;
+  }
+  .translation-provider-grid .provider-badge{display:none!important}
+  .translation-provider-grid>*.is-expanded>.provider-form{
+    padding:16px 13px 14px!important;
+  }
+  .translation-provider-grid>*.is-expanded>.provider-test{
+    padding:11px 13px 13px!important;
+  }
+}

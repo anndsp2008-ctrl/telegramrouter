@@ -1,0 +1,61 @@
+{
+    "id": "/",
+    "name": "Telegram Router",
+    "short_name": "Telegram Router",
+    "description": "Automação inteligente para roteamento de mensagens do Telegram.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": [
+        "standalone",
+        "minimal-ui"
+    ],
+    "background_color": "#0B1220",
+    "theme_color": "#0B1220",
+    "orientation": "any",
+    "lang": "pt-BR",
+    "categories": [
+        "productivity",
+        "utilities"
+    ],
+    "icons": [
+        {
+            "src": "/assets/brand/mark.svg?v=1",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/assets/brand/mark-maskable.svg?v=1",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Painel",
+            "short_name": "Painel",
+            "url": "/index.php",
+            "icons": [
+                {
+                    "src": "/assets/pwa/icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Conectar Telegram",
+            "short_name": "Telegram",
+            "url": "/connect.php",
+            "icons": [
+                {
+                    "src": "/assets/pwa/icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        }
+    ]
+}

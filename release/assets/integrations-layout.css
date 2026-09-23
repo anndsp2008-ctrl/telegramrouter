@@ -1,0 +1,55 @@
+/* Integrations: consistent provider cards and predictable responsive order. */
+.integrations-connection{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:20px;padding:22px 26px}
+.integrations-connection h2{margin:6px 0;font-size:19px}
+.integrations-connection p{margin:0;color:#91a4b8;font-size:13px;line-height:1.6}
+.integrations-connection a{flex-shrink:0}
+.translation-routing-card{margin-bottom:28px}
+.translation-routing-card .saas-card-head{margin-bottom:20px}
+.translation-routing-form{gap:16px;align-items:end}
+.translation-routing-form label{min-width:0}
+.integrations-section-heading{margin:0 0 18px}
+.integrations-section-heading h2{margin:0 0 7px;font-size:20px;color:#e4edf6}
+.integrations-section-heading p{margin:0;color:#91a4b8;font-size:13px;line-height:1.6}
+.translation-provider-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:stretch}
+.translation-provider-grid>.translation-provider-card{display:flex;flex-direction:column;min-width:0;margin:0;padding:24px}
+.translation-provider-grid .saas-card-head{display:flex;flex-direction:column;align-items:flex-start;gap:14px;min-height:156px;margin:0 0 22px}
+.translation-provider-grid .saas-card-head h2{font-size:19px;line-height:1.35;margin:7px 0}
+.translation-provider-grid .saas-card-head p{font-size:13px;line-height:1.6;margin:0}
+.translation-provider-grid .form-status{margin:0;max-width:100%;white-space:normal}
+.translation-provider-grid .provider-form{display:flex;flex-direction:column;flex:1;min-width:0;margin:0}
+.translation-provider-grid .provider-form .saas-form-grid{display:grid;grid-template-columns:1fr;gap:16px}
+.translation-provider-grid .provider-form label{margin:0;min-width:0}
+.translation-provider-grid .provider-form .field-wide{grid-column:auto}
+.translation-provider-grid .field-help{display:block;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.translation-provider-grid .provider-form label>.field-help{min-height:40px;margin:7px 0}
+.translation-provider-grid input{width:100%;min-width:0;box-sizing:border-box;min-height:44px}
+.translation-provider-grid .provider-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:auto;padding-top:22px}
+.translation-provider-grid .provider-actions button{min-height:44px;padding:10px 12px;justify-content:center;white-space:normal}
+.translation-provider-grid .provider-test{grid-template-columns:1fr auto;gap:8px;margin-top:20px;min-height:68px;padding:13px;font-size:12px}
+.translation-provider-grid .provider-test small,.translation-provider-grid .provider-test em{grid-column:1/-1;overflow-wrap:anywhere}
+.translation-provider-grid .provider-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.translation-provider-grid .provider-stats>div{padding:12px}
+.translation-provider-grid .provider-stats span{font-size:10px;line-height:1.5}
+.translation-provider-grid .provider-stats b{font-size:13px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:1399px){
+  .translation-provider-grid{grid-template-columns:1fr}
+  .translation-provider-grid>.translation-provider-card{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:0 28px;align-items:start}
+  .translation-provider-grid .saas-card-head{grid-column:1/-1;flex-direction:row;justify-content:space-between;min-height:0}
+  .translation-provider-grid .provider-form{grid-column:1;grid-row:2/4}
+  .translation-provider-grid .provider-test{grid-column:2;grid-row:2;margin-top:0}
+  .translation-provider-grid .provider-stats{grid-column:2;grid-row:3}
+  .translation-provider-grid .provider-form label>.field-help{min-height:0}
+}
+@media(max-width:760px){
+  .integrations-connection{align-items:stretch;flex-direction:column;gap:16px;padding:20px}
+  .integrations-connection a{justify-content:center}
+  .translation-routing-form{grid-template-columns:1fr}
+  .translation-routing-form button{grid-column:auto;width:100%;justify-content:center}
+  .translation-provider-grid>.translation-provider-card{display:flex;padding:20px}
+  .translation-provider-grid .saas-card-head{flex-direction:column;gap:12px}
+  .translation-provider-grid .provider-test{margin-top:20px}
+}
+@media(max-width:380px){
+  .translation-provider-grid .provider-actions{grid-template-columns:1fr}
+  .translation-provider-grid .provider-stats{grid-template-columns:1fr}
+}

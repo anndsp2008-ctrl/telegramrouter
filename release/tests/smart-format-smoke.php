@@ -1,0 +1,553 @@
+<?php declare(strict_types=1);
+$productionHealth=is_file(__DIR__.'/../health');
+$smokePassed=false;
+if($productionHealth){
+    register_shutdown_function(static function() use (&$smokePassed): void {
+        if(!$smokePassed)@unlink(__DIR__.'/../health');
+    });
+}
+require __DIR__.'/../app/PurePngVipCardRenderer.php';
+require __DIR__.'/../app/VipCardRenderer.php';
+require __DIR__.'/../app/SmartFormatting.php';
+
+// PR #77 regression: MadelineProto promotes PHP warnings to exceptions.
+// A missing /tmp backoff marker must be a normal first-run state.
+$backoffFile='/tmp/tmr-smart-gemini-backoff-until';
+if(is_file($backoffFile))unlink($backoffFile);
+set_error_handler(static function(int $severity,string $message): never {
+    throw new ErrorException($message,0,$severity);
+});
+try {
+    $backoffActive=new ReflectionMethod(\App\SmartFormatting::class,'geminiBackoffActive');
+    if($backoffActive->invoke(null)!==false)
+        throw new RuntimeException('Missing Gemini backoff marker was treated as active');
+    $activateBackoff=new ReflectionMethod(\App\SmartFormatting::class,'activateGeminiBackoff');
+    $activateBackoff->invoke(null,30);
+    if($backoffActive->invoke(null)!==true)
+        throw new RuntimeException('Gemini backoff marker was not activated');
+} finally {
+    restore_error_handler();
+    if(is_file($backoffFile))unlink($backoffFile);
+}
+echo "SMART_FORMAT_BACKOFF_WARNING_TESTS_PASSED\n";
+use App\VipCardRenderer;
+use App\SmartFormatting;
+$bet=['match'=>'Venezia × Lazio','league'=>'Itália • Série A',
+  'market'=>'Resultado final da partida (1X2)','selection'=>'Vitória da Lazio',
+  'odd'=>'2,00','time'=>'19h45','day'=>'Sábado',
+  'analysis'=>'A Lazio chega invicta para enfrentar o Venezia, último colocado, buscando manter seu bom início de temporada.'];
+$text=SmartFormatting::asText($bet,true);
+foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $required){
+  if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
+}
+if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
+$structuredLong=str_repeat("Mercado: Resultado final\nSeleção: Lazio\nOdd: 2.00\nStake: 2/10\n",8);
+if(SmartFormatting::sourceHasAnalysis($structuredLong))
+    throw new RuntimeException('Structured receipt text was misclassified as analysis');
+$proseAnalysis='A Lazio chega em bom momento porque mantém sequência consistente. '.
+    'O confronto favorece sua organização defensiva e o desempenho recente sustenta a leitura. '.
+    'Por isso, o autor acredita que a seleção tem valor para este mercado.';
+if(!SmartFormatting::sourceHasAnalysis($proseAnalysis))
+    throw new RuntimeException('Real analytical prose was not detected');
+// Sentence initials, not Title Case: keep internal case, proper names, numeric
+// odds, URLs and paragraph structure intact. Format card text and image identically.
+$caseExamples=[
+    ['o real madrid enfrenta o barcelona. a equipe busca a vitória.',
+     'O real madrid enfrenta o barcelona. A equipe busca a vitória.'],
+    ["  “uma análise.” outra frase!\n• próxima linha? sim.",
+     "  “Uma análise.” Outra frase!\n• Próxima linha? Sim."],
+    ['odd 1.5 e mercado over 8,5. a tip é de R$ 100,00. https://site.com/a?odd=1.5',
+     'Odd 1.5 e mercado over 8,5. A tip é de R$ 100,00. https://site.com/a?odd=1.5'],
+    ['a GPT não altera NBA, PIX, @tipster nem https://site.com/URL.',
+     'A GPT não altera NBA, PIX, @tipster nem https://site.com/URL.'],
+    ["⚽ futebol\n\n📝 análise original.",
+     "⚽ Futebol\n\n📝 Análise original."]
+];
+foreach($caseExamples as [$original,$expected]){
+    $actual=SmartFormatting::capitalizeSentences($original);
+    if($actual!==$expected||SmartFormatting::capitalizeSentences($actual)!==$expected)
+        throw new RuntimeException('Sentence case regression: '.bin2hex($original));
+}
+$lowerTip=array_merge($bet,[
+    'match'=>'real madrid x barcelona',
+    'market'=>'resultado final. vitória ou empate',
+    'selection'=>'vitória do real madrid',
+    'analysis'=>"o time chega motivado. a odd é 1.75 e a seleção segue a mesma.\nnovo parágrafo.",
+    'odd'=>'1.75', 'stake'=>'5', 'stake_amount'=>'R$ 200,00'
+]);
+$lowerOriginal=$lowerTip;
+$lowerCard=SmartFormatting::cardView($lowerTip);
+$lowerText=SmartFormatting::asText($lowerCard,true);
+foreach(['Real madrid x barcelona','Resultado final. Vitória ou empate',
+    'Vitória do real madrid','O time chega motivado. A odd é 1.75',
+    "\nNovo parágrafo.",'Odd: 1.75','Stake: 10'] as $fragment){
+    if(!str_contains($lowerText,$fragment))
+        throw new RuntimeException('AI tip sentence formatting missing expected fragment: '.$fragment);
+}
+if($lowerCard['analysis']!=="O time chega motivado. A odd é 1.75 e a seleção segue a mesma.\nNovo parágrafo." ||
+   $lowerCard['stake']!=='10' || $lowerTip!==$lowerOriginal ||
+   $lowerTip['stake_amount']!=='R$ 200,00')
+    throw new RuntimeException('Sentence normalization changed source or betting values');
+echo "SMART_FORMAT_SENTENCE_CASE_TESTS_PASSED\n";
+// The source may carry financial marketing prose even after setting Stake 10.
+// Keep sports-only sentences, never repeat source-channel stake, wager amount,
+// expected money return or bankroll references inside the AI analysis.
+$incomingAnalysis='A aposta é uma simples aposta de ambos os times marcando, com Fulham e Manchester United se enfrentando na Premier League. '
+    .'A probabilidade de ambos os times marcarem é de 1.50, o que significa que a aposta tem uma chance de 66,67% de ser vencedora. '
+    .'A aposta é feita com responsabilidade, com um stake de 2 e um valor de aposta de €2. '
+    .'O potencial de retorno é de €3.00, caso a aposta seja vencedora.';
+$expectedAnalysis='A aposta é uma simples aposta de ambos os times marcando, com Fulham e Manchester United se enfrentando na Premier League. '
+    .'A probabilidade de ambos os times marcarem é de 1.50, o que significa que a aposta tem uma chance de 66,67% de ser vencedora.';
+if(SmartFormatting::sanitizeAnalysis($incomingAnalysis)!==$expectedAnalysis ||
+   SmartFormatting::sanitizeAnalysis($expectedAnalysis)!==$expectedAnalysis)
+    throw new RuntimeException('Financial analysis should be omitted without changing sports-only sentences');
+$moneyAnalysisExamples=[
+    ["A equipe pressiona. Stake 2 e aposta de €2. O ataque tem chances.",'A equipe pressiona. O ataque tem chances.'],
+    ["O time cria chances. Valor a ser apostado: R$ 200,00. Mercado de gols mantido.",'O time cria chances. Mercado de gols mantido.'],
+    ["A equipe joga no ataque.\nRetorno potencial de 3 euros.\nO adversário sofre gols.",'A equipe joga no ataque.'."\n".'O adversário sofre gols.'],
+    ["Fulham segue pressionando. Sugestão: 2 unidades de stake; bankroll EUR 100. Jogo equilibrado.",'Fulham segue pressionando. Jogo equilibrado.'],
+    ['O time cria chances. Amount staked USD 20 and potential return 35 dollars. Mercado mantém-se.', 'O time cria chances. Mercado mantém-se.'],
+    ['A odd é 1.50 e a chance informada é 66,67%. O time pressiona pelo gol.', 'A odd é 1.50 e a chance informada é 66,67%. O time pressiona pelo gol.']
+];
+foreach($moneyAnalysisExamples as [$source,$expected]){
+    if(SmartFormatting::sanitizeAnalysis($source)!==$expected)
+        throw new RuntimeException('Analysis financial scrub regression: '.bin2hex($source));
+}
+$tipWithMoney=array_merge($bet,[
+    'analysis'=>$incomingAnalysis,'stake'=>'2','odd'=>'1.50',
+    'stake_amount'=>'€2','potential_return'=>'€3.00'
+]);
+$originalTipWithMoney=$tipWithMoney;
+$cardWithoutMoney=SmartFormatting::cardView($tipWithMoney);
+foreach([$cardWithoutMoney, $tipWithMoney] as $formatTip){
+    foreach([true,false] as $translated){
+        $message=SmartFormatting::asText($formatTip,$translated);
+        if(!str_contains($message,'Stake: 10') ||
+           !str_contains($message,'Odd: 1.50') ||
+           !str_contains($message,'Fulham e Manchester United') ||
+           str_contains($message,'A aposta é feita com responsabilidade') ||
+           !str_contains($message,'A probabilidade de ambos os times'))
+            throw new RuntimeException('Sports tip or fixed stake was lost during financial analysis scrub');
+        $analysisTail=explode('📝 ', $message,2)[1]??'';
+        foreach(['stake de 2','€2','€3.00','retorno','valor de aposta'] as $forbidden){
+            if(mb_stripos($analysisTail,$forbidden,0,'UTF-8')!==false)
+                throw new RuntimeException('Source financial advice leaked into formatted analysis');
+        }
+    }
+}
+if($cardWithoutMoney['analysis']!==$expectedAnalysis ||
+   $tipWithMoney!==$originalTipWithMoney || $cardWithoutMoney['stake']!=='10' ||
+   isset($cardWithoutMoney['stake_amount']))
+    throw new RuntimeException('Scrubbing altered source or card display boundaries');
+echo "SMART_FORMAT_NO_SOURCE_FINANCIAL_ANALYSIS_TESTS_PASSED\n";
+
+// Every AI-formatted tip publishes Stake 10, even if it was absent, malformed
+// or supplied as a different suggested unit amount by the source channel.
+foreach([[],['stake'=>''],['stake'=>'2'],['stake'=>'6/10'],['stake'=>'999']] as $input){
+    $fixture=array_merge($bet,$input);
+    foreach([true,false] as $translated){
+        $formatted=SmartFormatting::asText($fixture,$translated);
+        if(substr_count($formatted,"Stake: 10")!==1 ||
+           str_contains($formatted,"Stake: 6/10") ||
+           str_contains($formatted,"Stake: 999"))
+            throw new RuntimeException('Fixed stake missing or original stake was forwarded');
+    }
+    $view=SmartFormatting::cardView($fixture);
+    if(($view['stake']??'')!=='10' || ($view['match']??'')!==$bet['match'])
+        throw new RuntimeException('Card view did not apply fixed Stake 10');
+}
+$moneyFixture=array_merge($bet,['stake'=>'3','stake_amount'=>'R$ 200,00',
+    'potential_return'=>'R$ 400,00','odd'=>'2,00']);
+$moneyText=SmartFormatting::asText($moneyFixture,true);
+if(!str_contains($moneyText,'Stake: 10') ||
+   !str_contains($moneyText,'Valor apostado: R$ 200,00') ||
+   !str_contains($moneyText,'Odd: 2,00'))
+    throw new RuntimeException('Fixed stake overwrote receipt money or odds');
+echo "SMART_FORMAT_FIXED_STAKE_10_TESTS_PASSED\\n";
+// Regression: the author's complete long analysis must never be reduced to 480 chars.
+$longBet=$bet;
+$longBet['analysis']=str_repeat('Análise completa do autor, mantida na mensagem sem cortes. ',32).'FIM_DA_ANALISE_ORIGINAL';
+$longText=SmartFormatting::asText($longBet,true);
+if(!str_contains($longText,'FIM_DA_ANALISE_ORIGINAL')||mb_strlen($longText,'UTF-8')<=480){
+  throw new RuntimeException('Long original analysis was truncated');
+}
+if((int)(strlen(mb_convert_encoding($longText,'UTF-16LE','UTF-8'))/2)<=1024){
+  throw new RuntimeException('Long caption fixture is not over Telegram media limit');
+}
+putenv('VIP_CARD_FORCE_PURE=1');
+$image=VipCardRenderer::render($bet);
+if($image===null)throw new RuntimeException('VIP rendering unavailable even with GD and DejaVu fonts');
+$size=getimagesize($image);
+if(!is_array($size)||$size['mime']!=='image/png'||$size[0]!==1080)throw new RuntimeException('Invalid VIP PNG');
+@unlink($image);
+// New opt-in text+receipt scenario: correct arithmetic without fabricated date.
+$liveBet=[
+ 'sport'=>'FUTEBOL','status'=>'AO VIVO','match'=>'Athletic Bilbao × Alavés',
+ 'league'=>'ES Espanha • Primeira Divisão','market'=>'Resultado da partida',
+ 'selection'=>'Vitória do Athletic Bilbao','odd'=>'1,60','stake'=>'6/10',
+ 'time'=>'16h15','stake_amount'=>'2.000,00 €','potential_return'=>'3.200,00 €',
+ 'analysis'=>''
+];
+$profit=SmartFormatting::calculatePotentialProfit($liveBet['stake_amount'],$liveBet['potential_return']);
+if($profit!=='1.200,00 €')throw new RuntimeException('Incorrect deterministic slip profit');
+$liveBet['potential_profit']=$profit;
+if(SmartFormatting::calculatePotentialProfit('2.000,00 €','3.200,00 R$')!=='')
+    throw new RuntimeException('Mixed currencies must not produce inferred profit');
+if(SmartFormatting::calculatePotentialProfit('R$ 2.000,00','R$ 3.200,00')!=='R$ 1.200,00')
+    throw new RuntimeException('BRL profit parsing failed');
+if(SmartFormatting::calculatePotentialProfit('2,000.00 USD','3,200.00 USD')!=='1.200,00 USD')
+    throw new RuntimeException('US-formatted amount parsing failed');
+if(SmartFormatting::calculatePotentialProfit('100,00 €','50,00 €')!=='')
+    throw new RuntimeException('Negative returns must not produce misleading profit');
+$liveText=SmartFormatting::asText($liveBet,true);
+foreach(['AO VIVO','16h15','2.000,00 €','3.200,00 €','1.200,00 €'] as $required)
+    if(!str_contains($liveText,$required))throw new RuntimeException('Missing slip detail: '.$required);
+foreach(['Sábado','UTC','2026-'] as $forbidden)
+    if(str_contains($liveText,$forbidden))throw new RuntimeException('Invented date or timezone in slip');
+$liveImage=VipCardRenderer::render($liveBet);
+if($liveImage===null)throw new RuntimeException('Live slip render unavailable');
+$liveSize=getimagesize($liveImage);
+if(!is_array($liveSize)||$liveSize['mime']!=='image/png'||$liveSize[0]!==1080)
+    throw new RuntimeException('Invalid live slip PNG');
+@unlink($liveImage);
+putenv('VIP_CARD_FORCE_PURE=0');
+$liveGdImage=VipCardRenderer::render($liveBet);
+if($liveGdImage===null)throw new RuntimeException('Live slip GD or fallback render unavailable');
+$liveGdSize=getimagesize($liveGdImage);
+if(!is_array($liveGdSize)||$liveGdSize['mime']!=='image/png'||$liveGdSize[0]!==1080)
+    throw new RuntimeException('Invalid live slip GD/fallback PNG');
+@unlink($liveGdImage);
+// Approved APOSTA DO DIA template is card-only: retain analysis and exclude
+// bookmaker, stake amounts, returns, profits and source-tip time.
+// Preserve explicit live status only to drive its visual badge.
+// Non-card text/legend mode continues to expose the original extracted fields.
+$cardFixture=$liveBet;
+$cardFixture['analysis']='Análise original integral da tip, sem alterar o argumento do autor.';
+$cardFixture['bookmaker']='WINAMAX';
+$cardFixture['day']='Sábado';
+$cardView=SmartFormatting::cardView($cardFixture);
+$cardText=SmartFormatting::asText($cardView,true);
+foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1,60','Stake: 10',
+         'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
+    if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
+}
+foreach(['WINAMAX','2.000,00 €','3.200,00 €','1.200,00 €','16h15','Sábado'] as $forbidden){
+    if(str_contains($cardText,$forbidden))throw new RuntimeException('Forbidden receipt detail in card text: '.$forbidden);
+}
+if(($cardFixture['bookmaker']??'')!=='WINAMAX'||($cardFixture['analysis']??'')!==$cardView['analysis'] ||
+   $cardFixture['stake']!=='6/10' || ($cardView['stake']??'')!=='10'){
+    throw new RuntimeException('Card view mutated the original bet or its analysis');
+}
+if(!str_contains(SmartFormatting::asText($cardFixture,true),'WINAMAX')){
+    throw new RuntimeException('Non-card formatting changed unexpectedly');
+}
+foreach(['1','0'] as $usePure){
+    putenv('VIP_CARD_FORCE_PURE='.$usePure);
+    $first=VipCardRenderer::render($cardFixture);
+    if($first===null)throw new RuntimeException('Approved card did not render');
+    $firstSize=getimagesize($first);
+    if(!is_array($firstSize)||$firstSize['mime']!=='image/png'||$firstSize[0]!==1080){
+        throw new RuntimeException('Approved card dimensions or MIME invalid');
+    }
+    $noReceipt=$cardFixture;
+    foreach(['time','day','bookmaker','stake_amount','potential_return','potential_profit'] as $field){
+        $noReceipt[$field]='RECEIPT_DATA_NEVER_ON_CARD';
+    }
+    $second=VipCardRenderer::render($noReceipt);
+    if($second===null||hash_file('sha256',$first)!==hash_file('sha256',$second)){
+        throw new RuntimeException('Card renderer included forbidden receipt fields');
+    }
+    $differentAnalysis=$cardFixture;
+    $differentAnalysis['analysis']='Outra análise original independente.';
+    $third=VipCardRenderer::render($differentAnalysis);
+    if($third===null||hash_file('sha256',$first)===hash_file('sha256',$third)){
+        throw new RuntimeException('Card renderer omitted the original analysis');
+    }
+    foreach([$first,$second,$third] as $tmp)@unlink($tmp);
+}
+// The new seals and separators must not affect the full original analysis,
+// betting details, or the fallback's ability to produce a valid PNG.
+foreach(['1','0'] as $usePure){
+    putenv('VIP_CARD_FORCE_PURE='.$usePure);
+    $sportExample=$cardFixture;
+    $sportExample['sport']='Futebol';
+    $sportExample['analysis']='A análise do autor deve permanecer inteira, sem resumos ou alteração de frases.';
+    $baseline=VipCardRenderer::render($sportExample);
+    if($baseline===null)throw new RuntimeException('VIP sport seal baseline failed');
+    $size=getimagesize($baseline);
+    if(!is_array($size)||$size[0]!==1080||$size['mime']!=='image/png')
+        throw new RuntimeException('Invalid VIP seal PNG');
+    $sportExample['sport']='Basquete';
+    $otherSport=VipCardRenderer::render($sportExample);
+    if($otherSport===null||hash_file('sha256',$baseline)===hash_file('sha256',$otherSport))
+        throw new RuntimeException('Sport badge did not follow the identified sport');
+    $sportExample['sport']='Futebol';
+    $sportExample['bookmaker']='ANOTHER_BOOKMAKER';
+    $sportExample['time']='00h00';
+    $sportExample['potential_profit']='123.456,00 €';
+    $withoutReceipt=VipCardRenderer::render($sportExample);
+    if($withoutReceipt===null||hash_file('sha256',$baseline)!==hash_file('sha256',$withoutReceipt))
+        throw new RuntimeException('VIP seal leaked source-tip time or money');
+    foreach([$baseline,$otherSport,$withoutReceipt] as $imagePath)@unlink($imagePath);
+}
+putenv('VIP_CARD_FORCE_PURE=0');
+if(extension_loaded('gd') && function_exists('imagettftext')){
+    $fonts=['/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/TTF/DejaVuSans.ttf'];
+    if(!array_filter($fonts,'is_file'))throw new RuntimeException('GD font missing in CI');
+}
+// Regression: MadelineProto converts PHP GD deprecations/warnings into exceptions.
+// Exercise the real TrueType renderer with an equally strict handler.
+if(extension_loaded('gd') && function_exists('imagettftext')){
+    putenv('VIP_CARD_FORCE_PURE=0');
+    set_error_handler(static function(int $severity,string $message): never {
+        throw new ErrorException($message,0,$severity);
+    });
+    try {
+        foreach(['Futebol','Basquete','Tênis','Vôlei','Hóquei','Beisebol'] as $sport){
+            $sportExample=$cardFixture;
+            $sportExample['sport']=$sport;
+            $sportExample['analysis']='Análise original preservada: '.$sport;
+            $strictImage=VipCardRenderer::render($sportExample);
+            if($strictImage===null)throw new RuntimeException('GD strict render failed: '.$sport);
+            $strictMeta=getimagesize($strictImage);
+            if(!is_array($strictMeta)||($strictMeta['mime']??'')!=='image/png')
+                throw new RuntimeException('GD strict render returned invalid PNG: '.$sport);
+            @unlink($strictImage);
+        }
+    } finally {
+        restore_error_handler();
+    }
+    echo "SMART_FORMAT_GD_STRICT_HANDLER_TESTS_PASSED\\n";
+}
+// Production regression: the worker uses PHP 8.5 and MadelineProto converts
+// imagedestroy() deprecations to exceptions. A silent GD->bitmap fallback makes
+// the card appear pixelated even though the image is delivered successfully.
+$gdRendererSource=file_get_contents(__DIR__.'/../app/VipCardRenderer.php');
+if(!is_string($gdRendererSource)||preg_match('/\\bimagedestroy\\s*\\(/',$gdRendererSource)){
+    throw new RuntimeException('Deprecated imagedestroy will disable TrueType in PHP 8.5');
+}
+if(extension_loaded('gd')&&function_exists('imagettftext')){
+    $typefaceBet=$cardFixture;
+    $typefaceBet['sport']='Futebol';
+    putenv('VIP_CARD_FORCE_PURE=1');
+    $pixelSample=VipCardRenderer::render($typefaceBet);
+    putenv('VIP_CARD_FORCE_PURE=0');
+    $trueTypeSample=VipCardRenderer::render($typefaceBet);
+    if($pixelSample===null||$trueTypeSample===null||
+       hash_file('sha256',$pixelSample)===hash_file('sha256',$trueTypeSample)){
+        throw new RuntimeException('Premium TrueType renderer unexpectedly fell back to pixel font');
+    }
+    @unlink($pixelSample);@unlink($trueTypeSample);
+    echo "SMART_FORMAT_TRUE_TYPE_NOT_BITMAP_TESTS_PASSED\\n";
+}
+// Live indicator belongs exclusively to explicitly live betting tips and is
+// independently visible from the VIP seal. Sport must be specific when sourced.
+$identifiedSport=SmartFormatting::cardView([
+    'sport'=>'','match'=>'Athletic Bilbao × Alavés',
+    'league'=>'España Primera división','status'=>'AO VIVO'
+]);
+if(($identifiedSport['sport']??'')!=='Futebol'||($identifiedSport['status']??'')!=='AO VIVO'){
+    throw new RuntimeException('League-backed sport or live status lost in card view');
+}
+// Actual user receipt: the AI returned the generic string "ESPORTE"
+// alongside a football-specific Spanish competition.
+$genericSport=SmartFormatting::cardView([
+    'sport'=>'ESPORTE','match'=>'Athletic Bilbao - Alavés',
+    'league'=>'España Primera división','status'=>'en vivo',
+    'analysis'=>'Análise original preservada integralmente.'
+]);
+if(($genericSport['sport']??'')!=='Futebol'||($genericSport['status']??'')!=='AO VIVO')
+    throw new RuntimeException('Generic sport or en vivo was not normalized on approved card');
+foreach(['esportes','sports','unknown'] as $placeholder){
+    $inferred=SmartFormatting::cardView(['sport'=>$placeholder,'league'=>'La Liga']);
+    if(($inferred['sport']??'')!=='Futebol')
+        throw new RuntimeException('Generic sport placeholder was not replaced: '.$placeholder);
+}
+foreach(['live','in-play','en directo'] as $status){
+    $normal=SmartFormatting::cardView(['sport'=>'Futebol','status'=>$status]);
+    if(($normal['status']??'')!=='AO VIVO')
+        throw new RuntimeException('Explicit live match status not normalized: '.$status);
+}
+foreach(['En curso','em andamento','partido en curso','bilhete em aberto','pré-jogo',''] as $notLive){
+    $normal=SmartFormatting::cardView(['sport'=>'Futebol','status'=>$notLive]);
+    if(($normal['status']??'')==='AO VIVO')
+        throw new RuntimeException('Ticket status incorrectly inferred as live');
+}
+$reflection=new ReflectionClass(SmartFormatting::class);
+$marketSelection=$reflection->getMethod('normalizeMarketSelection');
+$swapped=$marketSelection->invoke(null,[
+    'market'=>'Mais de 8,5 escanteios',
+    'selection'=>'Total de escanteios'
+]);
+if(($swapped['market']??'')!=='Total de escanteios' ||
+   ($swapped['selection']??'')!=='Mais de 8,5 escanteios'){
+    throw new RuntimeException('Obvious market/selection inversion was not repaired');
+}
+$handicapSwap=$marketSelection->invoke(null,[
+    'market'=>'Athletic Bilbao +0,5',
+    'selection'=>'Handicap Asiático'
+]);
+if(($handicapSwap['market']??'')!=='Handicap Asiático' ||
+   ($handicapSwap['selection']??'')!=='Athletic Bilbao +0,5'){
+    throw new RuntimeException('Handicap market/selection inversion was not repaired');
+}
+$ambiguous=$marketSelection->invoke(null,[
+    'market'=>'Total de gols',
+    'selection'=>'Total de escanteios'
+]);
+if(($ambiguous['selection']??'')!==''){
+    throw new RuntimeException('Ambiguous market/selection pair was accepted');
+}
+
+$liveNormalizer=$reflection->getMethod('normalizeLiveStatus');
+$timezoneOnly=$liveNormalizer->invoke(null,[
+    'status'=>'AO VIVO',
+    'live_evidence'=>'15:40',
+    'time'=>'15:40'
+],'Bilhete criado às 15:40',true);
+if(($timezoneOnly['status']??'')==='AO VIVO'){
+    throw new RuntimeException('Receipt time incorrectly proved live status');
+}
+$textLive=$liveNormalizer->invoke(null,[
+    'status'=>'live',
+    'live_evidence'=>''
+],'LIVE - Athletic Bilbao x Alavés',false);
+if(($textLive['status']??'')!=='AO VIVO'){
+    throw new RuntimeException('Explicit text live cue was rejected');
+}
+$imageLive=$liveNormalizer->invoke(null,[
+    'status'=>'AO VIVO',
+    'live_evidence'=>'IN-PLAY'
+],'Bilhete 15:40',true);
+if(($imageLive['status']??'')!=='AO VIVO'){
+    throw new RuntimeException('Explicit visual live evidence was rejected');
+}
+$ticketOpen=$liveNormalizer->invoke(null,[
+    'status'=>'AO VIVO',
+    'live_evidence'=>'En curso'
+],'En curso',true);
+if(($ticketOpen['status']??'')==='AO VIVO'){
+    throw new RuntimeException('Open-ticket status incorrectly proved live match');
+}
+echo "SMART_FORMAT_MARKET_SELECTION_LIVE_EVIDENCE_TESTS_PASSED\n";
+
+$unknownSport=SmartFormatting::cardView(['sport'=>'','league'=>'Liga desconhecida']);
+if(($unknownSport['sport']??'')!=='')throw new RuntimeException('Sport invented from unknown league');
+$knownSport=SmartFormatting::cardView(['sport'=>'Basquete','league'=>'La Liga']);
+if(($knownSport['sport']??'')!=='Basquete')throw new RuntimeException('Explicit sport incorrectly overwritten');
+foreach(['1','0'] as $rendererMode){
+    putenv('VIP_CARD_FORCE_PURE='.$rendererMode);
+    $base=$cardFixture;
+    $base['sport']='Futebol';
+    $base['status']='';
+    $standard=VipCardRenderer::render($base);
+    $base['status']='AO VIVO';
+    $live=VipCardRenderer::render($base);
+    $base['status']='EN CURSO'; // Can mean ticket open, not that match is underway.
+    $openTicket=VipCardRenderer::render($base);
+    if($standard===null||$live===null||$openTicket===null)
+        throw new RuntimeException('VIP or live badge failed to render');
+    if(hash_file('sha256',$standard)===hash_file('sha256',$live))
+        throw new RuntimeException('AO VIVO did not generate its own visual badge');
+    if(hash_file('sha256',$standard)!==hash_file('sha256',$openTicket))
+        throw new RuntimeException('Open ticket incorrectly got AO VIVO badge');
+    $base['status']='AO VIVO';
+    $base['bookmaker']='OTHER';$base['time']='00h00';$base['stake_amount']='999.99';
+    $withoutReceipt=VipCardRenderer::render($base);
+    if($withoutReceipt===null||hash_file('sha256',$live)!==hash_file('sha256',$withoutReceipt))
+        throw new RuntimeException('Source tip metadata leaked into the live card');
+    foreach([$standard,$live,$openTicket,$withoutReceipt] as $generated)@unlink($generated);
+}
+echo "SMART_FORMAT_LIVE_SPORT_BADGES_TESTS_PASSED\n";
+// Regression: enabling both intelligent card and legacy translation performs
+// one AI formatting+translation pass, not two Gemini translation calls.
+$translatedRule=['id'=>16,'translation_enabled'=>1,'translation_target_language'=>'pt-BR'];
+$activeCard=['enabled'=>true,'output_mode'=>'card'];
+if(!SmartFormatting::cardHandlesTranslation($translatedRule,$activeCard))
+    throw new RuntimeException('Card did not take ownership of translation');
+foreach(['card','caption','text'] as $mode){
+    if(!SmartFormatting::cardHandlesTranslation($translatedRule,['enabled'=>true,'output_mode'=>$mode]))
+        throw new RuntimeException('Enabled smart mode did not take ownership of translation: '.$mode);
+}
+foreach([
+    [['enabled'=>false,'output_mode'=>'card'],$translatedRule],
+    [$activeCard,['translation_enabled'=>0]]
+] as [$setting,$rule]){
+    if(SmartFormatting::cardHandlesTranslation($rule,$setting))
+        throw new RuntimeException('Legacy translation intercepted for disabled rule');
+}
+// Mandatory AI errors must remain actionable without revealing raw tip text.
+$diagMethod=(new ReflectionClass(SmartFormatting::class))->getMethod('diag');
+$diagMethod->invoke(null,'WORKERS_AI_RESPONSE_MISSING_TEXT');
+$diagMethod->invoke(null,'SMART_PROVIDER_FAILED_workers_ai');
+$diagMethod->invoke(null,'GEMINI_CURL_TIMEOUT');
+$diagMethod->invoke(null,'ALL_CONFIGURED_PROVIDERS_FAILED');
+$summary=SmartFormatting::failureSummary();
+if(!str_contains($summary,'WORKERS_AI_RESPONSE_MISSING_TEXT') ||
+   !str_contains($summary,'GEMINI_CURL_TIMEOUT') ||
+   str_contains($summary,'ALL_CONFIGURED_PROVIDERS_FAILED') ||
+   str_contains($summary,'SMART_PROVIDER_FAILED_'))
+    throw new RuntimeException('Per-tip failure summary missing real provider reason');
+// A noisy Workers rescue must never evict the earlier Gemini root cause.
+foreach([
+    'WORKERS_AI_VISION_RESCUE_STARTED',
+    'WORKERS_AI_RESPONSE_MISSING_REQUIRED_FIELDS',
+    'WORKERS_AI_TEXT_RESCUE_STARTED',
+    'WORKERS_AI_TIMEOUT',
+    'WORKERS_AI_TEXT_RESCUE_FAILED'
+] as $code)$diagMethod->invoke(null,$code);
+$summary=SmartFormatting::failureSummary();
+if(!str_contains($summary,'GEMINI_CURL_TIMEOUT') ||
+   !str_contains($summary,'WORKERS_AI_TIMEOUT') ||
+   str_contains($summary,'RESCUE_STARTED') ||
+   str_contains($summary,'RESCUE_FAILED'))
+    throw new RuntimeException('Provider root causes were truncated or rescue noise leaked');
+SmartFormatting::prepare('',[],null,'card');
+if(SmartFormatting::failureSummary()!=='SOURCE_EMPTY')
+    throw new RuntimeException('Stale failure code leaked between messages');
+$diagnostics=SmartFormatting::diagnostics();
+if(($diagnostics['reason']??'')!=='SOURCE_EMPTY' ||
+   !isset($diagnostics['provider_order'],$diagnostics['attempts'],$diagnostics['ai_ms']))
+    throw new RuntimeException('Structured smart diagnostics unavailable');
+$runtimeSource=file_get_contents(__DIR__.'/../runtime-smart-format.php');
+if(!is_string($runtimeSource)
+   ||!str_contains($runtimeSource,'SINGLE_PASS_CARD_TRANSLATION')
+   ||!str_contains($runtimeSource,'translationFallback=Transform::translateDetailed')
+   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK')
+   ||!str_contains($runtimeSource,'TMR_SMART_CARD_TRANSLATION_FALLBACK_SKIPPED_AFTER_FORMAT_FAILURE')
+   ||!str_contains($runtimeSource,"(\$setting['output_mode']??'')==='card'")
+   ||!str_contains($runtimeSource,'providerUnavailable()')
+   ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_SKIPPED_PROVIDER_BACKOFF')
+   ||!str_contains($runtimeSource,'TMR_SMART_TRANSLATION_FALLBACK_FAILED')
+   ||!str_contains($runtimeSource,'TMR_SMART_FORMAT_ORIGINAL_FALLBACK')
+   ||!str_contains($runtimeSource,'SmartFormatting::diagnostics()')
+   ||!str_contains($runtimeSource,'SmartFormatting::diagnosticsCompact()')
+   ||!str_contains($runtimeSource,'ai_vip_card_partial')
+   ||!str_contains($runtimeSource,'ai_vip_card_contingency')
+   ||!str_contains($runtimeSource,'SMART_CARD_CONTINGENCY_UNAVAILABLE')
+   ||!str_contains($runtimeSource,'$installerSucceeded')
+   ||!str_contains($runtimeSource,"@unlink(__DIR__.'/health')")
+   ||str_contains($runtimeSource,'SMART_FORMAT_REQUIRED_UNAVAILABLE'))
+    throw new RuntimeException('PR39 + PR75 production hardening hooks missing');
+$geminiTransport=file_get_contents(__DIR__.'/../scripts/smart-gemini-isolated.php');
+$smartSource=file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+if(!is_string($geminiTransport)
+   ||!str_contains($geminiTransport,'CURLOPT_HEADERFUNCTION')
+   ||!str_contains($geminiTransport,'retry_after')
+   ||!str_contains($geminiTransport,'model_fallback_used')
+   ||!str_contains($geminiTransport,'fallback_model')
+   ||!str_contains($geminiTransport,'[500,502,503,504]')
+   ||str_contains($geminiTransport,'[429,500,502,503,504]')
+   ||!is_string($smartSource)
+   ||!str_contains($smartSource,'gemini-2.5-flash-lite')
+   ||!str_contains($smartSource,'geminiBackoffActive()'))
+    throw new RuntimeException('PR76-77 Gemini resilience regression');
+echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
+echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
+echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
+echo "SMART_FORMAT_LIVE_SLIP_TESTS_PASSED\n";
+$smokePassed=true;
+echo "SMART_FORMAT_TESTS_PASSED\n";

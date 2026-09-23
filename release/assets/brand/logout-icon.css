@@ -1,0 +1,34 @@
+/* Único ajuste global: botão de logout por ícone, sem alterar a ação existente. */
+.saas-topbar .saas-user .saas-logout{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:40px!important;
+  height:40px!important;
+  min-width:40px!important;
+  min-height:40px!important;
+  padding:0!important;
+  border-radius:12px!important;
+  line-height:1!important;
+  flex-shrink:0!important;
+  cursor:pointer;
+}
+.saas-topbar .saas-user .saas-logout svg{
+  display:block;
+  width:19px;
+  height:19px;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  fill:none;
+}
+.saas-topbar .saas-user .saas-logout:focus-visible{
+  outline:2px solid #79e9be!important;
+  outline-offset:2px!important;
+}
+@media (max-width:520px){
+  .saas-topbar .saas-user .saas-logout{
+    width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;
+  }
+}
