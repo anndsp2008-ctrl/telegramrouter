@@ -1,0 +1,16 @@
+name: Audit standalone release source
+on:
+  pull_request:
+    paths:
+      - 'scripts/inspect-public-snapshot.py'
+      - '.github/workflows/standalone-release-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare source snapshot and tracked source without printing file contents
+        run: python3 scripts/inspect-public-snapshot.py
