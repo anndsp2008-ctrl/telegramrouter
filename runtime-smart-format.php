@@ -188,7 +188,9 @@ HTML;
                     // Reapply the rule AFTER translation/AI fallback. Translators may
                     // preserve or introduce emoji/link characters even when the source was
                     // already cleaned. The final outgoing contingency must obey the rule.
-                    $contingencyText=trim(Transform::clean($contingencyText,$rule,[]));
+                    $contingencyText=SmartFormatting::normalizePublishedStakeText(
+                        trim(Transform::clean($contingencyText,$rule,[]))
+                    );
                     error_log('TMR_SMART_CARD_CONTINGENCY_RULE_CLEAN '.json_encode([
                         'remove_emojis'=>!empty($rule['remove_emojis']),
                         'remove_links'=>!empty($rule['remove_links']),
@@ -241,7 +243,9 @@ HTML;
             }
         }
         if($formatted!==null){
-            $newText=Transform::clean((string)$formatted['caption'],$rule,[]);
+            $newText=SmartFormatting::normalizePublishedStakeText(
+                Transform::clean((string)$formatted['caption'],$rule,[])
+            );
             $output=$formatted['mode'];
             $card=$formatted['image'];
             $isContingency=!empty($formatted['contingency']);
