@@ -395,7 +395,7 @@ final class SmartFormatting
                         if($logicalAttempt<$maxLogicalAttempts)usleep(350000);
                         continue;
                     }
-                    self::$multipleDetails=mb_substr($details,0,12000,'UTF-8');
+                    self::$multipleDetails=mb_substr(self::normalizePublishedStakeText($details),0,12000,'UTF-8');
                     self::$multipleDetailsTranslated=$translate&&self::$multipleDetails!=='';
                     self::$aiFinishedAt=microtime(true);
                     self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
@@ -594,6 +594,24 @@ final class SmartFormatting
         $clean=preg_replace('/[ \\t]{2,}/u',' ',$clean);
         $clean=preg_replace('/ *\\R */u',"\n",$clean);
         return trim(is_string($clean)?$clean:$text);
+    }
+
+    /**
+     * Any stake recommendation copied from a source channel is normalized to
+     * the publishing rule Stake 10 before output. Receipt money amounts remain
+     * untouched because they are not "stake" labels.
+     */
+    public static function normalizePublishedStakeText(string $text): string
+    {
+        if(trim($text)==='')return $text;
+        $normalized=preg_replace(
+            '~\bstake\b\s*(?:(?:[:=\-]|de|of)\s*)?'.
+            '(?:\d+(?:[.,]\d+)?(?:\s*/\s*\d+(?:[.,]\d+)?)?)'.
+            '\s*(?:u(?:nidades?)?|units?)?\b~iu',
+            'Stake '.self::FIXED_STAKE,
+            $text
+        );
+        return is_string($normalized)?$normalized:$text;
     }
 
     /** Money/stake cues are checked only inside analysis, not in the bet fields. */
@@ -1105,7 +1123,7 @@ final class SmartFormatting
             if(!empty($bet[$field]))$lines[]=$labels[0].' '.$label($labels[1],$labels[2]).': '.$bet[$field];
         }
         if(!empty($bet['analysis'])){$lines[]='';$lines[]='📝 '.$label('Análise original','Original analysis').':';$lines[]=$bet['analysis'];}
-        return implode("\n",$lines);
+        return self::normalizePublishedStakeText(implode("\n",$lines));
     }
     /**
      * No implicit currency conversion; amounts are parsed to integer cents.
