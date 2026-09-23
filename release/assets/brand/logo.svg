@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 100" role="img" aria-labelledby="title">
+<title>Telegram Router</title>
+<defs><linearGradient id="g" x1="10" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#2563EB"/></linearGradient></defs>
+<rect x="8" y="8" width="84" height="84" rx="22" fill="url(#g)"/>
+<path d="M55 18 31 52h16l-8 30 30-39H52l3-25Z" fill="#fff"/>
+<circle cx="67" cy="66" r="3" fill="#fff"/>
+<text x="112" y="48" fill="#E5E7EB" font-family="Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="27" font-weight="750">Telegram Router</text>
+<text x="112" y="72" fill="#94A3B8" font-family="Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" font-weight="500" letter-spacing=".4">AUTOMAÇÃO INTELIGENTE</text>
+</svg>

@@ -1,0 +1,223 @@
+/* TelegramRouter — refinamento responsivo da conexão do Telegram.
+   Apenas apresentação da tela connect.php. */
+@media (max-width:1024px){
+  body:has(.connect-shell) .connect-shell{
+    box-sizing:border-box!important;
+    width:min(100%,840px)!important;
+    max-width:100%!important;
+    margin:0 auto!important;
+    padding:18px clamp(12px,3vw,24px) 32px!important;
+  }
+  body:has(.connect-shell) .connect-top,
+  body:has(.connect-shell) .connect-hero,
+  body:has(.connect-shell) .connect-panel,
+  body:has(.connect-shell) .security-note{
+    min-width:0!important;max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  body:has(.connect-shell) .connect-panel{
+    padding:clamp(15px,3vw,24px)!important;
+    border-radius:18px!important;
+  }
+
+  /* Compact horizontal process track on tablets. */
+  body:has(.connect-shell) .connect-panel .steps{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1.25fr)!important;
+    align-items:center!important;
+    justify-content:stretch!important;
+    gap:8px!important;
+    min-width:0!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0 0 20px!important;
+    padding:0 0 18px!important;
+  }
+  body:has(.connect-shell) .connect-panel .step{
+    display:flex!important;
+    flex-flow:row nowrap!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:8px!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    height:auto!important;
+    min-height:34px!important;
+    margin:0!important;
+    padding:0!important;
+    font-size:11px!important;
+    line-height:1.4!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  body:has(.connect-shell) .connect-panel .step>b{
+    display:grid!important;place-items:center!important;
+    flex:0 0 29px!important;
+    width:29px!important;height:29px!important;
+    min-width:29px!important;min-height:29px!important;
+    margin:0!important;
+    padding:0!important;
+    border-radius:9px!important;
+    font-size:11px!important;
+  }
+  body:has(.connect-shell) .connect-panel .steps .line{
+    display:block!important;
+    width:100%!important;min-width:0!important;
+    height:1px!important;
+    margin:0!important;padding:0!important;
+    border:0!important;
+    background:rgba(148,163,184,.22)!important;
+  }
+  body:has(.connect-shell) .connect-panel .form-intro{
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  body:has(.connect-shell) .connect-panel .form-intro h2{
+    font-size:clamp(18px,2.8vw,23px)!important;
+    line-height:1.25!important;
+    margin:0 0 9px!important;
+    overflow-wrap:anywhere!important;
+  }
+  body:has(.connect-shell) .connect-panel .form-intro p{
+    font-size:13px!important;
+    line-height:1.55!important;
+    margin:0 0 8px!important;
+    overflow-wrap:anywhere!important;
+  }
+  body:has(.connect-shell) .connect-panel .connected-number{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    align-items:baseline!important;
+    gap:4px 6px!important;
+    min-width:0!important;
+    color:#79e9be!important;
+  }
+  body:has(.connect-shell) .connect-panel .connected-number strong{
+    color:#eaf2fa!important;
+    overflow-wrap:anywhere!important;
+    font-size:inherit!important;
+  }
+  body:has(.connect-shell) .connect-panel .form-intro>a[href*="page=rules"]{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    min-height:44px!important;
+    margin:16px 0 0!important;
+    padding:11px 16px!important;
+    border-radius:11px!important;
+    font-size:13px!important;
+    font-weight:650!important;
+    line-height:1.35!important;
+    text-align:center!important;
+    text-decoration:none!important;
+    white-space:normal!important;
+  }
+  body:has(.connect-shell) .connect-panel .disconnect-form{
+    width:100%!important;
+    min-width:0!important;
+    margin:16px 0 0!important;
+    padding:0!important;
+  }
+  body:has(.connect-shell) .connect-panel .disconnect-button{
+    display:inline-flex!important;
+    align-items:center!important;justify-content:center!important;
+    width:auto!important;max-width:100%!important;min-width:0!important;
+    min-height:44px!important;
+    padding:11px 16px!important;
+    margin:0!important;
+    box-sizing:border-box!important;
+    border-radius:11px!important;
+    font-size:13px!important;font-weight:650!important;line-height:1.35!important;
+    white-space:normal!important;
+  }
+  body:has(.connect-shell) .connect-panel :is(input,select,textarea,button){
+    box-sizing:border-box!important;
+    max-width:100%!important;
+    font-family:inherit!important;
+  }
+  body:has(.connect-shell) .connect-panel input:not([type="hidden"]){
+    width:100%!important;min-width:0!important;
+    min-height:44px!important;
+    font-size:14px!important;
+    padding:10px 12px!important;
+  }
+}
+@media (min-width:641px) and (max-width:1024px){
+  body:has(.connect-shell) .connect-panel .form-intro>a[href*="page=rules"],
+  body:has(.connect-shell) .connect-panel .disconnect-form{
+    vertical-align:top!important;
+  }
+
+  body:has(.connect-shell) .connect-panel .form-intro>a[href*="page=rules"]{
+    width:206px!important;
+    min-width:206px!important;
+    min-height:48px!important;
+    margin:18px 0 0!important;
+    padding:12px 18px!important;
+    border-radius:12px!important;
+    font-size:14px!important;
+  }
+
+  body:has(.connect-shell) .connect-panel .disconnect-form{
+    display:inline-flex!important;
+    width:auto!important;
+    min-width:0!important;
+    margin:18px 0 0 12px!important;
+    padding:0!important;
+  }
+
+  body:has(.connect-shell) .connect-panel .disconnect-button{
+    width:206px!important;
+    min-width:206px!important;
+    min-height:48px!important;
+    padding:12px 18px!important;
+    border-radius:12px!important;
+    font-size:14px!important;
+  }
+}
+
+@media (max-width:640px){
+  body:has(.connect-shell) .connect-shell{padding:14px 12px 26px!important}
+  body:has(.connect-shell) .connect-panel{
+    padding:17px 15px!important;
+    border-radius:16px!important;
+  }
+  /* No stranded gray connectors or oversized whitespace on narrow screens. */
+  body:has(.connect-shell) .connect-panel .steps{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:6px!important;
+    margin-bottom:17px!important;
+    padding-bottom:15px!important;
+  }
+  body:has(.connect-shell) .connect-panel .steps .line{display:none!important}
+  body:has(.connect-shell) .connect-panel .step{
+    min-height:30px!important;
+    gap:9px!important;
+    padding:1px 0!important;
+    font-size:11px!important;
+  }
+  body:has(.connect-shell) .connect-panel .step>b{
+    flex-basis:27px!important;width:27px!important;height:27px!important;
+    min-width:27px!important;min-height:27px!important;
+  }
+  body:has(.connect-shell) .connect-panel .form-intro h2{
+    font-size:19px!important;line-height:1.25!important;
+    margin-bottom:9px!important;
+  }
+  body:has(.connect-shell) .connect-panel .form-intro p{
+    font-size:13px!important;line-height:1.5!important;
+  }
+  body:has(.connect-shell) .connect-panel .form-intro>a[href*="page=rules"],
+  body:has(.connect-shell) .connect-panel .disconnect-button{
+    width:100%!important;min-height:43px!important;
+    font-size:13px!important;
+  }
+  body:has(.connect-shell) .connect-panel input:not([type="hidden"]){
+    font-size:16px!important; /* Evita zoom automático ao focar no iOS. */
+  }
+}

@@ -1,0 +1,20 @@
+{
+  frankenphp
+}
+
+:{$PORT:8080} {
+  root * /app
+  encode zstd gzip
+
+  route {
+    @publicAppEndpoint path /app/workers-ai-card.php /scripts/retry-event.php
+    handle @publicAppEndpoint {
+      php_server
+    }
+
+    @private path /.env* /.git* /.htaccess /app/* /config/* /database/* /storage/* /vendor/* /tests/* /backup/* /scripts/* /runtime* /worker.php /bootstrap.php /composer.* /railway.json /start.sh /Caddyfile /README.md /preview/* /public/*
+    respond @private 404
+
+    php_server
+  }
+}
