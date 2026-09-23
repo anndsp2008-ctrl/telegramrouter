@@ -170,18 +170,60 @@ final class SmartFormatting
     }
 
     /** A same-match Bet Builder with two picks is multiple, regardless of "Simple". */
-    public static function isMultipleTicket(array $data,string $sourceText=''): bool
+    public static function isMultipleTicket(array $data,string $sourceText='',bool $hasImage=false): bool
     {
+        if($hasImage){
+            // With a receipt photo, Telegram caption/list text is context only.
+            // Multiple classification MUST come from visual-only fields.
+            $count=trim((string)($data['visual_selections_count']??''));
+            $kind=mb_strtolower(trim((string)($data['visual_bet_kind']??'')),'UTF-8');
+            $evidence=trim((string)($data['visual_multiple_evidence']??''));
+            $details=(string)($data['visual_multiple_details']??'');
+            $validCount=preg_match('/^[0-9]{1,3}$/D',$count)===1 && (int)$count>=2;
+            $validKind=in_array($kind,[
+                'multiple','multi','bet_builder','bet builder','parlay','acca',
+                'dupla','double','múltipla','multipla','múltiple','combinada','acumulada'
+            ],true);
+            $visualCue=preg_match(
+                '~\\b(?:bet\\s*builder|criar\\s+aposta|crear\\s+apuesta|same[- ]game\\s+parlay|'.
+                'parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|m[uú]ltiple|multiple|'.
+                'dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',
+                $evidence
+            )===1 || preg_match(
+                '~\\b(?:[2-9]|[1-9][0-9]+)\\s*(?:[- ]?sele[cç][oõ]es|selections?|legs?)\\b~iu',
+                $evidence
+            )===1;
+            $enumerated=preg_match_all(
+                '~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',
+                $details
+            );
+            return $validCount && $validKind && $visualCue && $enumerated>=2;
+        }
+
         if(self::sourceIndicatesMultiple($sourceText))return true;
         $count=trim((string)($data['selections_count']??''));
         if(preg_match('/^[0-9]{1,3}$/D',$count) && (int)$count>=2)return true;
-        $kind=mb_strtolower(trim((string)($data['bet_kind']??'')),'UTF-8');
         $details=(string)($data['multiple_details']??'');
-        $enumerated=preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$details);
-        if($enumerated>=2)return true;
-        // A named multi bet without two identifiable selections is ambiguous.
-        // Do not turn a one-pick Bet Builder or "Dupla chance" into a multiple.
-        return false;
+        return preg_match_all(
+            '~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',
+            $details
+        )>=2;
+    }
+
+    private static function multipleScopeInstruction(bool $hasImage): string
+    {
+        if(!$hasImage){
+            return "Sem imagem, classifique single/multiple a partir do TEXTO ORIGINAL. ".
+                "Mantenha todos os campos visual_* vazios. ";
+        }
+        return "REGRA DE ESCOPO VISUAL: existe uma imagem de comprovante. Para decidir se o BILHETE é single ou multiple, ".
+            "use SOMENTE o que está visível dentro do comprovante; o TEXTO ORIGINAL pode listar palpites, alternativas ou recomendações e NUNCA pode aumentar a contagem visual. ".
+            "Preencha visual_bet_kind como single, multiple ou bet_builder olhando apenas a imagem. ".
+            "Preencha visual_selections_count somente com a quantidade de condições/seleções efetivamente presentes no bilhete visual. ".
+            "Se houver duas ou mais, visual_multiple_evidence deve copiar SEM TRADUZIR um rótulo estrutural visível que prove a múltipla, como Múltipla, Dupla, Multiple, Parlay, Bet Builder, Criar Aposta ou Crear Apuesta. ".
+            "visual_multiple_details deve conter SOMENTE as seleções do comprovante visual, numeradas uma por linha e traduzidas quando solicitado. ".
+            "Se a imagem mostrar uma única aposta real, retorne visual_bet_kind=single, visual_selections_count=1 e deixe visual_multiple_evidence e visual_multiple_details vazios, ".
+            "MESMO QUE o TEXTO ORIGINAL tenha uma lista numerada 1, 2, 3, 4 de outras sugestões. ";
     }
 
     public static function providerUnavailable(): bool
@@ -279,19 +321,21 @@ final class SmartFormatting
         self::$multipleDetected=false;
         self::$multipleDetails='';
         self::$multipleDetailsTranslated=false;
-        if($mode==='card' && ($localImage===null||!is_file($localImage))
+        $hasImage=$localImage!==null&&is_file($localImage);
+        if($mode==='card' && !$hasImage
             && self::sourceIndicatesMultiple($sourceText)){
             self::$multipleDetected=true;
             self::$aiFinishedAt=microtime(true);
             self::diag('MULTIPLE_TEXT_DIRECT_CONTINGENCY');
             return null;
         }
-        if(trim($sourceText)===''&&($localImage===null||!is_file($localImage))){self::diag('SOURCE_EMPTY');return null;}
+        if(trim($sourceText)===''&&!$hasImage){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
-            'bet_kind','selections_count','multiple_details'];
+            'bet_kind','selections_count','multiple_details',
+            'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details'];
         // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
         $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
@@ -339,10 +383,12 @@ final class SmartFormatting
                     }
                     continue;
                 }
-                if($mode==='card' && self::isMultipleTicket($json,$sourceText)){
+                if($mode==='card' && self::isMultipleTicket($json,$sourceText,$hasImage)){
                     self::$multipleDetected=true;
-                    $details=trim((string)($json['multiple_details']??''));
-                    if($details==='' && $localImage!==null && is_file($localImage)){
+                    $details=trim((string)($hasImage
+                        ?($json['visual_multiple_details']??'')
+                        :($json['multiple_details']??'')));
+                    if($details==='' && $hasImage){
                         self::diag('MULTIPLE_DETAILS_MISSING_'.$provider);
                         self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
                         if($logicalAttempt<$maxLogicalAttempts)usleep(350000);
@@ -354,7 +400,7 @@ final class SmartFormatting
                     self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
                     error_log('TMR_SMART_MULTIPLE_DETECTED '.json_encode([
                         'provider'=>$provider,'attempt'=>$logicalAttempt,
-                        'has_image'=>$localImage!==null&&is_file($localImage),
+                        'has_image'=>$hasImage,
                         'translated'=>$translate&&$details!==''
                     ]));
                     return null;
@@ -696,6 +742,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
+            self::multipleScopeInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
@@ -818,12 +865,14 @@ final class SmartFormatting
     private static function request(string $key,string $text,?string $image,string $language,array $fields,string $memoryExamples=''): ?array
     {
         if(!function_exists('curl_init')){self::diag('CURL_EXTENSION_MISSING');return null;}
+        $hasImage=$image!==null&&is_file($image)&&filesize($image)>0;
         $model=trim(Repository::integration('gemini_model'))?:'gemini-2.5-flash';
         if(!preg_match('/^[A-Za-z0-9_.-]+$/D',$model))return null;
         $endpoint='https://generativelanguage.googleapis.com/v1beta/models/'.rawurlencode($model).':generateContent';
         $prompt="Você interpreta dicas de apostas, SEM CRIAR OU ALTERAR DADOS. ".
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
+            self::multipleScopeInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".

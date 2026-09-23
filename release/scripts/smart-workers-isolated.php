@@ -104,7 +104,7 @@ function parseTip(string $response): ?array {
  * containing explicit match, market and selection as normal card extraction.
  * Ignore names, destinations, URLs and any other proposed tool behavior.
  */
-function parsedVisionBet(array $result): ?array {
+function parsedVisionBet(array $result,bool $hasImage=false): ?array {
     // Cloudflare's ImageTextToText REST result uses "description", not
     // necessarily the TextGeneration "response" field. Accept either ONLY
     // when it contains validated structured bet data (never free-form prose).
@@ -112,7 +112,7 @@ function parsedVisionBet(array $result): ?array {
         $response=$result[$textField]??null;
         if(is_string($response)){
             $data=parseTip($response);
-            if(is_array($data)&&tipResponseStatus($response)==='OK')return $data;
+            if(is_array($data)&&tipResponseStatus($response,$hasImage)==='OK')return $data;
         }
     }
     $calls=$result['tool_calls']??null;
@@ -123,7 +123,7 @@ function parsedVisionBet(array $result): ?array {
         if(is_string($args))$args=parseTip($args);
         if(!is_array($args)||array_is_list($args))continue;
         $candidate=json_encode($args,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
-        if(is_string($candidate)&&tipResponseStatus($candidate)==='OK')return $args;
+        if(is_string($candidate)&&tipResponseStatus($candidate,$hasImage)==='OK')return $args;
     }
     return null;
 }
@@ -142,18 +142,35 @@ function collectVisualEvidence(array $result,string $existing=''): string {
     return $existing;
 }
 /** Return a privacy-safe failure category without echoing generated text. */
-function tipResponseStatus(string $response): string {
+function tipResponseStatus(string $response,bool $hasImage=false): string {
     if(trim($response)==='')return 'RESPONSE_EMPTY';
     $result=parseTip($response);
     if($result===null)return 'RESPONSE_NOT_JSON';
-    // A multi-leg ticket must not be discarded just because no single
-    // match/market/selection can truthfully represent all its picks.
-    $legs=trim((string)($result['selections_count']??''));
-    if(preg_match('/^[0-9]{1,3}$/D',$legs) && (int)$legs>=2){
-        foreach($result as $value){
-            if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
+    // Multiple receipts with photos must be proved by visual-only fields.
+    if($hasImage){
+        $legs=trim((string)($result['visual_selections_count']??''));
+        $kind=mb_strtolower(trim((string)($result['visual_bet_kind']??'')),'UTF-8');
+        $evidence=trim((string)($result['visual_multiple_evidence']??''));
+        $details=(string)($result['visual_multiple_details']??'');
+        $validCount=preg_match('/^[0-9]{1,3}$/D',$legs)===1 && (int)$legs>=2;
+        $validKind=in_array($kind,['multiple','multi','bet_builder','bet builder','parlay','acca','dupla','double','múltipla','multipla','múltiple','combinada','acumulada'],true);
+        $visualCue=preg_match('~\\b(?:bet\\s*builder|criar\\s+aposta|crear\\s+apuesta|same[- ]game\\s+parlay|parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|m[uú]ltiple|multiple|dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',$evidence)===1
+            || preg_match('~\\b(?:[2-9]|[1-9][0-9]+)\\s*(?:[- ]?sele[cç][oõ]es|selections?|legs?)\\b~iu',$evidence)===1;
+        $enumerated=preg_match_all('~(?:^|\\R)\\s*(?:[1-9][0-9]*[.)]|[-•])\\s+[^\\r\\n]+~u',$details);
+        if($validCount&&$validKind&&$visualCue&&$enumerated>=2){
+            foreach($result as $value){
+                if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
+            }
+            return 'OK';
         }
-        return 'OK';
+    } else {
+        $legs=trim((string)($result['selections_count']??''));
+        if(preg_match('/^[0-9]{1,3}$/D',$legs) && (int)$legs>=2){
+            foreach($result as $value){
+                if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
+            }
+            return 'OK';
+        }
     }
     foreach(['match','market','selection'] as $key){
         if(!isset($result[$key])||!is_scalar($result[$key])||trim((string)$result[$key])===''){
@@ -196,6 +213,28 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     $stringArgs=['response'=>null,'tool_calls'=>[['arguments'=>$json]]];
     if(parsedVisionBet($stringArgs)!==$base)
         throw new RuntimeException('String-encoded Vision data was ignored');
+    $visualMulti=[
+        'visual_bet_kind'=>'bet_builder',
+        'visual_selections_count'=>'2',
+        'visual_multiple_evidence'=>'Bet Builder',
+        'visual_multiple_details'=>"1. Mais de 1,5 gols\n2. Mais de 2,5 gols"
+    ];
+    $visualMultiJson=json_encode($visualMulti,JSON_UNESCAPED_UNICODE);
+    if(!is_string($visualMultiJson)||tipResponseStatus($visualMultiJson,true)!=='OK')
+        throw new RuntimeException('Valid visual multiple was rejected');
+    $falseCaptionMultiple=[
+        'match'=>'OL Lyonnes (F) x Servette',
+        'market'=>'Ganhar ambas as metades',
+        'selection'=>'OL Lyonnes (F)',
+        'bet_kind'=>'multiple','selections_count'=>'4',
+        'multiple_details'=>"1. 1X2\n2. Mais de 1,5\n3. Ganha ambas\n4. Dupla chance",
+        'visual_bet_kind'=>'single','visual_selections_count'=>'1',
+        'visual_multiple_evidence'=>'','visual_multiple_details'=>''
+    ];
+    $falseCaptionJson=json_encode($falseCaptionMultiple,JSON_UNESCAPED_UNICODE);
+    if(!is_string($falseCaptionJson)||tipResponseStatus($falseCaptionJson,true)!=='OK')
+        throw new RuntimeException('Single visual receipt with caption alternatives was rejected');
+
     $unsafe=['response'=>null,'tool_calls'=>[['name'=>'arbitrary_action',
         'arguments'=>['action'=>'send','destination'=>'unknown']]]];
     if(parsedVisionBet($unsafe)!==null)
@@ -346,7 +385,7 @@ try{
                 reply(false,'PROBE_MISSING_TEXT');
             }
             $result=(array)($envelope['result']??[]);
-            $bet=parsedVisionBet($result);
+            $bet=parsedVisionBet($result,$image!==null);
             if($bet!==null)reply(true,'OK',$bet);
             // Llama Vision can describe the ticket or return incomplete JSON.
             // Keep only bounded model observations for the SAME Cloudflare
@@ -356,8 +395,8 @@ try{
             }
             $description=$result['description']??null;
             $hasTools=is_array($result['tool_calls']??null)&&count($result['tool_calls'])>0;
-            $reason=is_string($response)?tipResponseStatus($response)
-                :(is_string($description)?tipResponseStatus($description)
+            $reason=is_string($response)?tipResponseStatus($response,$image!==null)
+                :(is_string($description)?tipResponseStatus($description,$image!==null)
                 :($hasTools?'RESPONSE_UNSTRUCTURED_TOOL_CALLS':'RESPONSE_MISSING_TEXT'));
             if($attempt===0){
                 if(is_string($description)&&trim($description)!==''){

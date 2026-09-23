@@ -5,6 +5,10 @@ on:
       - 'scripts/assemble-standalone-release.py'
       - 'scripts/audit-standalone-release.py'
       - 'deploy/standalone/**'
+      - 'app/SmartFormatting.php'
+      - 'scripts/smart-workers-isolated.php'
+      - 'tests/multiple-bet-contingency-smoke.php'
+      - 'runtime-ai-learning.php'
       - '.github/workflows/standalone-deploy-build.yml'
   workflow_dispatch:
 permissions:

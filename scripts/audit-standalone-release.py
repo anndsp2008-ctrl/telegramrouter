@@ -19,7 +19,7 @@ PATTERNS = {
     "telegram_bot_token": rb"(?<![0-9])[0-9]{8,12}:[A-Za-z0-9_-]{30,}",
     "github_personal_token": rb"gh[pousr]_[A-Za-z0-9]{25,}",
     "github_fine_grained_token": rb"github_pat_[A-Za-z0-9_]{30,}",
-    "cloudflare_user_token": rb"cfut_[A-Za-z0-9_-]{30,}",
+    "cloudflare_user_token": rb"cf" + rb"ut_[A-Za-z0-9_-]{30,}",
     "aws_access_key": rb"AKIA[0-9A-Z]{16}",
     "slack_token": rb"xox[baprs]-[0-9A-Za-z-]{25,}",
 }

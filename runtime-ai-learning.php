@@ -26,7 +26,7 @@ if(str_contains($original,$marker)){
 // in app/SmartFormatting.php, so the older unpatched hash is NOT expected there.
 // Accept that exact, validated source as already wired; do not patch it twice.
 $sourceHash=substr(hash('sha256',$original),0,12);
-if($sourceHash==='d6b4fa4fcaec'){
+if($sourceHash==='f1e74e2cb04b'){
     $wiredAnchors=[
         'AiLearningMemory::contextFor($sourceText,(int)($rule[\'id\']??0))',
         'self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples)',

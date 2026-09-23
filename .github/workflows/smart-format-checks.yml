@@ -158,7 +158,7 @@ jobs:
           cp runtime-ai-learning.php /tmp/tmr-ai-prewired/runtime-ai-learning.php
           cp app/AiLearningMemory.php /tmp/tmr-ai-prewired/app/AiLearningMemory.php
           cp app/SmartFormatting.php /tmp/tmr-ai-prewired/app/SmartFormatting.php
-          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "d6b4fa4fcaec"
+          test "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php | cut -c1-12)" = "f1e74e2cb04b"
           hash_before="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
           php /tmp/tmr-ai-prewired/runtime-ai-learning.php | grep -Fq 'AI_LEARNING_RUNTIME_READY_ALREADY_WIRED'
           test "$hash_before" = "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
@@ -246,7 +246,7 @@ jobs:
           PY
           grep -Fq 'if($attempt===0){' scripts/smart-workers-isolated.php
           grep -Fq 'usleep(250000);continue;' scripts/smart-workers-isolated.php
-          grep -Fq 'parsedVisionBet($result)' scripts/smart-workers-isolated.php
+          grep -Fq 'parsedVisionBet($result,$image!==null)' scripts/smart-workers-isolated.php
           grep -Fq 'probeVision($account,$token)' app/WorkersAITranslation.php
           grep -Fq 'MODEL_LICENSE_REQUIRED_5016' app/WorkersAITranslation.php
           grep -Fq '$checkOnly?12:2800' scripts/smart-workers-isolated.php
