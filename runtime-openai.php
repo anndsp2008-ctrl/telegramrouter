@@ -177,7 +177,12 @@ PHP;
         '<option value="openai" <?=$fallbackProvider===\'openai\'?\'selected\':\'\'?>>OpenAI GPT-5.6</option>',$index);
 
     $openaiCard=<<<'HTML'
-<section class="saas-card translation-provider-card openai-provider-card"><div class="saas-card-head"><div><span class="saas-kicker">OPENAI</span><h2>OpenAI GPT-5.6</h2><p>Interpretação multimodal e tradução dos cards do Telegram Router.</p></div><span class="form-status provider-badge <?=$openaiKey&&$openaiEnabled?'is-configured':'is-empty'?>"><i></i><?=$openaiKey&&$openaiEnabled?'Configurado':'Não configurado'?></span></div>
+<section class="saas-card translation-provider-card openai-provider-card">
+  <div class="provider-head">
+    <div><span class="saas-kicker">OPENAI</span><h2>OpenAI GPT-5.6</h2>
+      <p>Interpretação multimodal e tradução dos cards do Telegram Router.</p></div>
+    <span class="form-status <?=$openaiKey&&$openaiEnabled?'is-configured':'is-empty'?>"><i></i><?=$openaiKey&&$openaiEnabled?'Configurado':'Não configurado'?></span>
+  </div>
 <form method="post" class="provider-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="provider" value="openai"><div class="saas-form-grid">
 <label class="field-wide">API Key<span class="field-help"><?=$openaiKey?'Atual: '.sh(TranslationService::maskSecret($openaiKey)).'. Digite uma nova chave apenas para substituir.':'Informe uma API Key da OpenAI.'?></span><input name="openai_api_key" type="password" autocomplete="new-password" placeholder="<?=$openaiKey?'••••••••••••••••':'Cole a API Key da OpenAI'?>"></label>
 <label class="field-wide"><span>Ativar OpenAI</span><span class="field-help">Habilita este provedor para interpretação, tradução e geração dos cards.</span><input type="checkbox" name="openai_enabled" value="1" <?=$openaiEnabled?'checked':''?>></label>
