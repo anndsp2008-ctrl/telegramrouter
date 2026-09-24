@@ -49,6 +49,40 @@ $proseAnalysis='A Lazio chega em bom momento porque mantém sequência consisten
     'Por isso, o autor acredita que a seleção tem valor para este mercado.';
 if(!SmartFormatting::sourceHasAnalysis($proseAnalysis))
     throw new RuntimeException('Real analytical prose was not detected');
+foreach([
+    'El partido entre Noruega e Dinamarca puede plantear un escenario favorable para los corners.',
+    'Corners',
+    'The match is likely to see under 11.0 corners.'
+] as $foreign){
+    if(!SmartFormatting::hasForeignPortugueseCues($foreign))
+        throw new RuntimeException('Untranslated AI output was not detected');
+}
+foreach([
+    'O confronto entre Noruega e Dinamarca pode terminar com menos de 11,0 escanteios.',
+    'Vitória da equipe da casa',
+    'Noruega vs Dinamarca'
+] as $portuguese){
+    if(SmartFormatting::hasForeignPortugueseCues($portuguese))
+        throw new RuntimeException('Portuguese output was incorrectly rejected');
+}
+$localeRule=['translation_enabled'=>true,'translation_target_language'=>'pt-BR','id'=>1];
+$localeBet=['match'=>'Noruega vs Dinamarca','sport'=>'Futebol','market'=>'Corners',
+    'selection'=>'Menos de 11.0','odd'=>'1.50','analysis'=>'O confronto pode terminar com poucos escanteios.'];
+$localeMethod=new ReflectionMethod(SmartFormatting::class,'enforcePortugueseOutput');
+$localized=$localeMethod->invoke(null,$localeBet,$localeRule,true);
+if(!is_array($localized) || $localized['market']!=='Escanteios'
+    || $localized['selection']!=='Menos de 11,0'
+    || $localized['analysis']!==$localeBet['analysis']
+    || $localized['odd']!=='1.50'
+    || $localized['match']!==$localeBet['match']
+    || $localeBet['market']!=='Corners'){
+    throw new RuntimeException('Portuguese card normalization changed source or protected bet fields');
+}
+$untranslated=$localeMethod->invoke(null,$localeBet,$localeRule,false);
+if($untranslated!==$localeBet)
+    throw new RuntimeException('Disabled translation changed the source bet');
+echo "SMART_FORMAT_PORTUGUESE_GATE_TESTS_PASSED\n";
+
 // Sentence initials, not Title Case: keep internal case, proper names, numeric
 // odds, URLs and paragraph structure intact. Format card text and image identically.
 $caseExamples=[
