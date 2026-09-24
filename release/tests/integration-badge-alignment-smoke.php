@@ -112,3 +112,20 @@ if(!str_contains($desktop,'.translation-provider-grid .form-status') ||
    !str_contains($mobile,':is(.provider-badge,.form-status)'))
   $fail('Shared form-status positioning/display rules are missing');
 echo "INTEGRATION_WORKERS_EXACT_LIVE_FORM_STATUS_PARITY_TESTS_PASSED\n";
+
+
+// OpenAI must use the exact same collapsed-card header/status contract as
+// Cloudflare Workers AI. Do not reintroduce provider-badge or saas-card-head.
+$openaiRuntime=(string)file_get_contents($root.'/runtime-openai.php');
+foreach([
+  '<div class="provider-head">',
+  '<span class="form-status <?=$openaiKey&&$openaiEnabled?\'is-configured\':\'is-empty\'?>"><i></i>',
+  "<?=$openaiKey&&$openaiEnabled?'Configurado':'Não configurado'?>"
+] as $token){
+  if(!str_contains($openaiRuntime,$token))
+    $fail('OpenAI header/status differs from Workers AI: '.$token);
+}
+if(str_contains($openaiRuntime,'form-status provider-badge') ||
+   str_contains($openaiRuntime,'openai-provider-card"><div class="saas-card-head"'))
+  $fail('OpenAI must inherit the Workers AI header/status layout without provider-specific badge markup');
+echo "INTEGRATION_OPENAI_WORKERS_HEADER_PARITY_TESTS_PASSED\n";
