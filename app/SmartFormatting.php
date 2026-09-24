@@ -365,6 +365,8 @@ final class SmartFormatting
                 $json=null;
                 if($provider==='workers_ai'){
                     $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples);
+                } elseif($provider==='openai'){
+                    $json=self::requestOpenAI($sourceText,$localImage,$inputLanguage,$fields,$memoryExamples);
                 } elseif($provider==='gemini'){
                     // Mandatory card generation gets its two configured attempts
                     // even if a previous message activated the short Gemini
@@ -944,6 +946,47 @@ final class SmartFormatting
         }
         return trim(self::sanitizeAnalysis(implode("\n",$prose)));
     }
+    /**
+     * OpenAI card extraction uses the selected GPT-5.6 model and, when enabled,
+     * the configured OpenAI model fallback. The provider remains OpenAI for both
+     * attempts; provider-level fallback is still handled by TranslationService.
+     * @param list<string> $fields
+     */
+    private static function requestOpenAI(string $text,?string $image,string $language,array $fields,string $memoryExamples=''): ?array
+    {
+        if(!OpenAIProvider::enabled()){
+            self::diag('OPENAI_DISABLED');
+            return null;
+        }
+        $hasImage=$image!==null&&is_file($image)&&filesize($image)>0;
+        $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
+            "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
+            "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
+            self::multipleScopeInstruction($hasImage).
+            "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete. Uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
+            "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade como string numérica. ".
+            "Se for multiple, preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção. Não resuma duas ou mais condições em uma única seleção. ".
+            "Para multiple_details transcreva com fidelidade o comprovante visual e traduza as descrições para o idioma solicitado. Preserve nomes próprios, números e odds. Nunca invente pernas, odds ou resultados. ".
+            "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
+            "MERCADO é o tipo/categoria da aposta. SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado. Nunca troque os dois campos. ".
+            "Quando houver imagem, copie em visual_market_evidence exatamente o rótulo de mercado visto no comprovante e em visual_selection_evidence exatamente a seleção vista no comprovante, sem traduzir esses dois campos de evidência. ".
+            "No campo analysis, preserve a análise existente e só crie uma análise quando a origem não tiver nenhuma. Não inclua stake, unidades, valor apostado, banca, retorno financeiro ou lucro na análise. ".
+            "Para status AO VIVO, live_evidence deve conter evidência explícita de que a partida está em andamento. Não deduza ao vivo por horário, data, estado do bilhete ou fuso horário. ".
+            "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
+            "Traduza integralmente sport, league, market, selection e analysis quando solicitado. Não deixe Corners, Under, Over, El partido ou frases no idioma original quando o destino for português. ".
+            $language." ".($memoryExamples!==''?$memoryExamples:'')." TEXTO ORIGINAL:\n".$text;
+
+        $result=OpenAIProvider::structured($prompt,$image);
+        if(empty($result['ok']) || !isset($result['data']) || !is_array($result['data'])){
+            $reason=strtoupper((string)($result['reason']??'OPENAI_FAILED'));
+            $reason=preg_replace('/[^A-Z0-9_]/','_',$reason);
+            self::diag(is_string($reason)&&$reason!==''?$reason:'OPENAI_FAILED');
+            return null;
+        }
+        if(!empty($result['fallback_used']))self::diag('OPENAI_MODEL_FALLBACK_USED');
+        return $result['data'];
+    }
+
     /**
      * Workers AI may use a text model for text-only tips; when a receipt image
      * is attached a separate Cloudflare vision model must inspect its contents.
