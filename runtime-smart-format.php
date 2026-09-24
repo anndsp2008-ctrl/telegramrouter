@@ -155,14 +155,22 @@ HTML;
                     // plain text translation still succeeds. Translate first,
                     // then build a deterministic card without inventing fields.
                     $multipleDetected=SmartFormatting::multipleDetected();
-                    $multipleDetails=$multipleDetected?SmartFormatting::multipleDetails():'';
-                    $contingencyText=$multipleDetails!==''?$multipleDetails:$text;
+                    // When a receipt image is present, never treat Telegram caption
+                    // alternatives or AI-generated multiple_details as verified
+                    // selections from the receipt. Keep the original receipt visual
+                    // and use a neutral Portuguese fallback instead.
+                    $receiptOnly=$sourceImage!==null&&is_file($sourceImage);
+                    $multipleDetails=(!$receiptOnly&&$multipleDetected)
+                        ?SmartFormatting::multipleDetails():'';
+                    $contingencyText=$receiptOnly
+                        ?'Confira os mercados, as seleções e as odds no comprovante original. Stake: 10'
+                        :($multipleDetails!==''?$multipleDetails:$text);
                     $contingencyTranslated=empty($rule['translation_enabled'])
                         || ($multipleDetails!=='' && SmartFormatting::multipleDetailsTranslated());
                     // Visual receipt descriptions from AI already respect the
                     // configured target language. Only translate the original
                     // Telegram caption when there is no usable AI transcription.
-                    if(!empty($rule['translation_enabled'])
+                    if(!$receiptOnly && !empty($rule['translation_enabled'])
                         && $multipleDetails==='' && trim($text)!==''){
                         $translationStarted=microtime(true);
                         try {
@@ -212,7 +220,8 @@ HTML;
                             error_log('TMR_SMART_CARD_CONTINGENCY_READY '.json_encode([
                                 'translated'=>$contingencyTranslated,
                                 'multiple_bet'=>$multipleDetected,
-                                'has_image'=>$sourceImage!==null
+                                'has_image'=>$sourceImage!==null,
+                                'receipt_only'=>$receiptOnly
                             ]));
                         }
                     } catch(\Throwable $contingencyError) {
