@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'app/SmartFormatting.php'
+      - 'app/CardLayoutEmojis.php'
+      - 'tests/card-layout-emojis-smoke.php'
       - 'app/VipCardRenderer.php'
       - 'app/PurePngVipCardRenderer.php'
       - 'app/ContingencyCardRenderer.php'
@@ -256,6 +258,8 @@ jobs:
           grep -Fq 'BUDGET_EXHAUSTED' scripts/smart-workers-isolated.php
       - name: Run isolated Gemini model-routing checks
         run: SMART_GEMINI_MODEL_ROUTE_TEST=1 php scripts/smart-gemini-isolated.php
+      - name: Verify card icons and origin emoji boundaries
+        run: php tests/card-layout-emojis-smoke.php
       - name: Run mandatory contingency card checks
         run: php tests/contingency-card-smoke.php
       - name: Test doubles, multiples and Bet Builder classification
