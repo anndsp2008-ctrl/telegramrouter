@@ -596,10 +596,6 @@ final class SmartFormatting
     }
 
     /**
-     * Visual card prose never contains emoji, regardless of per-rule message
-     * settings. Applies only to analysis/details drawn inside PNG cards.
-     */
-    /**
      * Card translation is requested from the model but must also be checked
      * before publication. This deliberately detects only clear foreign-language
      * cues: proper names and language-neutral betting words remain unchanged.
@@ -649,7 +645,7 @@ final class SmartFormatting
                     'context'=>'smart_card_portuguese_'.$field
                 ]);
                 $value=trim((string)($result['text']??''));
-            } catch(\\Throwable $error){
+            } catch(\Throwable $error){
                 self::diag('PORTUGUESE_TRANSLATION_ERROR_'.strtoupper($field));
                 return null;
             }
@@ -669,6 +665,10 @@ final class SmartFormatting
         return $bet;
     }
 
+    /**
+     * Visual card prose never contains emoji, regardless of per-rule message
+     * settings. Applies only to analysis/details drawn inside PNG cards.
+     */
     public static function stripCardEmojis(string $text): string
     {
         $clean=preg_replace(
