@@ -9,20 +9,21 @@ namespace App;
 final class ContingencyCardRenderer
 {
     /** The receipt is the only verified source of selections for image contingencies. */
-    public static function groundedText(string $candidate,?string $sourceImage): string
+    public static function groundedText(string $candidate,?string $sourceImage,bool $trustedAnalysis=false): string
     {
-        if($sourceImage!==null && is_file($sourceImage)){
+        if($sourceImage!==null && is_file($sourceImage) && !$trustedAnalysis){
             return 'Confira os mercados, as seleções e as odds no comprovante original. Stake: '
                 .SmartFormatting::FIXED_STAKE;
         }
         return $candidate;
     }
 
-    public static function render(string $text,?string $sourceImage): ?string
+    public static function render(string $text,?string $sourceImage,bool $trustedAnalysis=false): ?string
     {
-        // Defence in depth: never draw unverified Telegram-caption selections
-        // beside an attached receipt, even when called outside the router.
-        $text=self::groundedText($text,$sourceImage);
+        // Defence in depth: a receipt may display only its verified image.
+        // Long-form prose extracted from the source tip is explicitly trusted
+        // as analysis; caption selections are never trusted as receipt legs.
+        $text=self::groundedText($text,$sourceImage,$trustedAnalysis);
         if(extension_loaded('gd') && function_exists('imagettftext')){
             try{
                 $path=self::renderWithGd($text,$sourceImage);
