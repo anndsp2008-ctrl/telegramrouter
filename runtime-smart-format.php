@@ -57,7 +57,7 @@ try {
     $section=<<<'HTML'
 <section class="treatment-block tmr-smart-format-choice" aria-labelledby="smart-format-title">
   <div class="treatment-title"><span id="smart-format-title">✦ Formatação inteligente com IA</span></div>
-  <p class="field-help">Opcional por regra. A interpretação e a tradução inteligentes usam o mesmo provedor definido na regra e, quando necessário, seu fallback configurado. Para gerar cards, o provedor deve aceitar interpretação por IA (Gemini ou Workers AI); Azure Translator e Google Cloud Translation, isoladamente, não interpretam comprovantes. Com a opção desligada, o encaminhamento atual permanece igual.</p>
+  <p class="field-help">Opcional por regra. A interpretação e a tradução inteligentes usam o mesmo provedor definido na regra e, quando necessário, seu fallback configurado. Para gerar cards, o provedor deve aceitar interpretação por IA (OpenAI, Gemini ou Workers AI); Google Cloud Translation, isoladamente, não interpreta comprovantes. Com a opção desligada, o encaminhamento atual permanece igual.</p>
   <div class="treatment-checks">
     <label><input type="checkbox" name="smart_format_enabled" <?=\App\SmartFormatting::settings((int)($editRule['id']??0))['enabled']?'checked':''?>> Ativar somente nesta regra</label>
   </div>
