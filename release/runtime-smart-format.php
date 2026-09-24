@@ -154,12 +154,12 @@ HTML;
                     // Mandatory-card rescue: structured extraction may fail while
                     // plain text translation still succeeds. Translate first,
                     // then build a deterministic card without inventing fields.
-                    $multipleDetected=SmartFormatting::multipleDetected();
                     // When a receipt image is present, never treat Telegram caption
                     // alternatives or AI-generated multiple_details as verified
                     // selections from the receipt. Keep the original receipt visual
                     // and use a neutral Portuguese fallback instead.
                     $receiptOnly=$sourceImage!==null&&is_file($sourceImage);
+                    $multipleDetected=!$receiptOnly && SmartFormatting::multipleDetected();
                     $multipleDetails=(!$receiptOnly&&$multipleDetected)
                         ?SmartFormatting::multipleDetails():'';
                     $contingencyText=\App\ContingencyCardRenderer::groundedText(
