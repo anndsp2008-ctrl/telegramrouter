@@ -1066,8 +1066,10 @@
 }
 
 
-/* OpenAI mobile card outer spacing parity */
-@media (max-width:640px){
+/* OpenAI mobile/tablet spacing parity with Gemini and Workers AI.
+   The original card inherits default saas-card padding in some layouts;
+   keep its outer box flush and use the same header/test insets as peers. */
+@media (max-width:1024px){
   body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card{
     box-sizing:border-box!important;
     margin:0!important;
