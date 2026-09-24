@@ -82,7 +82,7 @@ if(!is_array($meta)||($meta['mime']??'')!=='image/png'||($meta[0]??0)!==1080){
 
 $runtime=(string)file_get_contents(__DIR__.'/../runtime-smart-format.php');
 foreach([
-    "'context'=>'smart_card_contingency'",
+    "'smart_card_contingency'",
     "'smart_card_contingency_source_analysis'",
     'SmartFormatting::extractSourceAnalysis($text)',
     '$trustedAnalysis=$receiptOnly && $sourceAnalysis!==\'\'',
