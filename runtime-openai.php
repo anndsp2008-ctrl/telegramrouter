@@ -185,13 +185,13 @@ PHP;
   </div>
 <form method="post" class="provider-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="provider" value="openai"><div class="saas-form-grid">
 <label class="field-wide">API Key<span class="field-help"><?=$openaiKey?'Atual: '.sh(TranslationService::maskSecret($openaiKey)).'. Digite uma nova chave apenas para substituir.':'Informe uma API Key da OpenAI.'?></span><input name="openai_api_key" type="password" autocomplete="new-password" placeholder="<?=$openaiKey?'••••••••••••••••':'Cole a API Key da OpenAI'?>"></label>
-<label class="field-wide"><span>Ativar OpenAI</span><span class="field-help">Habilita este provedor para interpretação, tradução e geração dos cards.</span><input type="checkbox" name="openai_enabled" value="1" <?=$openaiEnabled?'checked':''?>></label>
+<label class="field-wide openai-toggle"><input type="checkbox" name="openai_enabled" value="1" <?=$openaiEnabled?'checked':''?>><span class="openai-toggle-copy"><b>Ativar OpenAI</b><small>Habilita este provedor para interpretação, tradução e geração dos cards.</small></span></label>
 <fieldset class="field-wide openai-models"><legend>Modelo principal</legend>
 <label><input type="radio" name="openai_model" value="gpt-5.6-luna" <?=$openaiModel==='gpt-5.6-luna'?'checked':''?>><span><b>GPT-5.6 Luna</b><small>Econômico · processamento rápido e menor custo.</small></span></label>
 <label><input type="radio" name="openai_model" value="gpt-5.6-terra" <?=$openaiModel==='gpt-5.6-terra'?'checked':''?>><span><b>GPT-5.6 Terra</b><small>Equilíbrio entre custo e interpretação de bilhetes complexos.</small></span></label>
 <label><input type="radio" name="openai_model" value="gpt-5.6-sol" <?=$openaiModel==='gpt-5.6-sol'?'checked':''?>><span><b>GPT-5.6 Sol</b><small>Modelo avançado para interpretação complexa.</small></span></label>
 </fieldset>
-<label class="field-wide"><input type="checkbox" name="openai_fallback_enabled" value="1" <?=$openaiFallbackEnabled?'checked':''?>> Ativar fallback automático</label>
+<label class="field-wide openai-toggle"><input type="checkbox" name="openai_fallback_enabled" value="1" <?=$openaiFallbackEnabled?'checked':''?>><span class="openai-toggle-copy"><b>Ativar fallback automático</b><small>Utiliza o modelo secundário caso o principal falhe.</small></span></label>
 <label class="field-wide">Modelo de fallback<span class="field-help">Usado somente se o modelo principal não concluir a solicitação.</span><select name="openai_fallback_model"><option value="gpt-5.6-luna" <?=$openaiFallbackModel==='gpt-5.6-luna'?'selected':''?>>GPT-5.6 Luna</option><option value="gpt-5.6-terra" <?=$openaiFallbackModel==='gpt-5.6-terra'?'selected':''?>>GPT-5.6 Terra</option><option value="gpt-5.6-sol" <?=$openaiFallbackModel==='gpt-5.6-sol'?'selected':''?>>GPT-5.6 Sol</option></select></label>
 </div><div class="provider-actions"><button class="saas-primary" name="action" value="save_translation_provider">Salvar</button><button class="saas-secondary" name="action" value="test_translation_provider">Testar conexão</button></div></form>
 <div class="provider-test <?=$openaiTest?((int)$openaiTest['last_test_ok']?'ok':'bad'):'neutral'?>"><b>Último teste</b><span><?=$openaiTest?(int)$openaiTest['last_test_ok']?'Conexão válida':'Falha':'Ainda não testado'?></span><small><?=$openaiTest?sh(dataHoraBrasil($openaiTest['last_test_at'])).' · '.(int)$openaiTest['last_test_latency_ms'].' ms':'—'?></small><?php if($openaiTest&&!$openaiTest['last_test_ok']&&!empty($openaiTest['last_test_error'])):?><em><?=sh($openaiTest['last_test_error'])?></em><?php endif;?></div>
@@ -218,50 +218,125 @@ HTML;
         );
         $css=str_replace('content:"AZ"!important','content:"AI"!important',$css);
 
-        if(!str_contains($css,'/* OpenAI provider controls */')){
+        // The release snapshot does not contain the OpenAI form controls.
+        // Reapply only their scoped styles after startup restores that snapshot.
+        if(!str_contains($css,'/* OpenAI form layout v2')){
             $css.=<<<'CSS'
 
-/* OpenAI provider controls */
-.openai-provider-card .openai-models{
-  border:1px solid rgba(148,163,184,.12);
-  border-radius:14px;
-  padding:14px;
-  margin:0;
-  min-width:0;
-}
-.openai-provider-card .openai-models legend{
-  padding:0 6px;
-  font-size:12px;
-  font-weight:700;
-  color:var(--saas-text,#e5eef8);
-}
-.openai-provider-card .openai-models>label{
-  display:flex!important;
-  align-items:flex-start!important;
-  gap:10px!important;
-  padding:10px 8px!important;
+/* OpenAI form layout v2 — scoped to this integration only */
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models{
+  display:block!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
   margin:0!important;
-  cursor:pointer;
+  padding:14px 16px!important;
+  border:1px solid rgba(148,163,184,.16)!important;
+  border-radius:14px!important;
 }
-.openai-provider-card .openai-models>label+label{
-  border-top:1px solid rgba(148,163,184,.08);
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models legend{
+  padding:0 7px!important;
+  color:#e5eef8!important;
+  font-size:13px!important;
+  font-weight:700!important;
 }
-.openai-provider-card .openai-models input[type="radio"]{
-  margin-top:3px!important;
-  flex:0 0 auto;
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle{
+  display:grid!important;
+  grid-template-columns:20px minmax(0,1fr)!important;
+  grid-auto-rows:auto!important;
+  align-items:start!important;
+  justify-items:stretch!important;
+  column-gap:12px!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:13px 4px!important;
+  box-sizing:border-box!important;
+  cursor:pointer!important;
+  text-align:left!important;
 }
-.openai-provider-card .openai-models span{
-  display:grid;
-  gap:3px;
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label + label{
+  border-top:1px solid rgba(148,163,184,.10)!important;
 }
-.openai-provider-card .openai-models b{font-size:14px}
-.openai-provider-card .openai-models small{
-  font-size:12px;
-  color:var(--saas-muted,#8da5b9);
-  line-height:1.45;
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > input[type="radio"],
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > input[type="checkbox"]{
+  appearance:auto!important;
+  display:block!important;
+  box-sizing:border-box!important;
+  width:18px!important;
+  min-width:18px!important;
+  max-width:18px!important;
+  height:18px!important;
+  min-height:18px!important;
+  max-height:18px!important;
+  padding:0!important;
+  margin:2px 0 0!important;
+  justify-self:start!important;
+  align-self:start!important;
+  flex:0 0 18px!important;
+  background:initial!important;
+  border:initial!important;
+  box-shadow:none!important;
+  accent-color:#3b82f6;
 }
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > span,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > .openai-toggle-copy{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:4px!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  text-align:left!important;
+  white-space:normal!important;
+  overflow-wrap:break-word!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > span > b,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > .openai-toggle-copy > b{
+  display:block!important;
+  margin:0!important;
+  color:#eaf2ff!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  line-height:1.4!important;
+  white-space:normal!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > span > small,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > .openai-toggle-copy > small{
+  display:block!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  color:rgba(203,213,225,.65)!important;
+  font-size:12px!important;
+  line-height:1.45!important;
+  white-space:normal!important;
+  overflow-wrap:break-word!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle{
+  border-radius:10px!important;
+  background:rgba(148,163,184,.035)!important;
+  padding:12px!important;
+}
+@media(max-width:640px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models{
+    padding:11px 12px!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label{
+    padding:12px 0!important;
+  }
+}
+
 CSS;
         }
+
     }
 
     // Fresh installs use OpenAI instead of Azure. Existing telemetry keeps the
