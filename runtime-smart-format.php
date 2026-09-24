@@ -244,7 +244,9 @@ HTML;
         }
         if($formatted!==null){
             $newText=SmartFormatting::normalizePublishedStakeText(
-                Transform::clean((string)$formatted['caption'],$rule,[])
+                \App\CardLayoutEmojis::clean(
+                    (string)$formatted['caption'],$rule,!empty($formatted['contingency'])
+                )
             );
             $output=$formatted['mode'];
             $card=$formatted['image'];
@@ -253,8 +255,8 @@ HTML;
                 try {
                     // Split only at the Telegram caption boundary; keep the entire analysis.
                     [$summary,$continuation]=$this->splitCaption($newText,[],1024);
-                    $footer=Transform::clean(SmartFormatting::signature(),$rule,[]);
-                    $continuationPrefix=Transform::clean("↪️ Continuação da mensagem:\n\n",$rule,[]);
+                    $footer=\App\CardLayoutEmojis::cleanSystemDecoration(SmartFormatting::signature(),$rule);
+                    $continuationPrefix=\App\CardLayoutEmojis::cleanSystemDecoration("↪️ Continuação da mensagem:\n\n",$rule);
                     if($continuation!==''){
                         $units=(int)(strlen(mb_convert_encoding($continuationPrefix.$continuation.$footer,'UTF-16LE','UTF-8'))/2);
                         if($units>4096){
@@ -316,7 +318,7 @@ HTML;
             }
             if($formatted!==null && ($output==='text' || $deliveryMedia===null)){
                 // Telegram's text cap is 4096 UTF-16 units. Do not truncate analysis.
-                $complete=$newText.Transform::clean(SmartFormatting::signature(),$rule,[]);
+                $complete=$newText.\App\CardLayoutEmojis::cleanSystemDecoration(SmartFormatting::signature(),$rule);
                 $units=(int)(strlen(mb_convert_encoding($complete,'UTF-16LE','UTF-8'))/2);
                 if($units<=4096){
                     $this->messages->sendMessage(peer:$peer,message:$complete,entities:[]);
