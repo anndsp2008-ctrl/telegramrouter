@@ -162,14 +162,47 @@ HTML;
                     $multipleDetected=!$receiptOnly && SmartFormatting::multipleDetected();
                     $multipleDetails=(!$receiptOnly&&$multipleDetected)
                         ?SmartFormatting::multipleDetails():'';
-                    $contingencyText=\App\ContingencyCardRenderer::groundedText(
-                        $multipleDetails!==''?$multipleDetails:$text,$sourceImage
-                    );
+                    $sourceAnalysis=SmartFormatting::extractSourceAnalysis($text);
+                    $translatedSourceAnalysis=$sourceAnalysis;
                     $contingencyTranslated=empty($rule['translation_enabled'])
                         || ($multipleDetails!=='' && SmartFormatting::multipleDetailsTranslated());
-                    // Visual receipt descriptions from AI already respect the
-                    // configured target language. Only translate the original
-                    // Telegram caption when there is no usable AI transcription.
+
+                    // Preserve author analysis independently from receipt extraction.
+                    // When translation is enabled, translate only that preserved prose;
+                    // never replace it with generated commentary.
+                    if($sourceAnalysis!=='' && !empty($rule['translation_enabled'])){
+                        $translationStarted=microtime(true);
+                        try {
+                            $analysisTranslation=Transform::translateDetailed($sourceAnalysis,$rule,[
+                                'rule_id'=>(int)($rule['id']??0),
+                                'context'=>'smart_card_source_analysis'
+                            ]);
+                            $translatedAnalysis=trim((string)($analysisTranslation['text']??''));
+                            if($translatedAnalysis!=='')$translatedSourceAnalysis=$translatedAnalysis;
+                            $contingencyTranslated=!empty($analysisTranslation['translated']);
+                            error_log('TMR_SMART_CARD_SOURCE_ANALYSIS_PRESERVED '.json_encode([
+                                'translated'=>$contingencyTranslated,
+                                'provider'=>(string)($analysisTranslation['provider']??'unknown')
+                            ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+                        } catch(\Throwable $translationError) {
+                            $translatedSourceAnalysis=$sourceAnalysis;
+                            error_log('TMR_SMART_CARD_SOURCE_ANALYSIS_TRANSLATION_FAILED '.json_encode([
+                                'exception'=>get_class($translationError)
+                            ]));
+                        } finally {
+                            $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
+                        }
+                    }
+
+                    $contingencyText=\App\ContingencyCardRenderer::groundedText(
+                        $multipleDetails!==''?$multipleDetails:$text,
+                        $sourceImage,
+                        $translatedSourceAnalysis
+                    );
+
+                    // Without a receipt, the entire original text may still need
+                    // translation. Receipt contingencies translate only preserved
+                    // analysis because selections remain grounded in the image.
                     if(!$receiptOnly && !empty($rule['translation_enabled'])
                         && $multipleDetails==='' && trim($text)!==''){
                         $translationStarted=microtime(true);
@@ -190,7 +223,10 @@ HTML;
                                 'exception'=>get_class($translationError)
                             ]));
                         } finally {
-                            $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
+                            $contingencyTranslationMs=max(
+                                $contingencyTranslationMs,
+                                max(0,(int)round((microtime(true)-$translationStarted)*1000))
+                            );
                         }
                     }
                     // Reapply the rule AFTER translation/AI fallback. Translators may
@@ -206,7 +242,9 @@ HTML;
                     ]));
                     try {
                         $contingencyRenderStarted=microtime(true);
-                        $contingencyCard=\App\ContingencyCardRenderer::render($contingencyText,$sourceImage);
+                        $contingencyCard=\App\ContingencyCardRenderer::render(
+                            $contingencyText,$sourceImage,$translatedSourceAnalysis
+                        );
                         $contingencyRenderMs=max(0,(int)round((microtime(true)-$contingencyRenderStarted)*1000));
                         if($contingencyCard!==null){
                             $formatted=[
