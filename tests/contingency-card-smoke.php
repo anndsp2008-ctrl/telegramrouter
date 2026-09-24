@@ -38,6 +38,15 @@ if($grounded===$inventedList||
 if(ContingencyCardRenderer::groundedText($inventedList,null)!==$inventedList){
     throw new RuntimeException('Text-only contingency was changed');
 }
+$trustedAnalysis='El partido será táctico porque ambos equipos defienden con bloques compactos y conceden pocas ocasiones claras.';
+if(ContingencyCardRenderer::groundedText($trustedAnalysis,$receiptFixture,true)!==$trustedAnalysis){
+    throw new RuntimeException('Verified source analysis was replaced by generic receipt copy');
+}
+$trustedAnalysisImage=ContingencyCardRenderer::render($trustedAnalysis,$receiptFixture,true);
+if($trustedAnalysisImage===null||!is_file($trustedAnalysisImage)){
+    throw new RuntimeException('Trusted source analysis did not render beside receipt');
+}
+@unlink($trustedAnalysisImage);
 $photoWithList=ContingencyCardRenderer::render($inventedList,$receiptFixture);
 $photoWithSafeText=ContingencyCardRenderer::render($grounded,$receiptFixture);
 if($photoWithList===null||$photoWithSafeText===null||
@@ -74,6 +83,10 @@ if(!is_array($meta)||($meta['mime']??'')!=='image/png'||($meta[0]??0)!==1080){
 $runtime=(string)file_get_contents(__DIR__.'/../runtime-smart-format.php');
 foreach([
     "'context'=>'smart_card_contingency'",
+    "'smart_card_contingency_source_analysis'",
+    'SmartFormatting::extractSourceAnalysis($text)',
+    '$trustedAnalysis=$receiptOnly && $sourceAnalysis!==\'\'',
+    'source_analysis_preserved',
     'ContingencyCardRenderer::render',
     'ContingencyCardRenderer::caption',
     'ai_vip_card_contingency',
