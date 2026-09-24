@@ -177,7 +177,7 @@ PHP;
         '<option value="openai" <?=$fallbackProvider===\'openai\'?\'selected\':\'\'?>>OpenAI GPT-5.6</option>',$index);
 
     $openaiCard=<<<'HTML'
-<section class="saas-card translation-provider-card openai-provider-card">
+<section class="saas-card translation-provider-card openai-provider-card" style="margin:0!important;padding:0!important;">
   <div class="provider-head">
     <div><span class="saas-kicker">OPENAI</span><h2>OpenAI GPT-5.6</h2>
       <p>Interpretação multimodal e tradução dos cards do Telegram Router.</p></div>
