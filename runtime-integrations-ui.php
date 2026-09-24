@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 
 require_once __DIR__.'/runtime-workers-ai.php';
+require_once __DIR__.'/runtime-openai.php';
 
 /*
  * Integrations UI v10.
