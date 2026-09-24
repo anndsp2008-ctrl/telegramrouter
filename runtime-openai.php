@@ -16,6 +16,7 @@ $files=[
     'translation'=>$root.'/app/TranslationService.php',
     'schema'=>$root.'/database/schema.sql',
 ];
+$cssPath=$root.'/assets/brand/integrations-v10.css';
 foreach($files as $label=>$path){
     if(!is_file($path)){
         fwrite(STDERR,'OPENAI_REPLACE_MISSING_'.strtoupper($label)."\n");
@@ -37,6 +38,7 @@ $index=(string)file_get_contents($files['index']);
 $repository=(string)file_get_contents($files['repository']);
 $translation=(string)file_get_contents($files['translation']);
 $schema=(string)file_get_contents($files['schema']);
+$css=is_file($cssPath)?(string)file_get_contents($cssPath):'';
 
 try{
     if(!str_contains($repository,"'openai'")){
@@ -175,7 +177,7 @@ PHP;
         '<option value="openai" <?=$fallbackProvider===\'openai\'?\'selected\':\'\'?>>OpenAI GPT-5.6</option>',$index);
 
     $openaiCard=<<<'HTML'
-<section class="saas-card translation-provider-card openai-provider-card"><div class="saas-card-head"><div><span class="saas-kicker">OPENAI</span><h2>OpenAI GPT-5.6</h2><p>Interpretação multimodal e tradução dos cards do Telegram Router.</p></div><span class="form-status <?=$openaiKey&&$openaiEnabled?'is-configured':'is-empty'?>"><i></i><?=$openaiKey&&$openaiEnabled?'Configurado':'Não configurado'?></span></div>
+<section class="saas-card translation-provider-card openai-provider-card"><div class="saas-card-head"><div><span class="saas-kicker">OPENAI</span><h2>OpenAI GPT-5.6</h2><p>Interpretação multimodal e tradução dos cards do Telegram Router.</p></div><span class="form-status provider-badge <?=$openaiKey&&$openaiEnabled?'is-configured':'is-empty'?>"><i></i><?=$openaiKey&&$openaiEnabled?'Configurado':'Não configurado'?></span></div>
 <form method="post" class="provider-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="provider" value="openai"><div class="saas-form-grid">
 <label class="field-wide">API Key<span class="field-help"><?=$openaiKey?'Atual: '.sh(TranslationService::maskSecret($openaiKey)).'. Digite uma nova chave apenas para substituir.':'Informe uma API Key da OpenAI.'?></span><input name="openai_api_key" type="password" autocomplete="new-password" placeholder="<?=$openaiKey?'••••••••••••••••':'Cole a API Key da OpenAI'?>"></label>
 <label class="field-wide"><span>Ativar OpenAI</span><span class="field-help">Habilita este provedor para interpretação, tradução e geração dos cards.</span><input type="checkbox" name="openai_enabled" value="1" <?=$openaiEnabled?'checked':''?>></label>
@@ -200,6 +202,63 @@ HTML;
         if(($cardCount??0)!==1)throw new RuntimeException('OPENAI_REPLACE_INDEX_CARD');
     }
 
+    // The base source archive may still contain the former Azure CSS selectors.
+    // Patch only that provider slot so OpenAI inherits exactly the same card
+    // grid, badge, icon and responsive behavior as the other integrations.
+    if($css!==''){
+        $css=str_replace(
+            '.translation-provider-grid>*:has(input[name="provider"][value="azure"])',
+            '.translation-provider-grid>*:has(input[name="provider"][value="openai"])',
+            $css
+        );
+        $css=str_replace('content:"AZ"!important','content:"AI"!important',$css);
+
+        if(!str_contains($css,'/* OpenAI provider controls */')){
+            $css.=<<<'CSS'
+
+/* OpenAI provider controls */
+.openai-provider-card .openai-models{
+  border:1px solid rgba(148,163,184,.12);
+  border-radius:14px;
+  padding:14px;
+  margin:0;
+  min-width:0;
+}
+.openai-provider-card .openai-models legend{
+  padding:0 6px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--saas-text,#e5eef8);
+}
+.openai-provider-card .openai-models>label{
+  display:flex!important;
+  align-items:flex-start!important;
+  gap:10px!important;
+  padding:10px 8px!important;
+  margin:0!important;
+  cursor:pointer;
+}
+.openai-provider-card .openai-models>label+label{
+  border-top:1px solid rgba(148,163,184,.08);
+}
+.openai-provider-card .openai-models input[type="radio"]{
+  margin-top:3px!important;
+  flex:0 0 auto;
+}
+.openai-provider-card .openai-models span{
+  display:grid;
+  gap:3px;
+}
+.openai-provider-card .openai-models b{font-size:14px}
+.openai-provider-card .openai-models small{
+  font-size:12px;
+  color:var(--saas-muted,#8da5b9);
+  line-height:1.45;
+}
+CSS;
+        }
+    }
+
     // Fresh installs use OpenAI instead of Azure. Existing telemetry keeps the
     // historical Azure enum value so old rows are never coerced or deleted.
     $schema=str_replace(
@@ -219,6 +278,7 @@ HTML;
         $files['translation']=>$translation,
         $files['schema']=>$schema,
     ];
+    if($css!=='')$candidates[$cssPath]=$css;
     $temps=[];
     foreach($candidates as $dest=>$body){
         $temp=$dest.'.openai-candidate';
