@@ -1051,3 +1051,46 @@ body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-pr
   content:none!important;
   display:none!important;
 }
+
+
+/* OpenAI provider controls */
+.openai-provider-card .openai-models{
+  border:1px solid rgba(148,163,184,.12);
+  border-radius:14px;
+  padding:14px;
+  margin:0;
+  min-width:0;
+}
+.openai-provider-card .openai-models legend{
+  padding:0 6px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--saas-text,#e5eef8);
+}
+.openai-provider-card .openai-models>label{
+  display:flex!important;
+  align-items:flex-start!important;
+  gap:10px!important;
+  padding:10px 8px!important;
+  margin:0!important;
+  cursor:pointer;
+}
+.openai-provider-card .openai-models>label+label{
+  border-top:1px solid rgba(148,163,184,.08);
+}
+.openai-provider-card .openai-models input[type="radio"]{
+  margin-top:3px!important;
+  flex:0 0 auto;
+}
+.openai-provider-card .openai-models span{
+  display:grid;
+  gap:3px;
+}
+.openai-provider-card .openai-models b{
+  font-size:14px;
+}
+.openai-provider-card .openai-models small{
+  font-size:12px;
+  color:var(--saas-muted,#8da5b9);
+  line-height:1.45;
+}
