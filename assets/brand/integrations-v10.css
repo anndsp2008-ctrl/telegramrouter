@@ -188,7 +188,7 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   transition:none!important;
   isolation:isolate!important;
 }
-.translation-provider-grid>*:has(input[name="provider"][value="azure"]){--provider-accent:#3b82f6}
+.translation-provider-grid>*:has(input[name="provider"][value="openai"]){--provider-accent:#3b82f6}
 .translation-provider-grid>*:has(input[name="provider"][value="gemini"]){--provider-accent:#8b5cf6}
 .translation-provider-grid>*:has(input[name="provider"][value="google_cloud"]){--provider-accent:#f59e0b}
 .translation-provider-grid>*:has(.provider-form input[name="provider"]):hover{
@@ -244,8 +244,8 @@ body:has(.translation-provider-grid) .integrations-section-heading p{
   letter-spacing:.05em!important;
   line-height:1!important;
 }
-.translation-provider-grid>*:has(input[name="provider"][value="azure"])>.provider-head::before,
-.translation-provider-grid>*:has(input[name="provider"][value="azure"])>.saas-card-head::before{content:"AZ"!important}
+.translation-provider-grid>*:has(input[name="provider"][value="openai"])>.provider-head::before,
+.translation-provider-grid>*:has(input[name="provider"][value="openai"])>.saas-card-head::before{content:"AI"!important}
 .translation-provider-grid>*:has(input[name="provider"][value="gemini"])>.provider-head::before,
 .translation-provider-grid>*:has(input[name="provider"][value="gemini"])>.saas-card-head::before{content:"GM"!important}
 .translation-provider-grid>*:has(input[name="provider"][value="google_cloud"])>.provider-head::before,
