@@ -129,7 +129,7 @@ PHP;
     // to the former Azure slot.
     if(!str_contains($index,"\$provider==='openai'")){
         $index=preg_replace(
-            "~if\\s*\\(\\s*\\$provider\\s*===\\s*'azure'\\s*\\)\\s*\\{.*?\\}\\s*elseif\\s*\\(\\s*\\$provider\\s*===\\s*'gemini'\\s*\\)\\s*\\{~s",
+            '~if\s*\(\s*\$provider\s*===\s*\'azure\'\s*\)\s*\{.*?\}\s*elseif\s*\(\s*\$provider\s*===\s*\'gemini\'\s*\)\s*\{~s',
             "if(\$provider==='openai'){\n".
             "                \$newKey=trim((string)(\$_POST['openai_api_key']??''));\n".
             "                \$enabled=isset(\$_POST['openai_enabled'])?'1':'0';\n".
@@ -150,7 +150,7 @@ PHP;
         if(($saveCount??0)!==1)throw new RuntimeException('OPENAI_REPLACE_INDEX_SAVE');
 
         $index=preg_replace(
-            "~if\(\$provider==='azure'\)\{.*?\} elseif\(\$provider==='gemini'\)\{~s",
+            '~if\s*\(\s*\$provider\s*===\s*\'azure\'\s*\)\s*\{.*?\}\s*elseif\s*\(\s*\$provider\s*===\s*\'gemini\'\s*\)\s*\{~s',
             "if(\$provider==='openai'){\n".
             "                foreach(['openai_api_key','openai_model'] as \$field){\$value=trim((string)(\$_POST[\$field]??''));if(\$value!=='')\$overrides[\$field]=\$value;}\n".
             "            } elseif(\$provider==='gemini'){",
