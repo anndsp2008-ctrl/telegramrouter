@@ -71,9 +71,9 @@ namespace {
         throw new \RuntimeException('Gemini HTTP 429 is still retried immediately');
     }
     echo "SMART_TEXT_8B_TIMEOUT_AND_429_TESTS_PASSED\n";
-    // The image-only failing case (non-JSON primary, incomplete Scout)
-    // must attempt a SAME-CLOUDFLARE text structuring pass only when the
-    // Vision outputs contain usable observations. No new provider or raw send.
+    // Images whose Vision outputs cannot produce complete, trustworthy
+    // structured fields must fall back to the original receipt card.
+    // Text-only inference must not fabricate an unrelated match.
 
     if(!str_contains($source,'$maxLogicalAttempts=in_array($provider,[\'workers_ai\',\'gemini\'],true)?2:1') ||
        !str_contains($source,'for($logicalAttempt=1;$logicalAttempt<=$maxLogicalAttempts;$logicalAttempt++)') ||
@@ -81,16 +81,18 @@ namespace {
        !str_contains($source,'SMART_PROVIDER_RETRY_')){
         throw new \RuntimeException('Configured generative providers do not receive two logical card attempts');
     }
-    if(!str_contains($source,'WORKERS_AI_TEXT_RESCUE_STARTED')||
-       !str_contains($source,'WORKERS_AI_TEXT_RESCUE_SUCCEEDED')||
-       !str_contains($source,'WORKERS_AI_TEXT_RESCUE_FAILED')||
-       !str_contains($source,'$visionEvidence!==\'\'')||
-       !str_contains($source,'$forcedTextModel')||
-       !str_contains($source,"WorkersAITranslation::PREVIOUS_DEFAULT_MODEL,'',\$deadlineAt);")||
-       !str_contains($transport,'collectVisualEvidence($result,$visualEvidence)')||
-       !str_contains($transport,"'evidence'=>")||
-       !str_contains($transport,'reply(false,$reason,null,$visualEvidence')){
-        throw new \RuntimeException('Same-account Vision evidence rescue not wired');
+    if(!str_contains($source,'WORKERS_AI_IMAGE_TEXT_RESCUE_UNVERIFIED_BLOCKED')||
+       str_contains($source,'WORKERS_AI_TEXT_RESCUE_SUCCEEDED')||
+       str_contains($source,'$recovered=self::requestWorkers($evidencePrompt,null')||
+       !str_contains($transport,'collectVisualEvidence($result,$visualEvidence)')){
+        throw new \RuntimeException('Unverified photo evidence may still produce an invented text-rescue card');
+    }
+    $runtime=(string)file_get_contents(__DIR__.'/../runtime-smart-format.php');
+    $contingency=(string)file_get_contents(__DIR__.'/../app/ContingencyCardRenderer.php');
+    if(!str_contains($runtime,'ContingencyCardRenderer::render(')||
+       !str_contains($runtime,'$contingencyText,$sourceImage,$translatedSourceAnalysis')||
+       !str_contains($contingency,'self::renderWithGd($text,$sourceImage)')){
+        throw new \RuntimeException('Photo failure does not preserve the original receipt in contingency');
     }
     if(!str_contains($source,'WORKERS_LOGICAL_BUDGET_SECONDS=75.0')||
        !str_contains($source,"'budget_ms'=>min(75000,\$budgetMs)")||
@@ -102,7 +104,7 @@ namespace {
         throw new \RuntimeException('Workers logical wall-clock budget is not enforced end to end');
     }
     echo "WORKERS_AI_LOGICAL_BUDGET_TESTS_PASSED\n";
-    echo "WORKERS_AI_VISION_EVIDENCE_TEXT_RESCUE_TESTS_PASSED\n";
+    echo "WORKERS_AI_IMAGE_FAIL_CLOSED_TESTS_PASSED\n";
     echo "WORKERS_AI_VISION_RESCUE_TESTS_PASSED\n";
     echo "SMART_PROVIDER_PRIMARY_FALLBACK_TESTS_PASSED\n";
 }
