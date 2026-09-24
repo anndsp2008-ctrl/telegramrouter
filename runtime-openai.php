@@ -159,8 +159,8 @@ PHP;
         if(($testCount??0)!==1)throw new RuntimeException('OPENAI_REPLACE_INDEX_TEST');
     }
 
-    $oldVars="$azureKey=Repository::integration('azure_translator_api_key');\n$azureRegion=Repository::integration('azure_translator_region');\n$azureEndpoint=Repository::integration('azure_translator_endpoint')?:'https://api.cognitive.microsofttranslator.com';";
-    $newVars="$openaiKey=\\App\\OpenAIProvider::apiKey();\n$openaiEnabled=\\App\\OpenAIProvider::enabled();\n$openaiModel=\\App\\OpenAIProvider::primaryModel();\n$openaiFallbackEnabled=\\App\\OpenAIProvider::fallbackEnabled();\n$openaiFallbackModel=\\App\\OpenAIProvider::fallbackModel();";
+    $oldVars="\$azureKey=Repository::integration('azure_translator_api_key');\n\$azureRegion=Repository::integration('azure_translator_region');\n\$azureEndpoint=Repository::integration('azure_translator_endpoint')?:'https://api.cognitive.microsofttranslator.com';";
+    $newVars="\$openaiKey=\\App\\OpenAIProvider::apiKey();\n\$openaiEnabled=\\App\\OpenAIProvider::enabled();\n\$openaiModel=\\App\\OpenAIProvider::primaryModel();\n\$openaiFallbackEnabled=\\App\\OpenAIProvider::fallbackEnabled();\n\$openaiFallbackModel=\\App\\OpenAIProvider::fallbackModel();";
     if(str_contains($index,$oldVars))$index=str_replace($oldVars,$newVars,$index);
 
     $index=str_replace("\$azureStats=Repository::translationProviderStats('azure');","\$openaiStats=Repository::translationProviderStats('openai');",$index);
