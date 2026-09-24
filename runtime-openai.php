@@ -86,12 +86,14 @@ try{
     {
         $overrides=(array)($context['overrides']??[]);
         $key=trim((string)($overrides['openai_api_key']??OpenAIProvider::apiKey()));
-        $model=trim((string)($overrides['openai_model']??OpenAIProvider::primaryModel()));
+        $modelOverride=array_key_exists('openai_model',$overrides)
+            ?trim((string)$overrides['openai_model'])
+            :null;
         if($key==='') throw self::failure('openai',0,null,$target,'OpenAI não configurada: informe a API Key no módulo Integrações.',$fallback);
-        if(!OpenAIProvider::validModel($model)) throw self::failure('openai',0,null,$target,'Modelo OpenAI inválido.',$fallback);
+        if($modelOverride!==null && !OpenAIProvider::validModel($modelOverride)) throw self::failure('openai',0,null,$target,'Modelo OpenAI inválido.',$fallback);
         if(!OpenAIProvider::enabled() && empty($overrides)) throw self::failure('openai',0,null,$target,'OpenAI está desativada no módulo Integrações.',$fallback);
 
-        $result=OpenAIProvider::translate($text,$target,$key,$model);
+        $result=OpenAIProvider::translate($text,$target,$key,$modelOverride);
         $latency=(int)($result['latency_ms']??0);
         $http=isset($result['http_code'])?(int)$result['http_code']:null;
         if(empty($result['ok'])){
