@@ -172,10 +172,37 @@ function tipResponseStatus(string $response,bool $hasImage=false): string {
             return 'OK';
         }
     }
+    $missing=[];
     foreach(['match','market','selection'] as $key){
         if(!isset($result[$key])||!is_scalar($result[$key])||trim((string)$result[$key])===''){
-            return 'RESPONSE_MISSING_REQUIRED_FIELDS';
+            $missing[]=$key;
         }
+    }
+    if($missing!==[]){
+        // Let the parent perform deterministic recovery ONLY when the attached
+        // receipt supplied explicit visual evidence. Never invent a missing match.
+        if($hasImage){
+            $match=isset($result['match'])&&is_scalar($result['match'])
+                ?trim((string)$result['match']):'';
+            $market=isset($result['market'])&&is_scalar($result['market'])
+                ?trim((string)$result['market']):'';
+            $selection=isset($result['selection'])&&is_scalar($result['selection'])
+                ?trim((string)$result['selection']):'';
+            $visualMarket=isset($result['visual_market_evidence'])&&is_scalar($result['visual_market_evidence'])
+                ?trim((string)$result['visual_market_evidence']):'';
+            $visualSelection=isset($result['visual_selection_evidence'])&&is_scalar($result['visual_selection_evidence'])
+                ?trim((string)$result['visual_selection_evidence']):'';
+            $recoverable=$match!=='' &&
+                (($selection!=='' && ($visualMarket!==''||$visualSelection!==''))
+                 || ($visualSelection!=='' && ($market!==''||$visualMarket!=='')));
+            if($recoverable){
+                foreach($result as $value){
+                    if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
+                }
+                return 'OK';
+            }
+        }
+        return 'RESPONSE_MISSING_REQUIRED_FIELDS';
     }
     foreach($result as $value){
         if(!is_scalar($value)&&$value!==null)return 'RESPONSE_BAD_FIELD_TYPES';
@@ -213,6 +240,19 @@ if(getenv('SMART_WORKERS_JSON_TEST')==='1'){
     $stringArgs=['response'=>null,'tool_calls'=>[['arguments'=>$json]]];
     if(parsedVisionBet($stringArgs)!==$base)
         throw new RuntimeException('String-encoded Vision data was ignored');
+    $recoverableImagePartial=[
+        'match'=>'Portugal (F) x País de Gales (F)',
+        'market'=>'',
+        'selection'=>'Menos de 3.5 Goles',
+        'visual_market_evidence'=>'Portugal - Gales - Total de goles - Más/menos de 3,5',
+        'visual_selection_evidence'=>'Menos de 3.5 Goles'
+    ];
+    $recoverableImageJson=json_encode($recoverableImagePartial,JSON_UNESCAPED_UNICODE);
+    if(!is_string($recoverableImageJson)||tipResponseStatus($recoverableImageJson,true)!=='OK')
+        throw new RuntimeException('Recoverable visual partial was rejected');
+    if(tipResponseStatus($recoverableImageJson,false)==='OK')
+        throw new RuntimeException('Text-only partial bypassed required-field validation');
+
     $visualMulti=[
         'visual_bet_kind'=>'bet_builder',
         'visual_selections_count'=>'2',
