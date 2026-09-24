@@ -455,6 +455,11 @@ final class SmartFormatting
                     continue;
                 }
                 $localized=self::enforcePortugueseOutput($candidate,$rule,$translate);
+                if($localized!==null){
+                    $localized=self::preserveSourceAnalysisOutput(
+                        $localized,$sourceAnalysis,$rule,$translate
+                    );
+                }
                 if($localized===null){
                     self::recordProviderAttempt(
                         $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
@@ -621,6 +626,50 @@ final class SmartFormatting
      * concatenated payload, which could swap a market, selection or analysis.
      * An unverifiable translation rejects this AI attempt, not the bet fields.
      */
+    /**
+     * Source analysis has priority over generated commentary.
+     * If the model failed to translate it, translate the preserved source prose
+     * directly using the rule's configured provider/fallback.
+     */
+    private static function preserveSourceAnalysisOutput(
+        array $bet,
+        string $sourceAnalysis,
+        array $rule,
+        bool $translate
+    ): ?array {
+        if($sourceAnalysis==='')return $bet;
+        $analysis=trim((string)($bet['analysis']??''));
+
+        if(!$translate){
+            $bet['analysis']=self::sanitizeAnalysis($sourceAnalysis);
+            return $bet;
+        }
+
+        // Accept the model result only when it is clearly localized already.
+        if($analysis!=='' && !self::hasForeignPortugueseCues($analysis)){
+            $bet['analysis']=self::sanitizeAnalysis($analysis);
+            return $bet;
+        }
+
+        try {
+            $result=Transform::translateDetailed($sourceAnalysis,$rule,[
+                'rule_id'=>(int)($rule['id']??0),
+                'context'=>'smart_card_source_analysis_final'
+            ]);
+            $translated=trim((string)($result['text']??''));
+        } catch(\Throwable $error){
+            self::diag('SOURCE_ANALYSIS_TRANSLATION_ERROR');
+            return null;
+        }
+
+        if($translated==='' || self::hasForeignPortugueseCues($translated)){
+            self::diag('SOURCE_ANALYSIS_TRANSLATION_INCOMPLETE');
+            return null;
+        }
+        $bet['analysis']=self::sanitizeAnalysis($translated);
+        return $bet;
+    }
+
     private static function enforcePortugueseOutput(array $bet,array $rule,bool $translate): ?array
     {
         if(!$translate)return $bet;
