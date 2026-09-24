@@ -336,7 +336,7 @@ final class SmartFormatting
         $analysisPolicy=$sourceAnalysis!==''
             ?'A mensagem original JÁ CONTÉM análise do autor. No campo analysis, preserve exclusivamente essa análise: apenas traduza fielmente quando solicitado, sem resumir, expandir, reinterpretar ou criar nova análise. '
             :'A mensagem original NÃO CONTÉM análise do autor. Somente neste caso, gere uma análise esportiva curta baseada exclusivamente nos fatos explícitos disponíveis, sem inventar estatísticas, contexto ou probabilidades. ';
-        $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis. ':'Use o idioma da mensagem original. Não traduza. ';
+        $inputLanguage=$translate?'TODOS os campos textuais da resposta, inclusive sport, match, league, market, selection e analysis, DEVEM estar inteiramente no idioma '.$target.'. Traduza também os nomes dos mercados, as seleções e a análise do autor, sem reescrever ou resumir essa análise. Nunca copie frases em espanhol ou inglês na resposta em português. Preserve exatamente somente nomes próprios, odds, números e fatos do comprovante. Não inclua versões no idioma original, nem duplique a mensagem. ':'Use o idioma da mensagem original. Não traduza. ';
         $inputLanguage.=$analysisPolicy;
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
             'bet_kind','selections_count','multiple_details',
@@ -452,6 +452,17 @@ final class SmartFormatting
                     }
                     continue;
                 }
+                $localized=self::enforcePortugueseOutput($candidate,$rule,$translate);
+                if($localized===null){
+                    self::recordProviderAttempt(
+                        $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
+                    if($logicalAttempt<$maxLogicalAttempts){
+                        self::diag('SMART_PROVIDER_RETRY_'.$provider);
+                        usleep(350000);
+                    }
+                    continue;
+                }
+                $candidate=$localized;
                 self::recordProviderAttempt(
                     $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
                 $bet=self::sentenceCaseBet($candidate);
@@ -588,6 +599,76 @@ final class SmartFormatting
      * Visual card prose never contains emoji, regardless of per-rule message
      * settings. Applies only to analysis/details drawn inside PNG cards.
      */
+    /**
+     * Card translation is requested from the model but must also be checked
+     * before publication. This deliberately detects only clear foreign-language
+     * cues: proper names and language-neutral betting words remain unchanged.
+     */
+    public static function hasForeignPortugueseCues(string $text): bool
+    {
+        if(trim($text)==='')return false;
+        return preg_match(
+            '~\\b(?:el\\s+(?:partido|encuentro|equipo)|los\\s+(?:equipos|partidos)|'.
+            'las\\s+(?:equipos|apuestas)|pueden?|plantear|apuestas?|apuesta|'.
+            'encuentro|saque\\s+de\\s+esquina|equipos|'.
+            'the\\s+(?:match|game|team|teams)|both\\s+teams|'.
+            'corners?|goals?|under|over|handicap\\s+asi[aá]tico|'.
+            'match\\s+winner|double\\s+chance)\\b~iu',
+            $text
+        )===1;
+    }
+
+    /**
+     * One field at a time: translation services may alter delimiters in a
+     * concatenated payload, which could swap a market, selection or analysis.
+     * An unverifiable translation rejects this AI attempt, not the bet fields.
+     */
+    private static function enforcePortugueseOutput(array $bet,array $rule,bool $translate): ?array
+    {
+        if(!$translate)return $bet;
+        $target=mb_strtolower(trim((string)($rule['translation_target_language']??'pt-BR')),'UTF-8');
+        if(!in_array($target,['pt','pt-br','pt_br','portuguese','português'],true))return $bet;
+
+        foreach(['sport','league','market','selection','analysis'] as $field){
+            $original=trim((string)($bet[$field]??''));
+            if($original==='' || !self::hasForeignPortugueseCues($original))continue;
+
+            // A bare market category needs no generative translation.
+            if($field==='market' && preg_match('/^corners?$/iu',$original)===1){
+                $bet[$field]='Escanteios';
+                continue;
+            }
+            if($field==='market' && preg_match('/^goals?$/iu',$original)===1){
+                $bet[$field]='Gols';
+                continue;
+            }
+
+            try {
+                $result=Transform::translateDetailed($original,$rule,[
+                    'rule_id'=>(int)($rule['id']??0),
+                    'context'=>'smart_card_portuguese_'.$field
+                ]);
+                $value=trim((string)($result['text']??''));
+            } catch(\\Throwable $error){
+                self::diag('PORTUGUESE_TRANSLATION_ERROR_'.strtoupper($field));
+                return null;
+            }
+            if($value==='' || self::hasForeignPortugueseCues($value)){
+                self::diag('PORTUGUESE_TRANSLATION_INCOMPLETE_'.strtoupper($field));
+                return null;
+            }
+            $bet[$field]=$value;
+        }
+
+        // Decimal separators in translated market selections follow pt-BR.
+        foreach(['market','selection'] as $field){
+            $value=(string)($bet[$field]??'');
+            $localized=preg_replace('/(?<=\\d)\\.(?=\\d)/u',',',$value);
+            if(is_string($localized))$bet[$field]=$localized;
+        }
+        return $bet;
+    }
+
     public static function stripCardEmojis(string $text): string
     {
         $clean=preg_replace(
@@ -908,7 +989,7 @@ final class SmartFormatting
             "É PROIBIDO usar horário, data, relógio, hora de emissão do bilhete, horário da mensagem do Telegram, fuso horário ou comparação com a hora atual para decidir AO VIVO. ".
             "Também não use status do bilhete como aberto/en curso/pendente como prova de partida ao vivo. Sem evidência explícita de jogo em andamento, status e live_evidence devem ficar vazios ou indicar pré-jogo sem AO VIVO. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
-            "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
+            "Traduza integralmente sport, league, market, selection e analysis quando solicitado. Não deixe Corners, Under, Over, El partido ou quaisquer frases de análise no idioma original quando o idioma alvo for português. Preserve nomes próprios, números e odds. Jamais repita o original separadamente. ".
             $language." ".($memoryExamples!==''?$memoryExamples:'')." TEXTO ORIGINAL:\n".$text;
         $photo=null;
         if($hasImage){
@@ -1047,7 +1128,7 @@ final class SmartFormatting
             "Se houver análise na origem, preserve o conteúdo do autor e apenas traduza fielmente quando solicitado, sem resumir ou acrescentar argumentos. ".
             "Se não houver análise na origem, somente então gere análise esportiva curta baseada nos fatos explícitos disponíveis. ".
             "Não reproduza stake original, unidades, quantia apostada, banca, retorno financeiro, lucro ou valores monetários no campo analysis. ".
-            "Não mencione o nome do roteador no JSON. ".$language." ".
+            "No idioma alvo português, traduza também mercado, seleção e TODA a análise; não mantenha Corners, Under, Over, El partido ou frases do idioma original. Preserve apenas nomes próprios, odds e números. Não mencione o nome do roteador no JSON. ".$language." ".
             ($memoryExamples!==''?$memoryExamples:'').
             "TEXTO ORIGINAL:\n".$text;
         $parts=[['text'=>$prompt]];
