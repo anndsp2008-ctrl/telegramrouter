@@ -1053,44 +1053,113 @@ body:has(.translation-provider-grid) .translation-provider-grid > .workers-ai-pr
 }
 
 
-/* OpenAI provider controls */
-.openai-provider-card .openai-models{
-  border:1px solid rgba(148,163,184,.12);
-  border-radius:14px;
-  padding:14px;
-  margin:0;
-  min-width:0;
-}
-.openai-provider-card .openai-models legend{
-  padding:0 6px;
-  font-size:12px;
-  font-weight:700;
-  color:var(--saas-text,#e5eef8);
-}
-.openai-provider-card .openai-models>label{
-  display:flex!important;
-  align-items:flex-start!important;
-  gap:10px!important;
-  padding:10px 8px!important;
+/* OpenAI form layout v2 — scoped to this integration only */
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models{
+  display:block!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
   margin:0!important;
-  cursor:pointer;
+  padding:14px 16px!important;
+  border:1px solid rgba(148,163,184,.16)!important;
+  border-radius:14px!important;
 }
-.openai-provider-card .openai-models>label+label{
-  border-top:1px solid rgba(148,163,184,.08);
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models legend{
+  padding:0 7px!important;
+  color:#e5eef8!important;
+  font-size:13px!important;
+  font-weight:700!important;
 }
-.openai-provider-card .openai-models input[type="radio"]{
-  margin-top:3px!important;
-  flex:0 0 auto;
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle{
+  display:grid!important;
+  grid-template-columns:20px minmax(0,1fr)!important;
+  grid-auto-rows:auto!important;
+  align-items:start!important;
+  justify-items:stretch!important;
+  column-gap:12px!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:13px 4px!important;
+  box-sizing:border-box!important;
+  cursor:pointer!important;
+  text-align:left!important;
 }
-.openai-provider-card .openai-models span{
-  display:grid;
-  gap:3px;
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label + label{
+  border-top:1px solid rgba(148,163,184,.10)!important;
 }
-.openai-provider-card .openai-models b{
-  font-size:14px;
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > input[type="radio"],
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > input[type="checkbox"]{
+  appearance:auto!important;
+  display:block!important;
+  box-sizing:border-box!important;
+  width:18px!important;
+  min-width:18px!important;
+  max-width:18px!important;
+  height:18px!important;
+  min-height:18px!important;
+  max-height:18px!important;
+  padding:0!important;
+  margin:2px 0 0!important;
+  justify-self:start!important;
+  align-self:start!important;
+  flex:0 0 18px!important;
+  background:initial!important;
+  border:initial!important;
+  box-shadow:none!important;
+  accent-color:#3b82f6;
 }
-.openai-provider-card .openai-models small{
-  font-size:12px;
-  color:var(--saas-muted,#8da5b9);
-  line-height:1.45;
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > span,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > .openai-toggle-copy{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:4px!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  text-align:left!important;
+  white-space:normal!important;
+  overflow-wrap:break-word!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > span > b,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > .openai-toggle-copy > b{
+  display:block!important;
+  margin:0!important;
+  color:#eaf2ff!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  line-height:1.4!important;
+  white-space:normal!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label > span > small,
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle > .openai-toggle-copy > small{
+  display:block!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  margin:0!important;
+  color:rgba(203,213,225,.65)!important;
+  font-size:12px!important;
+  line-height:1.45!important;
+  white-space:normal!important;
+  overflow-wrap:break-word!important;
+}
+body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-toggle{
+  border-radius:10px!important;
+  background:rgba(148,163,184,.035)!important;
+  padding:12px!important;
+}
+@media(max-width:640px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models{
+    padding:11px 12px!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card .provider-form .openai-models > label{
+    padding:12px 0!important;
+  }
 }
