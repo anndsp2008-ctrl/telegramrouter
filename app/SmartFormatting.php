@@ -332,7 +332,12 @@ final class SmartFormatting
         if(trim($sourceText)===''&&!$hasImage){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
-        $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
+        $sourceAnalysis=self::extractSourceAnalysis($sourceText);
+        $analysisPolicy=$sourceAnalysis!==''
+            ?'A mensagem original JÁ CONTÉM análise do autor. No campo analysis, preserve exclusivamente essa análise: apenas traduza fielmente quando solicitado, sem resumir, expandir, reinterpretar ou criar nova análise. '
+            :'A mensagem original NÃO CONTÉM análise do autor. Somente neste caso, gere uma análise esportiva curta baseada exclusivamente nos fatos explícitos disponíveis, sem inventar estatísticas, contexto ou probabilidades. ';
+        $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis. ':'Use o idioma da mensagem original. Não traduza. ';
+        $inputLanguage.=$analysisPolicy;
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
             'bet_kind','selections_count','multiple_details',
             'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details',
@@ -437,8 +442,8 @@ final class SmartFormatting
                     }
                     continue;
                 }
-                if($candidate['analysis']==='' && self::sourceHasAnalysis($sourceText)){
-                    self::diag('ANALYSIS_ABSENT_'.$provider);
+                if($sourceAnalysis!=='' && $candidate['analysis']===''){
+                    self::diag('SOURCE_ANALYSIS_NOT_PRESERVED_'.$provider);
                     self::recordProviderAttempt(
                         $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
                     if($logicalAttempt<$maxLogicalAttempts){
@@ -808,6 +813,56 @@ final class SmartFormatting
         $analytical=preg_match('/\b(?:porque|devido|tend[eê]ncia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia)\b/iu',$joined)===1;
         return $words>=20 && ($sentences>=2 || $analytical);
     }
+
+    /**
+     * Extract only author analysis/prose already present in the source message.
+     * This is used to preserve source analysis independently from AI extraction
+     * and from receipt-only contingency cards.
+     */
+    public static function extractSourceAnalysis(string $text): string
+    {
+        $plain=trim(preg_replace('/https?:\/\/\S+/iu',' ',strip_tags($text))??$text);
+        if($plain==='')return '';
+
+        $lines=preg_split('/\R+/u',$plain)?:[$plain];
+        $fieldLine='~^(?:odd|odds|mercado|market|sele[cç][aã]o|selection|pick|stake|aposta|bet|retorno|return|bookmaker|casa\s+de\s+apostas|liga|league|hor[aá]rio|time|jogo|match|partida|evento|event|esporte|sport)\s*[:\-]~iu';
+        $analysisHeading='~^(?:an[aá]lise|analysis|an[aá]lisis|coment[aá]rio|commentary|justificativa|motivo|raz[aã]o|reason|explica[cç][aã]o|explicaci[oó]n)\s*[:\-]?\s*(.*)$~iu';
+
+        $capturing=false;
+        $explicit=[];
+        foreach($lines as $line){
+            $line=trim($line);
+            if($line==='')continue;
+            if(preg_match($analysisHeading,$line,$m)===1){
+                $capturing=true;
+                $tail=trim((string)($m[1]??''));
+                if($tail!=='')$explicit[]=$tail;
+                continue;
+            }
+            if($capturing){
+                if(preg_match($fieldLine,$line)===1)break;
+                $explicit[]=$line;
+            }
+        }
+        if($explicit!==[]){
+            return trim(self::sanitizeAnalysis(implode("\n",$explicit)));
+        }
+
+        if(!self::sourceHasAnalysis($plain))return '';
+
+        $prose=[];
+        foreach($lines as $line){
+            $line=trim($line);
+            if($line===''||preg_match($fieldLine,$line)===1)continue;
+            if(preg_match('/^(?:\p{So}|\p{Sk}|\p{S}|\d|[\-–—:;,.])+$/u',$line))continue;
+            $analytical=preg_match(
+                '/\b(?:porque|devido|tend[eê]ncia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia|racha|promedio|media|average|recent|forma|rendimiento|defensa|ataque)\b/iu',
+                $line
+            )===1;
+            if(mb_strlen($line,'UTF-8')>=70 || $analytical)$prose[]=$line;
+        }
+        return trim(self::sanitizeAnalysis(implode("\n",$prose)));
+    }
     /**
      * Workers AI may use a text model for text-only tips; when a receipt image
      * is attached a separate Cloudflare vision model must inspect its contents.
@@ -848,7 +903,7 @@ final class SmartFormatting
             "Os campos finais market e selection, porém, DEVEM obedecer ao idioma solicitado. Se o idioma alvo for pt-BR, traduza os rótulos do comprovante para português brasileiro mantendo nomes próprios, números e odds. ".
             "SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). ".
             "Nunca troque Mercado e Seleção. Se o comprovante trouxer rótulos próprios, respeite a relação mostrada; se houver dúvida real, deixe o campo duvidoso vazio em vez de adivinhar. ".
-            "No campo analysis, preserve apenas a análise esportiva; omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
+            "No campo analysis, siga obrigatoriamente a política de análise informada acima. Preserve análise existente e só crie análise quando a origem não tiver nenhuma. Omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
             "Para status AO VIVO, o campo live_evidence deve copiar uma evidência textual/visual explícita de que A PARTIDA está em andamento (ex.: LIVE, IN-PLAY, AO VIVO, EN VIVO, MATCH IN PROGRESS). ".
             "É PROIBIDO usar horário, data, relógio, hora de emissão do bilhete, horário da mensagem do Telegram, fuso horário ou comparação com a hora atual para decidir AO VIVO. ".
             "Também não use status do bilhete como aberto/en curso/pendente como prova de partida ao vivo. Sem evidência explícita de jogo em andamento, status e live_evidence devem ficar vazios ou indicar pré-jogo sem AO VIVO. ".
@@ -988,10 +1043,10 @@ final class SmartFormatting
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
             "Odd é cotação, não probabilidade: não invente porcentagens de acerto nem prometa resultado vencedor. ".
-            "O campo analysis deve conter exclusivamente a análise esportiva relevante do autor, ".
-            "sem resumir fatos esportivos, sem publicidade, links ou dados inventados. ".
+            "O campo analysis deve seguir obrigatoriamente a política de análise informada acima. ".
+            "Se houver análise na origem, preserve o conteúdo do autor e apenas traduza fielmente quando solicitado, sem resumir ou acrescentar argumentos. ".
+            "Se não houver análise na origem, somente então gere análise esportiva curta baseada nos fatos explícitos disponíveis. ".
             "Não reproduza stake original, unidades, quantia apostada, banca, retorno financeiro, lucro ou valores monetários no campo analysis. ".
-            "Omitir analysis é permitido SOMENTE quando não há análise de fato. ".
             "Não mencione o nome do roteador no JSON. ".$language." ".
             ($memoryExamples!==''?$memoryExamples:'').
             "TEXTO ORIGINAL:\n".$text;
