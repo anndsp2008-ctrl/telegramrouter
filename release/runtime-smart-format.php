@@ -162,9 +162,9 @@ HTML;
                     $receiptOnly=$sourceImage!==null&&is_file($sourceImage);
                     $multipleDetails=(!$receiptOnly&&$multipleDetected)
                         ?SmartFormatting::multipleDetails():'';
-                    $contingencyText=$receiptOnly
-                        ?'Confira os mercados, as seleções e as odds no comprovante original. Stake: 10'
-                        :($multipleDetails!==''?$multipleDetails:$text);
+                    $contingencyText=\App\ContingencyCardRenderer::groundedText(
+                        $multipleDetails!==''?$multipleDetails:$text,$sourceImage
+                    );
                     $contingencyTranslated=empty($rule['translation_enabled'])
                         || ($multipleDetails!=='' && SmartFormatting::multipleDetailsTranslated());
                     // Visual receipt descriptions from AI already respect the
