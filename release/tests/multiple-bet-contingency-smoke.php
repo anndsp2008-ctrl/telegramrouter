@@ -76,7 +76,7 @@ foreach([
     'SmartFormatting::multipleDetected()',
     'SmartFormatting::multipleDetails()',
     'SmartFormatting::multipleDetailsTranslated()',
-    'ContingencyCardRenderer::render($contingencyText,$sourceImage)',
+    'ContingencyCardRenderer::render(',
     "'multiple_bet'=>\$multipleDetected",
     "tipo=múltipla"
 ] as $anchor){

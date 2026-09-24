@@ -159,35 +159,53 @@ HTML;
                     // selections from the receipt. Keep the original receipt visual
                     // and use a neutral Portuguese fallback instead.
                     $receiptOnly=$sourceImage!==null&&is_file($sourceImage);
+                    $sourceAnalysis=SmartFormatting::extractSourceAnalysis($text);
+                    $trustedAnalysis=$receiptOnly && $sourceAnalysis!=='';
                     $multipleDetected=!$receiptOnly && SmartFormatting::multipleDetected();
                     $multipleDetails=(!$receiptOnly&&$multipleDetected)
                         ?SmartFormatting::multipleDetails():'';
-                    $contingencyText=\App\ContingencyCardRenderer::groundedText(
-                        $multipleDetails!==''?$multipleDetails:$text,$sourceImage
-                    );
+
+                    // Attached receipt: never use caption betting lines as receipt
+                    // selections, but always preserve the author's long-form analysis.
+                    $contingencyText=$trustedAnalysis
+                        ?$sourceAnalysis
+                        :\App\ContingencyCardRenderer::groundedText(
+                            $multipleDetails!==''?$multipleDetails:$text,$sourceImage,false
+                        );
                     $contingencyTranslated=empty($rule['translation_enabled'])
                         || ($multipleDetails!=='' && SmartFormatting::multipleDetailsTranslated());
-                    // Visual receipt descriptions from AI already respect the
-                    // configured target language. Only translate the original
-                    // Telegram caption when there is no usable AI transcription.
-                    if(!$receiptOnly && !empty($rule['translation_enabled'])
+
+                    // If a source analysis exists beside a receipt, translate only
+                    // that verified prose. On translation failure keep the original
+                    // analysis instead of replacing it with generic copy.
+                    $translationInput='';
+                    if(!empty($rule['translation_enabled']) && $trustedAnalysis){
+                        $translationInput=$sourceAnalysis;
+                    } elseif(!$receiptOnly && !empty($rule['translation_enabled'])
                         && $multipleDetails==='' && trim($text)!==''){
+                        $translationInput=$text;
+                    }
+                    if($translationInput!==''){
                         $translationStarted=microtime(true);
                         try {
-                            $translationFallback=Transform::translateDetailed($text,$rule,[
+                            $translationFallback=Transform::translateDetailed($translationInput,$rule,[
                                 'rule_id'=>(int)($rule['id']??0),
-                                'context'=>'smart_card_contingency'
+                                'context'=>$trustedAnalysis
+                                    ?'smart_card_contingency_source_analysis'
+                                    :'smart_card_contingency'
                             ]);
                             $translatedText=trim((string)($translationFallback['text']??''));
                             if($translatedText!=='')$contingencyText=$translatedText;
                             $contingencyTranslated=!empty($translationFallback['translated']);
                             error_log('TMR_SMART_CARD_CONTINGENCY_TRANSLATION '.json_encode([
                                 'translated'=>$contingencyTranslated,
-                                'provider'=>(string)($translationFallback['provider']??'unknown')
+                                'provider'=>(string)($translationFallback['provider']??'unknown'),
+                                'source_analysis'=>$trustedAnalysis
                             ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
                         } catch(\Throwable $translationError) {
                             error_log('TMR_SMART_CARD_CONTINGENCY_TRANSLATION_FAILED '.json_encode([
-                                'exception'=>get_class($translationError)
+                                'exception'=>get_class($translationError),
+                                'source_analysis'=>$trustedAnalysis
                             ]));
                         } finally {
                             $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
@@ -206,7 +224,9 @@ HTML;
                     ]));
                     try {
                         $contingencyRenderStarted=microtime(true);
-                        $contingencyCard=\App\ContingencyCardRenderer::render($contingencyText,$sourceImage);
+                        $contingencyCard=\App\ContingencyCardRenderer::render(
+                            $contingencyText,$sourceImage,$trustedAnalysis
+                        );
                         $contingencyRenderMs=max(0,(int)round((microtime(true)-$contingencyRenderStarted)*1000));
                         if($contingencyCard!==null){
                             $formatted=[
@@ -221,7 +241,8 @@ HTML;
                                 'translated'=>$contingencyTranslated,
                                 'multiple_bet'=>$multipleDetected,
                                 'has_image'=>$sourceImage!==null,
-                                'receipt_only'=>$receiptOnly
+                                'receipt_only'=>$receiptOnly,
+                                'source_analysis_preserved'=>$trustedAnalysis
                             ]));
                         }
                     } catch(\Throwable $contingencyError) {

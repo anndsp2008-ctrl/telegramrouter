@@ -415,6 +415,25 @@ if(($swapped['market']??'')!=='Total de escanteios' ||
    ($swapped['selection']??'')!=='Mais de 8,5 escanteios'){
     throw new RuntimeException('Obvious market/selection inversion was not repaired');
 }
+$sourceAnalysisFixture="Este es mi pronóstico para hoy\n".
+    "⚽ Menos de 3,5 goles ⚽ CHAMPIONS\n".
+    "⏰ 21:00 💰 ODD 1.60 📊 STAKE 4\n".
+    "El partido entre Portugal femenino y Gales femenino probablemente tendrá menos de cuatro goles porque ambos equipos priorizan el control y la solidez defensiva. ".
+    "Portugal suele gestionar el ritmo con paciencia y Gales mantiene bloques compactos, por lo que esperamos un encuentro táctico y con pocas ocasiones claras.";
+$sourceAnalysis=SmartFormatting::extractSourceAnalysis($sourceAnalysisFixture);
+if($sourceAnalysis==='' ||
+   !str_contains($sourceAnalysis,'priorizan el control') ||
+   !str_contains($sourceAnalysis,'bloques compactos') ||
+   str_contains($sourceAnalysis,'STAKE 4') ||
+   str_contains($sourceAnalysis,'pronóstico para hoy')){
+    throw new RuntimeException('Source sports analysis was not isolated from betting metadata');
+}
+$analysisPreserver=$reflection->getMethod('preserveSourceAnalysis');
+$preservedOriginal=$analysisPreserver->invoke(null,$sourceAnalysis,'',['translation_enabled'=>0],false);
+if($preservedOriginal==='' || !str_contains($preservedOriginal,'bloques compactos')){
+    throw new RuntimeException('Existing source analysis was not preserved when translation is disabled');
+}
+
 $foreignReceiptRepair=$marketSelection->invoke(null,[
     'market'=>'Menos de 5.5',
     'selection'=>'Menos de 5.5',
@@ -424,6 +443,27 @@ $foreignReceiptRepair=$marketSelection->invoke(null,[
 if(($foreignReceiptRepair['market']??'')!=='Total de gols' ||
    ($foreignReceiptRepair['selection']??'')!=='Menos de 5,5 gols'){
     throw new RuntimeException('Foreign visual market/selection evidence was not repaired in pt-BR');
+}
+$longVisualMarketRepair=$marketSelection->invoke(null,[
+    'market'=>'Menos de 3.5 Goles',
+    'selection'=>'Menos de 3.5 Goles',
+    'visual_market_evidence'=>'Portugal - Gales - Total de goles - Más/menos de 3,5',
+    'visual_selection_evidence'=>'Menos de 3.5 Goles'
+],true,true);
+if(($longVisualMarketRepair['market']??'')!=='Total de gols' ||
+   ($longVisualMarketRepair['selection']??'')!=='Menos de 3,5 gols'){
+    throw new RuntimeException('Long visual market hierarchy did not recover a standard card');
+}
+$missingMarketRepair=$marketSelection->invoke(null,[
+    'match'=>'Portugal (F) x País de Gales (F)',
+    'market'=>'',
+    'selection'=>'Menos de 3.5 Goles',
+    'visual_market_evidence'=>'Total de goles - Más/menos de 3,5',
+    'visual_selection_evidence'=>'Menos de 3.5 Goles'
+],true,true);
+if(($missingMarketRepair['market']??'')!=='Total de gols' ||
+   ($missingMarketRepair['selection']??'')!=='Menos de 3.5 Goles'){
+    throw new RuntimeException('Recoverable missing market still forces contingency');
 }
 
 $handicapSwap=$marketSelection->invoke(null,[
