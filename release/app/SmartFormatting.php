@@ -332,6 +332,7 @@ final class SmartFormatting
         if(trim($sourceText)===''&&!$hasImage){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
+        $sourceAnalysis=self::extractSourceAnalysis($sourceText);
         $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
             'bet_kind','selections_count','multiple_details',
@@ -437,15 +438,13 @@ final class SmartFormatting
                     }
                     continue;
                 }
-                if($candidate['analysis']==='' && self::sourceHasAnalysis($sourceText)){
-                    self::diag('ANALYSIS_ABSENT_'.$provider);
-                    self::recordProviderAttempt(
-                        $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
-                    if($logicalAttempt<$maxLogicalAttempts){
-                        self::diag('SMART_PROVIDER_RETRY_'.$provider);
-                        usleep(350000);
-                    }
-                    continue;
+                if($sourceAnalysis!==''){
+                    $candidate['analysis']=self::preserveSourceAnalysis(
+                        $sourceAnalysis,
+                        (string)($candidate['analysis']??''),
+                        $rule,
+                        $translate
+                    );
                 }
                 self::recordProviderAttempt(
                     $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
@@ -672,18 +671,39 @@ final class SmartFormatting
     {
         $market=trim((string)($bet['market']??''));
         $selection=trim((string)($bet['selection']??''));
+        $visualMarket=trim((string)($bet['visual_market_evidence']??''));
+        $visualSelection=trim((string)($bet['visual_selection_evidence']??''));
+
+        if($hasImage){
+            if($selection==='' && $visualSelection!==''){
+                $selection=$translate?self::betEvidenceToPortuguese($visualSelection,$visualMarket):$visualSelection;
+                $bet['selection']=$selection;
+                self::diag('SELECTION_RECOVERED_FROM_VISUAL_EVIDENCE');
+            }
+            if($market===''){
+                $recovered=self::marketCategoryFromEvidence($visualMarket);
+                if($recovered==='' && $visualSelection!=='')$recovered=self::marketCategoryFromEvidence($visualSelection);
+                if($recovered!==''){
+                    $market=$translate?self::betEvidenceToPortuguese($recovered):$recovered;
+                    $bet['market']=$market;
+                    self::diag('MARKET_RECOVERED_FROM_VISUAL_EVIDENCE');
+                }
+            }
+        }
         if($market===''||$selection==='')return $bet;
 
         if(mb_strtolower($market,'UTF-8')===mb_strtolower($selection,'UTF-8')){
             if($hasImage){
-                $visualMarket=trim((string)($bet['visual_market_evidence']??''));
-                $visualSelection=trim((string)($bet['visual_selection_evidence']??''));
-                if($visualMarket!=='' && $visualSelection!=='' &&
-                   mb_strtolower($visualMarket,'UTF-8')!==mb_strtolower($visualSelection,'UTF-8') &&
-                   self::looksLikeMarketCategory($visualMarket) &&
-                   !self::looksLikeMarketCategory($visualSelection)){
-                    $bet['market']=$translate?self::betEvidenceToPortuguese($visualMarket):$visualMarket;
-                    $bet['selection']=$translate?self::betEvidenceToPortuguese($visualSelection,$visualMarket):$visualSelection;
+                $recoveredMarket=self::marketCategoryFromEvidence($visualMarket);
+                if($recoveredMarket==='' && $visualSelection!==''){
+                    $recoveredMarket=self::marketCategoryFromEvidence($visualSelection);
+                }
+                if($recoveredMarket==='')$recoveredMarket=self::marketCategoryFromEvidence($selection);
+                $recoveredSelection=$visualSelection!==''?$visualSelection:$selection;
+                if($recoveredMarket!=='' &&
+                   mb_strtolower($recoveredMarket,'UTF-8')!==mb_strtolower($recoveredSelection,'UTF-8')){
+                    $bet['market']=$translate?self::betEvidenceToPortuguese($recoveredMarket):$recoveredMarket;
+                    $bet['selection']=$translate?self::betEvidenceToPortuguese($recoveredSelection,$recoveredMarket):$recoveredSelection;
                     self::diag('MARKET_SELECTION_REPAIRED_FROM_VISUAL_EVIDENCE');
                     return $bet;
                 }
@@ -706,6 +726,29 @@ final class SmartFormatting
             $bet['selection']='';
         }
         return $bet;
+    }
+
+    /** Recover only unequivocal category labels already visible in the receipt. */
+    private static function marketCategoryFromEvidence(string $value): string
+    {
+        $v=mb_strtolower(trim($value),'UTF-8');
+        if($v==='')return '';
+        if(preg_match('~\b(?:gols?|goals?|goles)\b~iu',$v)===1 &&
+           preg_match('~\b(?:total|m[aá]s\s*/?\s*menos|mais\s*/?\s*menos|over\s*/?\s*under|menos\s+de|m[aá]s\s+de|mais\s+de|under|over)\b~iu',$v)===1)
+            return 'Total de gols';
+        if(preg_match('~\b(?:escanteios?|corners?|c[oó]rners)\b~iu',$v)===1 &&
+           preg_match('~\b(?:total|m[aá]s\s*/?\s*menos|mais\s*/?\s*menos|over\s*/?\s*under|menos\s+de|m[aá]s\s+de|mais\s+de|under|over)\b~iu',$v)===1)
+            return 'Total de escanteios';
+        if(preg_match('~\b(?:cart[oõ]es?|cards?|tarjetas?)\b~iu',$v)===1 &&
+           preg_match('~\b(?:total|m[aá]s\s*/?\s*menos|mais\s*/?\s*menos|over\s*/?\s*under|menos\s+de|m[aá]s\s+de|mais\s+de|under|over)\b~iu',$v)===1)
+            return 'Total de cartões';
+        if(preg_match('~\b(?:ambos\s+equipos\s+marcan|ambas\s+as\s+equipes\s+marcam|both\s+teams\s+to\s+score)\b~iu',$v)===1)
+            return 'Ambas as equipes marcam';
+        if(preg_match('~\b(?:resultado\s+final|match\s+winner|vencedor\s+da\s+partida)\b~iu',$v)===1)
+            return 'Resultado final';
+        if(preg_match('~\b(?:double\s+chance|chance\s+doble|dupla\s+chance)\b~iu',$v)===1)
+            return 'Dupla chance';
+        return '';
     }
 
     /** Translate only deterministic betting labels used as visual recovery evidence. */
@@ -788,25 +831,72 @@ final class SmartFormatting
         return $bet;
     }
 
-    public static function sourceHasAnalysis(string $text): bool
+    /**
+     * Extract only the author's long-form sports analysis from the Telegram
+     * source text. Betting fields/intros remain outside this authoritative prose.
+     */
+    public static function extractSourceAnalysis(string $text): string
     {
         $plain=trim(preg_replace('/https?:\/\/\S+/iu',' ',strip_tags($text))??$text);
-        if(mb_strlen($plain,'UTF-8')<180)return false;
+        if(mb_strlen($plain,'UTF-8')<120)return '';
         $lines=preg_split('/\R+/u',$plain)?:[$plain];
         $prose=[];
         foreach($lines as $line){
             $line=trim($line);
             if($line==='')continue;
-            if(preg_match('/^(?:odd|odds|mercado|market|sele[cç][aã]o|selection|stake|aposta|retorno|bookmaker|liga|league|hor[aá]rio|time|jogo|match)\s*[:\-]/iu',$line))continue;
+            $label=preg_replace('/^[\p{So}\p{Sk}\p{S}\p{P}\s]+/u','',$line)??$line;
+            if(preg_match('/^(?:odd|odds|mercado|market|sele[cç][aã]o|selection|stake|aposta|retorno|bookmaker|liga|league|hor[aá]rio|hora|time|jogo|match|palpite|pron[oó]stico|pick)\s*[:\-]/iu',$label))continue;
             if(preg_match('/^(?:\p{So}|\p{Sk}|\p{S}|\d|[\-–—:;,.])+$/u',$line))continue;
-            if(mb_strlen($line,'UTF-8')>=70)$prose[]=$line;
+            $words=preg_match_all('/\p{L}{3,}/u',$line,$m);
+            if(mb_strlen($line,'UTF-8')>=65 && $words>=10)$prose[]=$line;
         }
-        $joined=implode(' ',$prose);
-        if(mb_strlen($joined,'UTF-8')<120)return false;
+        $joined=trim(implode(' ',$prose));
+        if(mb_strlen($joined,'UTF-8')<120)return '';
         $words=preg_match_all('/\p{L}{3,}/u',$joined,$matches);
         $sentences=preg_match_all('/[.!?](?:\s|$)/u',$joined,$dummy);
-        $analytical=preg_match('/\b(?:porque|devido|tend[eê]ncia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia)\b/iu',$joined)===1;
-        return $words>=20 && ($sentences>=2 || $analytical);
+        $analytical=preg_match('/\b(?:porque|devido|tend[eê]ncia|tendencia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia|porque|debido|tendencia|defensa|ataque|partido|equipo|likely|because|defen[cs]e|attack|performance)\b/iu',$joined)===1;
+        return $words>=20 && ($sentences>=2 || $analytical)?$joined:'';
+    }
+
+    public static function sourceHasAnalysis(string $text): bool
+    {
+        return self::extractSourceAnalysis($text)!=='';
+    }
+
+    private static function preserveSourceAnalysis(
+        string $sourceAnalysis,
+        string $candidateAnalysis,
+        array $rule,
+        bool $translate
+    ): string {
+        $sourceAnalysis=self::sanitizeAnalysis($sourceAnalysis);
+        if($sourceAnalysis==='')return self::sanitizeAnalysis($candidateAnalysis);
+        if(!$translate)return $sourceAnalysis;
+
+        $candidateAnalysis=self::sanitizeAnalysis($candidateAnalysis);
+        $sourceWords=preg_match_all('/\p{L}{3,}/u',$sourceAnalysis,$a);
+        $candidateWords=preg_match_all('/\p{L}{3,}/u',$candidateAnalysis,$b);
+        // A reasonably complete provider translation is preferred because the
+        // final card is expected in pt-BR. Suspiciously short/absent analysis
+        // gets one dedicated translation attempt, but can never block the card.
+        if($candidateAnalysis!=='' && $candidateWords>=max(12,(int)floor($sourceWords*0.55))){
+            return $candidateAnalysis;
+        }
+        try {
+            $translation=Transform::translateDetailed($sourceAnalysis,$rule,[
+                'rule_id'=>(int)($rule['id']??0),
+                'context'=>'smart_source_analysis_preserve'
+            ]);
+            $translated=trim((string)($translation['text']??''));
+            if($translated!=='' && !empty($translation['translated'])){
+                self::diag('SOURCE_ANALYSIS_TRANSLATED_FALLBACK');
+                return self::sanitizeAnalysis($translated);
+            }
+        } catch(\Throwable $error) {
+            self::diag('SOURCE_ANALYSIS_TRANSLATION_UNAVAILABLE');
+        }
+        self::diag('SOURCE_ANALYSIS_PRESERVED_ORIGINAL');
+        return $sourceAnalysis;
     }
     /**
      * Workers AI may use a text model for text-only tips; when a receipt image
@@ -848,7 +938,9 @@ final class SmartFormatting
             "Os campos finais market e selection, porém, DEVEM obedecer ao idioma solicitado. Se o idioma alvo for pt-BR, traduza os rótulos do comprovante para português brasileiro mantendo nomes próprios, números e odds. ".
             "SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). ".
             "Nunca troque Mercado e Seleção. Se o comprovante trouxer rótulos próprios, respeite a relação mostrada; se houver dúvida real, deixe o campo duvidoso vazio em vez de adivinhar. ".
-            "No campo analysis, preserve apenas a análise esportiva; omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
+            "No campo analysis, se o TEXTO ORIGINAL contiver análise esportiva, preserve TODO o raciocínio do autor: faça tradução fiel e completa para o idioma solicitado, frase por frase, sem resumir, reescrever, acrescentar argumentos ou substituir por análise própria. ".
+            "Omitir somente frases exclusivamente sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
+            "PRIORIDADE DO CARD: se partida, mercado e seleção estiverem explícitos no comprovante, preencha os três; não abandone campos que podem ser lidos. Em apostas de total, o mercado é a categoria (ex.: Total de gols) e a seleção é o limite escolhido (ex.: Menos de 3,5 gols); não devolva Mercado e Seleção iguais. ".
             "Para status AO VIVO, o campo live_evidence deve copiar uma evidência textual/visual explícita de que A PARTIDA está em andamento (ex.: LIVE, IN-PLAY, AO VIVO, EN VIVO, MATCH IN PROGRESS). ".
             "É PROIBIDO usar horário, data, relógio, hora de emissão do bilhete, horário da mensagem do Telegram, fuso horário ou comparação com a hora atual para decidir AO VIVO. ".
             "Também não use status do bilhete como aberto/en curso/pendente como prova de partida ao vivo. Sem evidência explícita de jogo em andamento, status e live_evidence devem ficar vazios ou indicar pré-jogo sem AO VIVO. ".
