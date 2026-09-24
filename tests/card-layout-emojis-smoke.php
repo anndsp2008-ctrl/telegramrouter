@@ -20,6 +20,7 @@ $normal="⚽ Time A 🥇 x Time B\n🏆 Série A 🏅\n\n".
     "🎯 Mercado: mensagem do autor";
 
 $clean=CardLayoutEmojis::clean($normal,$rule);
+$display=preg_replace('/[ \\t]{2,}/u',' ',$clean)??$clean;
 foreach([
     '⚽ Time A x Time B',
     '🏆 Série A',
@@ -29,7 +30,7 @@ foreach([
     '📍 Stake: 10',
     '📝 Análise original:'
 ] as $part){
-    if(!str_contains($clean,$part)){
+    if(!str_contains($display,$part)){
         throw new RuntimeException('Generated presentation icon was lost: '.$part);
     }
 }
