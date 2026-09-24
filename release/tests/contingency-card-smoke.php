@@ -61,7 +61,7 @@ foreach([
     '$contingencyRenderMs',
     'TMR_SMART_CARD_CONTINGENCY_RULE_CLEAN',
     'Transform::clean($contingencyText,$rule,[])',
-    'Transform::clean((string)$formatted[\'caption\'],$rule,[])',
+    'CardLayoutEmojis::clean(',
     'SmartFormatting::normalizePublishedStakeText('
 ] as $timingAnchor){
     if(!str_contains($runtime,$timingAnchor)){
