@@ -120,7 +120,7 @@ $openaiRuntime=(string)file_get_contents($root.'/runtime-openai.php');
 foreach([
   '<div class="provider-head">',
   '<span class="form-status <?=$openaiKey&&$openaiEnabled?\'is-configured\':\'is-empty\'?>"><i></i>',
-  "<?=$openaiKey&&$openaiEnabled?'Configurado':'Não configurado'?>"
+  "\$openaiKey&&\$openaiEnabled?'Configurado':'Não configurado'"
 ] as $token){
   if(!str_contains($openaiRuntime,$token))
     $fail('OpenAI header/status differs from Workers AI: '.$token);
