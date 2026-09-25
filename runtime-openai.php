@@ -170,16 +170,16 @@ PHP;
     $index=str_replace('!empty($azureKey)','!empty($openaiKey)',$index);
 
     $index=str_replace('<option value="azure" <?=$formRule[\'translation_provider\']===\'azure\'?\'selected\':\'\'?>>Microsoft Azure Translator</option>',
-        '<option value="openai" <?=$formRule[\'translation_provider\']===\'openai\'?\'selected\':\'\'?>>OpenAI GPT-5.6</option>',$index);
+        '<option value="openai" <?=$formRule[\'translation_provider\']===\'openai\'?\'selected\':\'\'?>>OpenAI</option>',$index);
     $index=str_replace('<option value="azure" <?=$primaryProvider===\'azure\'?\'selected\':\'\'?>>Microsoft Azure Translator</option>',
-        '<option value="openai" <?=$primaryProvider===\'openai\'?\'selected\':\'\'?>>OpenAI GPT-5.6</option>',$index);
+        '<option value="openai" <?=$primaryProvider===\'openai\'?\'selected\':\'\'?>>OpenAI</option>',$index);
     $index=str_replace('<option value="azure" <?=$fallbackProvider===\'azure\'?\'selected\':\'\'?>>Microsoft Azure Translator</option>',
-        '<option value="openai" <?=$fallbackProvider===\'openai\'?\'selected\':\'\'?>>OpenAI GPT-5.6</option>',$index);
+        '<option value="openai" <?=$fallbackProvider===\'openai\'?\'selected\':\'\'?>>OpenAI</option>',$index);
 
     $openaiCard=<<<'HTML'
 <section class="saas-card translation-provider-card openai-provider-card" style="margin:0!important;padding:0!important;">
   <div class="provider-head">
-    <div><span class="saas-kicker">OPENAI</span><h2>OpenAI GPT-5.6</h2>
+    <div><span class="saas-kicker">OPENAI</span><h2>OpenAI</h2>
       <p>Interpretação multimodal e tradução dos cards do Telegram Router.</p></div>
     <span class="form-status <?=$openaiKey&&$openaiEnabled?'is-configured':'is-empty'?>"><i></i><?=$openaiKey&&$openaiEnabled?'Configurado':'Não configurado'?></span>
   </div>
@@ -190,9 +190,10 @@ PHP;
 <label><input type="radio" name="openai_model" value="gpt-5.6-luna" <?=$openaiModel==='gpt-5.6-luna'?'checked':''?>><span><b>GPT-5.6 Luna</b><small>Econômico · processamento rápido e menor custo.</small></span></label>
 <label><input type="radio" name="openai_model" value="gpt-5.6-terra" <?=$openaiModel==='gpt-5.6-terra'?'checked':''?>><span><b>GPT-5.6 Terra</b><small>Equilíbrio entre custo e interpretação de bilhetes complexos.</small></span></label>
 <label><input type="radio" name="openai_model" value="gpt-5.6-sol" <?=$openaiModel==='gpt-5.6-sol'?'checked':''?>><span><b>GPT-5.6 Sol</b><small>Modelo avançado para interpretação complexa.</small></span></label>
+<label><input type="radio" name="openai_model" value="gpt-6-astra" <?=$openaiModel==='gpt-6-astra'?'checked':''?>><span><b>GPT-6 Astra</b><small>Maior capacidade · indicado para bilhetes e análises mais complexas.</small></span></label>
 </fieldset>
 <label class="field-wide openai-toggle"><input type="checkbox" name="openai_fallback_enabled" value="1" <?=$openaiFallbackEnabled?'checked':''?>><span class="openai-toggle-copy"><b>Ativar fallback automático</b><small>Utiliza o modelo secundário caso o principal falhe.</small></span></label>
-<label class="field-wide">Modelo de fallback<span class="field-help">Usado somente se o modelo principal não concluir a solicitação.</span><select name="openai_fallback_model"><option value="gpt-5.6-luna" <?=$openaiFallbackModel==='gpt-5.6-luna'?'selected':''?>>GPT-5.6 Luna</option><option value="gpt-5.6-terra" <?=$openaiFallbackModel==='gpt-5.6-terra'?'selected':''?>>GPT-5.6 Terra</option><option value="gpt-5.6-sol" <?=$openaiFallbackModel==='gpt-5.6-sol'?'selected':''?>>GPT-5.6 Sol</option></select></label>
+<label class="field-wide">Modelo de fallback<span class="field-help">Usado somente se o modelo principal não concluir a solicitação.</span><select name="openai_fallback_model"><option value="gpt-5.6-luna" <?=$openaiFallbackModel==='gpt-5.6-luna'?'selected':''?>>GPT-5.6 Luna</option><option value="gpt-5.6-terra" <?=$openaiFallbackModel==='gpt-5.6-terra'?'selected':''?>>GPT-5.6 Terra</option><option value="gpt-5.6-sol" <?=$openaiFallbackModel==='gpt-5.6-sol'?'selected':''?>>GPT-5.6 Sol</option><option value="gpt-6-astra" <?=$openaiFallbackModel==='gpt-6-astra'?'selected':''?>>GPT-6 Astra</option></select></label>
 </div><div class="provider-actions"><button class="saas-primary" name="action" value="save_translation_provider">Salvar</button><button class="saas-secondary" name="action" value="test_translation_provider">Testar conexão</button></div></form>
 <div class="provider-test <?=$openaiTest?((int)$openaiTest['last_test_ok']?'ok':'bad'):'neutral'?>"><b>Último teste</b><span><?=$openaiTest?(int)$openaiTest['last_test_ok']?'Conexão válida':'Falha':'Ainda não testado'?></span><small><?=$openaiTest?sh(dataHoraBrasil($openaiTest['last_test_at'])).' · '.(int)$openaiTest['last_test_latency_ms'].' ms':'—'?></small><?php if($openaiTest&&!$openaiTest['last_test_ok']&&!empty($openaiTest['last_test_error'])):?><em><?=sh($openaiTest['last_test_error'])?></em><?php endif;?></div>
 <div class="provider-stats"><div><span>Traduções</span><b><?=sh($openaiStats['total'])?></b></div><div><span>Sucessos</span><b><?=sh($openaiStats['successful'])?></b></div><div><span>Falhas</span><b><?=sh($openaiStats['failures'])?></b></div><div><span>Latência média</span><b><?=sh($openaiStats['avg_latency'])?> ms</b></div><div><span>Última latência</span><b><?=sh($openaiStats['last_latency'])?> ms</b></div><div><span>Último uso</span><b><?=sh(dataHoraBrasil($openaiStats['last_use']))?></b></div></div></section>
