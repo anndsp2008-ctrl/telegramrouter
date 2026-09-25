@@ -335,7 +335,7 @@ final class SmartFormatting
         $sourceAnalysis=self::extractSourceAnalysis($sourceText);
         $analysisPolicy=$sourceAnalysis!==''
             ?'A mensagem original JÁ CONTÉM análise do autor. No campo analysis, preserve exclusivamente essa análise: apenas traduza fielmente quando solicitado, sem resumir, expandir, reinterpretar ou criar nova análise. '
-            :'A mensagem original NÃO CONTÉM análise do autor. Somente neste caso, gere uma análise esportiva curta baseada exclusivamente nos fatos explícitos disponíveis, sem inventar estatísticas, contexto ou probabilidades. ';
+            :'A mensagem original NÃO CONTÉM análise do autor. Gere uma análise esportiva contextualizada e útil, preservando comentários interpretativos fundamentados nos dados efetivamente fornecidos; não a reduza a uma descrição de mercado e odd. Nunca invente pontos, posições, resultados anteriores, estatísticas, confrontos diretos nem números sem evidência na origem. Quando aparecer "Posição na classificação: 23 - 1", ambos os números indicam as posições do mandante e do visitante nessa ordem, e NÃO a pontuação de uma equipe. Se uma informação numérica não estiver explícita na origem, omita somente a afirmação não comprovada, sem remover o restante da análise. ';
         $inputLanguage=$translate?'TODOS os campos textuais da resposta, inclusive sport, match, league, market, selection e analysis, DEVEM estar inteiramente no idioma '.$target.'. Traduza também os nomes dos mercados, as seleções e a análise do autor, sem reescrever ou resumir essa análise. Nunca copie frases em espanhol ou inglês na resposta em português. Preserve exatamente somente nomes próprios, odds, números e fatos do comprovante. Não inclua versões no idioma original, nem duplique a mensagem. ':'Use o idioma da mensagem original. Não traduza. ';
         $inputLanguage.=$analysisPolicy;
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
@@ -458,6 +458,11 @@ final class SmartFormatting
                 if($localized!==null){
                     $localized=self::preserveSourceAnalysisOutput(
                         $localized,$sourceAnalysis,$rule,$translate
+                    );
+                }
+                if($localized!==null && $sourceAnalysis==='' && $localized['analysis']!==''){
+                    $localized['analysis']=self::correctGeneratedAnalysis(
+                        $localized['analysis'],$sourceText
                     );
                 }
                 if($localized===null){
@@ -626,6 +631,37 @@ final class SmartFormatting
      * concatenated payload, which could swap a market, selection or analysis.
      * An unverifiable translation rejects this AI attempt, not the bet fields.
      */
+    /**
+     * Fix only unsupported league-point claims in AI-generated analysis.
+     * A standings pair describes the two teams' ranks, not their points.
+     * Never use this on the author's original analysis or on bet selections.
+     * When points are explicitly provided, leave them for the normal provider
+     * workflow instead of guessing which source value belongs to which team.
+     */
+    public static function correctGeneratedAnalysis(string $analysis,string $sourceText): string
+    {
+        if(trim($analysis)==='' || preg_match(
+            '~\b(?:posi[cç][aã]o|posici[oó]n|position|classifica[cç][aã]o|coloca[cç][aã]o)[^\r\n:]{0,48}[:：]\s*\d{1,2}\s*[-–—]\s*\d{1,2}\b~iu',
+            $sourceText
+        )!==1)return $analysis;
+
+        // A points statistic must be separately identified in the source:
+        // the second number in "23 - 1" is always another position.
+        if(preg_match(
+            '~(?:\b(?:pontos?|pontua[cç][aã]o|points?|pts)\b\s*[:=]\s*\d{1,3}|\b\d{1,3}\s+pontos?\b)~iu',
+            $sourceText
+        )===1)return $analysis;
+
+        $revised=preg_replace(
+            '~\b(?:posi[cç][aã]o|coloca[cç][aã]o|classifica[cç][aã]o|tabela|ranking)\b[^.!?\r\n]{0,150}?\K\s*,?\s+\b(?:com|somando|acumulando|totalizando)\s+(?:apenas\s+|somente\s+|s[oó]\s+)?\d{1,3}\s+pontos?\b~iu',
+            '',
+            $analysis
+        );
+        if(!is_string($revised))return $analysis;
+        if($revised!==$analysis)self::diag('GENERATED_ANALYSIS_UNSUPPORTED_STANDINGS_POINTS_REMOVED');
+        return $revised;
+    }
+
     /**
      * Source analysis has priority over generated commentary.
      * If the model failed to translate it, translate the preserved source prose
