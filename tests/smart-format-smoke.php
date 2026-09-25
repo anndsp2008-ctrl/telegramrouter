@@ -49,6 +49,35 @@ $proseAnalysis='A Lazio chega em bom momento porque mantém sequência consisten
     'Por isso, o autor acredita que a seleção tem valor para este mercado.';
 if(!SmartFormatting::sourceHasAnalysis($proseAnalysis))
     throw new RuntimeException('Real analytical prose was not detected');
+// A ranking pair identifies two teams' positions, never the home team's points.
+// A generated analysis must retain its valid commentary and original bet fields.
+$standingsSource="Mandante: Solihull Moors\nVisitante: Boreham Wood\nPosição na classificação: 23 - 1";
+$generatedStandings='A equipe de casa, Solihull Moors, está na 23ª posição da classificação com 1 ponto, enquanto o Boreham Wood lidera o campeonato. A diferença na tabela favorece o visitante.';
+$correctedStandings='A equipe de casa, Solihull Moors, está na 23ª posição da classificação, enquanto o Boreham Wood lidera o campeonato. A diferença na tabela favorece o visitante.';
+if(SmartFormatting::correctGeneratedAnalysis($generatedStandings,$standingsSource)!==$correctedStandings
+    || SmartFormatting::correctGeneratedAnalysis($correctedStandings,$standingsSource)!==$correctedStandings){
+    throw new RuntimeException('Ranking pair was misread as points or generated analysis was removed');
+}
+$secondaryClaim='O Solihull está na 23ª posição com apenas 1 ponto. O Boreham Wood ocupa a liderança.';
+if(SmartFormatting::correctGeneratedAnalysis($secondaryClaim,$standingsSource)
+    !=='O Solihull está na 23ª posição. O Boreham Wood ocupa a liderança.'){
+    throw new RuntimeException('Only the unsupported point claim should be removed');
+}
+$providedPoints=$standingsSource."\nPontos: 4 - 30";
+if(SmartFormatting::correctGeneratedAnalysis('O mandante está na 23ª posição com 4 pontos.',$providedPoints)
+    !=='O mandante está na 23ª posição com 4 pontos.'){
+    throw new RuntimeException('Explicitly provided point statistics must not be removed');
+}
+if(SmartFormatting::correctGeneratedAnalysis('A equipe está na 23ª posição com 1 ponto.','Odd: 1,55')
+    !=='A equipe está na 23ª posição com 1 ponto.'){
+    throw new RuntimeException('Unrelated messages must not be changed by the standings guard');
+}
+$authorAnalysis='O confronto tende a favorecer a equipe visitante, segundo o autor da mensagem.';
+if(SmartFormatting::extractSourceAnalysis("Análise: ".$authorAnalysis)!==$authorAnalysis){
+    throw new RuntimeException('Original author analysis must be preserved');
+}
+echo "SMART_FORMAT_STANDINGS_ANALYSIS_GUARD_TESTS_PASSED\n";
+
 foreach([
     'El partido entre Noruega e Dinamarca puede plantear un escenario favorable para los corners.',
     'Corners',
