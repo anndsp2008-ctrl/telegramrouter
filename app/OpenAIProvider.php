@@ -5,7 +5,7 @@ namespace App;
 final class OpenAIProvider
 {
     private const ENDPOINT='https://api.openai.com/v1/responses';
-    private const MODELS=['gpt-5.6-luna','gpt-5.6-terra','gpt-5.6-sol'];
+    private const MODELS=['gpt-5.6-luna','gpt-5.6-terra','gpt-5.6-sol','gpt-6-astra'];
 
     /** @return list<string> */
     public static function models(): array
