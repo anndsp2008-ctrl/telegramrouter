@@ -16,6 +16,38 @@ if (!is_file($path)) {
 
 $source = (string)file_get_contents($path);
 
+// Put stored failure details in the same visible status text for the three
+// providers that previously displayed only "Falha". Do not change their layout.
+$showTestFailure=static function(string $body,string $testVar,string $label): string {
+    $startTag='<span>'.chr(60).'?=$'.$testVar.'?';
+    $start=strpos($body,$startTag);
+    if($start===false || strpos($body,$startTag,$start+1)!==false)
+        throw new RuntimeException('TEST_REASON_STATUS_ANCHOR_'.$label);
+    $end=strpos($body,'</span>',$start);
+    if($end===false)throw new RuntimeException('TEST_REASON_STATUS_END_'.$label);
+    $original=substr($body,$start,$end+7-$start);
+    if(str_contains($original,"'last_test_error'"))return $body;
+    if(substr_count($original,"'Falha'")!==1)
+        throw new RuntimeException('TEST_REASON_STATUS_CONTENT_'.$label);
+    $var='$'.$testVar;
+    $reason="'Falha'.(!empty(".$var."['last_test_error'])?' — '.sh((string)".
+        $var."['last_test_error']):(!empty(".$var.
+        "['last_test_http_code'])?' — HTTP '.(int)".
+        $var."['last_test_http_code']:''))";
+    return substr_replace($body,str_replace("'Falha'",$reason,$original),$start,strlen($original));
+};
+$source=$showTestFailure($source,'geminiTest','GEMINI');
+foreach([
+    'googleCloudTest'=>__DIR__.'/app/google-cloud-card.php',
+    'workersAITest'=>__DIR__.'/app/workers-ai-card.php',
+] as $testVar=>$cardPath){
+    if(!is_file($cardPath))throw new RuntimeException('TEST_REASON_CARD_MISSING_'.$testVar);
+    $body=(string)file_get_contents($cardPath);
+    $updated=$showTestFailure($body,$testVar,strtoupper($testVar));
+    if($updated!==$body && file_put_contents($cardPath,$updated,LOCK_EX)===false)
+        throw new RuntimeException('TEST_REASON_CARD_WRITE_'.$testVar);
+}
+
 // Provider test feedback is handled inside each provider card by integrations-v10.js.
 // No broad alert/aria-live suppression is used here, because it can hide large UI containers.
 
