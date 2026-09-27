@@ -208,8 +208,12 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'search_all_teams.php')
    ||!str_contains($rendererSource,'private static function sportsDbFlagPath')
    ||!str_contains($rendererSource,'private static function theSportsDbCountryName')
-   ||!str_contains($rendererSource,'Malta')
-   ||!str_contains($rendererSource,'Liechtenstein')
+   ||!str_contains($rendererSource,'TMR_SPORTSDB_FLAG_LOCAL_FALLBACK')
+   ||!str_contains($rendererSource,"foreach([64,32,16] as $size)")
+   ||!str_contains($rendererSource,"'type'=>'malta'")
+   ||!str_contains($rendererSource,"'type'=>'wales'")
+   ||!str_contains($rendererSource,"'type'=>'greece'")
+   ||!str_contains($rendererSource,"'type'=>'liechtenstein'")
    ||!str_contains($rendererSource,'private static function drawResolvedIdentity')
    ||!str_contains($rendererSource,'private static function drawLeftAlignedMatchup')
    ||!str_contains($rendererSource,'always left-aligned')
@@ -232,6 +236,10 @@ if(str_contains($rendererSource,'private static function drawClubCrest')
 if(str_contains($rendererSource,'flagcdn.com')
    ||str_contains($rendererSource,'searchteams.php?t=')){
     throw new RuntimeException('Identity provider must stay on TheSportsDB free endpoints');
+}
+if(!str_contains($rendererSource,"\$country=self::theSportsDbCountryName(\$participant)")
+   ||!str_contains($rendererSource,"\$flagPath=self::sportsDbFlagPath(\$country)")){
+    throw new RuntimeException('TheSportsDB must remain the primary country flag source');
 }
 if(str_contains($rendererSource,"self::text(\$im,446,\$top+72,'x'")
    ||str_contains($rendererSource,"self::text(\$im,\$textX+300,\$ty,'x'")
