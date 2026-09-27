@@ -228,27 +228,10 @@ final class VipCardRenderer
                 $bounds=imagettfbbox($size,0,$font,$candidate);
                 if(!is_array($bounds))return null;
                 if(abs($bounds[2]-$bounds[0])>$maxWidth){
-                    if($line!==''){
-                        $lines[]=$line;
-                        $line='';
-                    }
-                    // Preserve long author/research tokens by splitting them
-                    // across visual lines instead of failing the whole card.
-                    $chunk='';
-                    foreach(preg_split('//u',$word,-1,PREG_SPLIT_NO_EMPTY)?:[] as $char){
-                        $try=$chunk.$char;
-                        $single=imagettfbbox($size,0,$font,$try);
-                        if(!is_array($single))return null;
-                        if(abs($single[2]-$single[0])>$maxWidth){
-                            if($chunk==='')return null;
-                            $lines[]=$chunk;
-                            $chunk=$char;
-                        } else {
-                            $chunk=$try;
-                        }
-                        if(count($lines)>100)return null;
-                    }
-                    $line=$chunk;
+                    if($line==='')return null;
+                    $lines[]=$line;$line=$word;
+                    $single=imagettfbbox($size,0,$font,$line);
+                    if(!is_array($single)||abs($single[2]-$single[0])>$maxWidth)return null;
                 }else{$line=$candidate;}
                 if(count($lines)>100)return null;
             }
