@@ -106,11 +106,13 @@ if(!is_string($rendererSource)
     throw new RuntimeException('Global premium visual template hooks missing');
 }
 
-// Regression for the exact crowded footer/CTA case: the approved renderer must
-// use one bounded text draw for "10 unidades" and computed centering for CTA.
+// Global footer rule: every bookmaker and every card type must publish the
+// same Telegram Router identity, with no bookmaker-specific "APOSTAR NA" CTA.
 if(!str_contains($rendererSource,"self::FIXED_STAKE.' unidades'")
-   ||!str_contains($rendererSource,'$start=540-(int)(($prefixW+$gap+$brandW)/2)')){
-    throw new RuntimeException('Premium spacing regression guard missing');
+   ||!str_contains($rendererSource,"$label='Telegram Router - Apostas VIP'")
+   ||str_contains($rendererSource,"'APOSTAR NA '")
+   ||str_contains($rendererSource,"'APOSTA ENCAMINHADA'")){
+    throw new RuntimeException('Global premium footer rule missing');
 }
 
 echo "CARD_MODELS_SMOKE_TESTS_PASSED\n";
