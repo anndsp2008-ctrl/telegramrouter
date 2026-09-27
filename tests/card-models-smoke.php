@@ -113,7 +113,7 @@ if(!is_string($rendererSource)
 // Global footer rule: every bookmaker and every card type must publish the
 // same Telegram Router identity, with no bookmaker-specific "APOSTAR NA" CTA.
 if(!str_contains($rendererSource,"self::FIXED_STAKE.' unidades'")
-   ||!str_contains($rendererSource,"$label='Telegram Router - Apostas VIP'")
+   ||!str_contains($rendererSource,"\$label='Telegram Router - Apostas VIP'")
    ||str_contains($rendererSource,"'APOSTAR NA '")
    ||str_contains($rendererSource,"'APOSTA ENCAMINHADA'")){
     throw new RuntimeException('Global premium footer rule missing');
@@ -122,7 +122,7 @@ if(!str_contains($rendererSource,"self::FIXED_STAKE.' unidades'")
 $smartRuntime=file_get_contents(__DIR__.'/../runtime-smart-format.php');
 if(!is_string($smartRuntime)
    ||!str_contains($smartRuntime,'Generated smart-card captions keep their structural emojis globally')
-   ||!str_contains($smartRuntime,":(string)$formatted['caption'];")){
+   ||!str_contains($smartRuntime,":(string)\$formatted['caption'];")){
     throw new RuntimeException('Structural emoji delivery bypass missing');
 }
 
