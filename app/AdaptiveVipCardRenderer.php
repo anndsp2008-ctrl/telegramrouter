@@ -595,8 +595,9 @@ final class AdaptiveVipCardRenderer
         $maxWidth=610;
         while($size>20 && self::width($label,$bold,$size)>$maxWidth)$size--;
         $labelWidth=self::width($label,$bold,$size);
-        // Center across the full CTA width now that the icon is removed.
-        $start=($contentCenter=600)-(int)($labelWidth/2);
+        // Center across the full 1199px canvas/CTA now that the icon is removed.
+        $contentCenter=600;
+        $start=$contentCenter-(int)($labelWidth/2);
         self::text($im,$start,$baseline,$label,$size,$color,$bold);
     }
 
