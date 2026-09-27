@@ -497,6 +497,44 @@ foreach($temps as $dest=>$temp){
 // Apply the opt-in learning overlay only after the original smart-format runtime is verified.
 // Failure leaves the previous formatter and forwarding behavior unchanged.
 if(is_file(__DIR__.'/runtime-ai-learning.php'))require __DIR__.'/runtime-ai-learning.php';
+// Reapply OpenAI token telemetry after Railway restores the baseline bundle.
+// This is observational only: request payloads, model selection and routing are unchanged.
+$openAIPath=__DIR__.'/app/OpenAIProvider.php';
+$openAISource=@file_get_contents($openAIPath);
+if(!is_string($openAISource)){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_SOURCE_MISSING\\n");exit(1);}
+if(!str_contains($openAISource,'TMR_OPENAI_USAGE')){
+    $usageAnchor="        if(\$text===''){\n            return ['ok'=>false,'model'=>\$model,'fallback_used'=>false,'latency_ms'=>\$latency,'http_code'=>\$http,'reason'=>'OPENAI_RESPONSE_EMPTY'];\n        }";
+    if(substr_count($openAISource,$usageAnchor)!==1){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_ANCHOR_MISMATCH\\n");exit(1);}
+    $usagePatch=<<<'PHP'
+        $usage=is_array($data['usage']??null)?$data['usage']:[];
+        $inputTokens=max(0,(int)($usage['input_tokens']??0));
+        $outputTokens=max(0,(int)($usage['output_tokens']??0));
+        $totalTokens=max(0,(int)($usage['total_tokens']??($inputTokens+$outputTokens)));
+        $cachedTokens=max(0,(int)($usage['input_tokens_details']['cached_tokens']??0));
+        $reasoningTokens=max(0,(int)($usage['output_tokens_details']['reasoning_tokens']??0));
+        error_log('TMR_OPENAI_USAGE '.json_encode([
+            'model'=>$model,
+            'input_tokens'=>$inputTokens,
+            'cached_tokens'=>$cachedTokens,
+            'output_tokens'=>$outputTokens,
+            'reasoning_tokens'=>$reasoningTokens,
+            'total_tokens'=>$totalTokens,
+            'latency_ms'=>$latency,
+            'http_code'=>$http
+        ],JSON_UNESCAPED_SLASHES));
+PHP;
+    $openAISource=str_replace($usageAnchor,$usagePatch."\\n".$usageAnchor,$openAISource);
+    $openAITemp=$openAIPath.'.usage-candidate';
+    if(@file_put_contents($openAITemp,$openAISource)===false){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_WRITE_FAILED\\n");exit(1);}
+    $openAILint=[];$openAIStatus=0;
+    exec('php -l '.escapeshellarg($openAITemp).' 2>&1',$openAILint,$openAIStatus);
+    if($openAIStatus!==0){@unlink($openAITemp);fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_LINT_FAILED ".implode(' ',$openAILint)."\\n");exit(1);}
+    if(!@rename($openAITemp,$openAIPath)){@unlink($openAITemp);fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_REPLACE_FAILED\\n");exit(1);}
+    echo "TMR_OPENAI_USAGE_TELEMETRY_INSTALLED\\n";
+}else{
+    echo "TMR_OPENAI_USAGE_TELEMETRY_ALREADY_PRESENT\\n";
+}
+
 $installerSucceeded=true;
 $routerHash=@hash_file('sha256',$routerPath);
 $smartHash=@hash_file('sha256',__DIR__.'/app/SmartFormatting.php');
