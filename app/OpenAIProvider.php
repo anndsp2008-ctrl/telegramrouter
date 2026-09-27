@@ -178,7 +178,8 @@ final class OpenAIProvider
         $latency=max(0,(int)round((microtime(true)-$started)*1000));
         $errno=curl_errno($ch);
         $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // PHP 8.5: releasing the cURL handle avoids a deprecation promoted to exception.
+        unset($ch);
 
         if($body===false || $errno!==0){
             return ['ok'=>false,'model'=>$model,'fallback_used'=>false,'latency_ms'=>$latency,'http_code'=>$http?:null,'reason'=>'OPENAI_NETWORK'];
