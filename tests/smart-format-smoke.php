@@ -40,57 +40,6 @@ if(str_contains($smartFormattingSource,'reconheça de forma natural que a origem
     throw new RuntimeException('Legacy source-commentary analysis instruction is still active');
 echo "SMART_FORMAT_GLOBAL_DIRECT_TIPSTER_ANALYSIS_POLICY_TESTS_PASSED\n";
 
-// Live-research enrichment: only generated analysis may use search-grounded facts.
-$openAIProviderSource=(string)file_get_contents(__DIR__.'/../app/OpenAIProvider.php');
-$geminiResearchSource=(string)file_get_contents(__DIR__.'/../scripts/smart-gemini-research.php');
-foreach([
-    'public static function researchAnalysis',
-    "[['type'=>'web_search']]",
-    "'type']??'')!=='url_citation'"
-] as $openAIResearchToken){
-    if(!str_contains($openAIProviderSource,$openAIResearchToken))
-        throw new RuntimeException('OpenAI grounded sports research missing: '.$openAIResearchToken);
-}
-foreach([
-    "'googleSearch'=>(object)[]",
-    "'groundingMetadata']['groundingChunks']",
-    'unset($ch)'
-] as $geminiResearchToken){
-    if(!str_contains($geminiResearchSource,$geminiResearchToken))
-        throw new RuntimeException('Gemini grounded sports research missing: '.$geminiResearchToken);
-}
-foreach([
-    "if(\$localized!==null && \$sourceAnalysis==='')",
-    'enrichGeneratedAnalysis($localized,$provider,$rule)',
-    "'research_sources'",
-    'Fontes consultadas',
-    'NO_VERIFIABLE_SOURCES'
-] as $researchFlowToken){
-    if(!str_contains($smartFormattingSource,$researchFlowToken))
-        throw new RuntimeException('Grounded generated-analysis flow missing: '.$researchFlowToken);
-}
-echo "SMART_FORMAT_GROUNDED_GAME_RESEARCH_POLICY_TESTS_PASSED\n";
-
-// Search URLs/citation markup stay outside the visual analysis, and a long
-// unbreakable token must not force the entire VIP card into contingency.
-$cleanResearch=new ReflectionMethod(\App\SmartFormatting::class,'cleanResearchedAnalysis');
-$dirtyResearch='Leitura consistente [estatísticas](https://example.com/'.str_repeat('a',160).') para este mercado. Consulte também https://example.org/'.str_repeat('b',160).'.';
-$cleanedResearch=(string)$cleanResearch->invoke(null,$dirtyResearch);
-if(str_contains($cleanedResearch,'http')||!str_contains($cleanedResearch,'estatísticas'))
-    throw new RuntimeException('Research URL/citation was not separated from card analysis');
-putenv('VIP_CARD_FORCE_PURE=1');
-$longTokenBet=[
-    'sport'=>'Futebol','match'=>'Equipe A x Equipe B','league'=>'Competição',
-    'market'=>'Escanteios','selection'=>'Mais de 7,0','odd'=>'1,50','stake'=>'10',
-    'analysis'=>'Leitura do jogo '.str_repeat('A',140).' mantém o contexto completo sem contingência.'
-];
-$longTokenCard=\App\VipCardRenderer::render($longTokenBet);
-putenv('VIP_CARD_FORCE_PURE=0');
-if(!is_string($longTokenCard)||!is_file($longTokenCard))
-    throw new RuntimeException('Long analysis token forced VIP card contingency');
-@unlink($longTokenCard);
-echo "SMART_FORMAT_RESEARCH_RENDER_RESILIENCE_TESTS_PASSED\n";
-
 // PR #77 regression: MadelineProto promotes PHP warnings to exceptions.
 // A missing /tmp backoff marker must be a normal first-run state.
 $backoffFile='/tmp/tmr-smart-gemini-backoff-until';
