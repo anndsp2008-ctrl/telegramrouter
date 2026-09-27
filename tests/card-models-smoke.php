@@ -49,7 +49,7 @@ $fixtures=[
         'data'=>[
             'bookmaker'=>'Betano','bet_kind'=>'bet_builder','selections_count'=>'2',
             'sport'=>'Futebol','odd'=>'1.82','visual_multiple_evidence'=>'Bet Builder',
-            'analysis'=>'As duas condições pertencem ao mesmo confronto e precisam ocorrer em conjunto para a entrada ser vencedora.',
+            'analysis'=>'🔥 As duas condições pertencem ao mesmo confronto e precisam ocorrer em conjunto para a entrada ser vencedora.',
             'card_legs'=>json_encode([
                 ['match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026','market'=>'Ambas as equipes marcam','selection'=>'Sim','odd'=>'1.82'],
                 ['match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026','market'=>'Total de gols','selection'=>'Menos de 5,5 gols','odd'=>'1.82']
@@ -68,6 +68,10 @@ foreach($fixtures as $fixture){
     foreach(['13:45','16:00','18:30'] as $forbidden){
         if(str_contains($caption,$forbidden))throw new RuntimeException('Game time leaked into caption');
     }
+    foreach(['🎟️','⚽','🏆','📅','🎯','✅','📊','📍','📝'] as $layoutEmoji){
+        if(!str_contains($caption,$layoutEmoji))throw new RuntimeException('Structural emoji missing: '.$layoutEmoji);
+    }
+    if(str_contains($caption,'🔥'))throw new RuntimeException('Analysis emoji leaked into Telegram caption');
     if(!str_contains($caption,'📝 Análise:'))throw new RuntimeException('Analysis missing from caption');
     if($fixture['expected']==='bet_builder'){
         foreach($bet['legs'] as $leg){
@@ -113,6 +117,13 @@ if(!str_contains($rendererSource,"self::FIXED_STAKE.' unidades'")
    ||str_contains($rendererSource,"'APOSTAR NA '")
    ||str_contains($rendererSource,"'APOSTA ENCAMINHADA'")){
     throw new RuntimeException('Global premium footer rule missing');
+}
+
+$smartRuntime=file_get_contents(__DIR__.'/../runtime-smart-format.php');
+if(!is_string($smartRuntime)
+   ||!str_contains($smartRuntime,'Generated smart-card captions keep their structural emojis globally')
+   ||!str_contains($smartRuntime,":(string)$formatted['caption'];")){
+    throw new RuntimeException('Structural emoji delivery bypass missing');
 }
 
 echo "CARD_MODELS_SMOKE_TESTS_PASSED\n";
