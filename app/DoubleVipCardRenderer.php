@@ -62,7 +62,7 @@ final class DoubleVipCardRenderer
 
     private static function odd(string $value): string
     {
-        return $value===''?'—':str_replace('.',',',$value);
+        return $value===''?'—':str_replace(',','.',$value);
     }
 
     public static function caption(array $bet): string
