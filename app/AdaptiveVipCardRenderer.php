@@ -390,11 +390,9 @@ final class AdaptiveVipCardRenderer
         self::rounded($im,$outerX+12,26,1099,$height-52,24,self::color($im,'#0b242b'));
         self::rounded($im,$outerX+14,28,1095,$height-56,22,$bg);
 
-        // Header has no visible card fill in the reference; only a subtle glow.
-        for($i=0;$i<7;$i++){
-            $shade=self::color($im,sprintf('#%02x%02x%02x',2,16+$i*3,13+$i*2));
-            imagefilledellipse($im,1040-$i*12,68,360-$i*30,170-$i*10,$shade);
-        }
+        // Keep the header background flat and clean. Deliberately no glow/
+        // ellipse overlays: they created visible dark/green smudges after PNG
+        // scaling/compression in Telegram previews.
 
         self::brandText($im,80,$headerY+91,$bookmaker,$brandKey,$bold,$white,$orange,$yellow);
 
@@ -575,7 +573,7 @@ final class AdaptiveVipCardRenderer
         // Global brand footer required by the project.
         self::rounded($im,$contentX,$ctaY,$contentW,$ctaH,26,$green);
         self::rounded($im,$contentX+3,$ctaY+3,$contentW-6,$ctaH-6,23,$greenDark);
-        self::telegramIcon($im,398,$ctaY+50,$greenSoft);
+        // Global footer is text-only. No Telegram icon.
         self::drawCtaLabel($im,$ctaY+63,$bold,$greenSoft);
 
         $path=sys_get_temp_dir().'/tmr-reference-premium-'.bin2hex(random_bytes(12)).'.png';
@@ -597,7 +595,8 @@ final class AdaptiveVipCardRenderer
         $maxWidth=610;
         while($size>20 && self::width($label,$bold,$size)>$maxWidth)$size--;
         $labelWidth=self::width($label,$bold,$size);
-        $start=620-(int)($labelWidth/2);
+        // Center across the full CTA width now that the icon is removed.
+        $start=($contentCenter=600)-(int)($labelWidth/2);
         self::text($im,$start,$baseline,$label,$size,$color,$bold);
     }
 
