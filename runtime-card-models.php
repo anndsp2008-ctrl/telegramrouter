@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+// CARD_MODELS_RELEASE_20260927_V1
 
 $root=__DIR__;
 $smartPath=$root.'/app/SmartFormatting.php';
