@@ -342,7 +342,7 @@ $cardFixture['bookmaker']='WINAMAX';
 $cardFixture['day']='Sábado';
 $cardView=SmartFormatting::cardView($cardFixture);
 $cardText=SmartFormatting::asText($cardView,true);
-foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1,60','Stake: 10',
+foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1.60','Stake: 10',
          'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
     if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
 }
