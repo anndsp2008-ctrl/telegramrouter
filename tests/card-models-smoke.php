@@ -199,14 +199,21 @@ $rendererSource=file_get_contents(__DIR__.'/../app/AdaptiveVipCardRenderer.php')
 if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'drawPremiumCard')
    ||!str_contains($rendererSource,'private static function drawSportIcon')
-   ||!str_contains($rendererSource,'private static function drawTeamIdentity')
-   ||!str_contains($rendererSource,'private static function drawClubCrest')
+   ||!str_contains($rendererSource,'private static function resolvePairIdentity')
+   ||!str_contains($rendererSource,'private static function resolveParticipantIdentity')
+   ||!str_contains($rendererSource,'private static function officialTeamBadgePath')
+   ||!str_contains($rendererSource,'private static function drawResolvedIdentity')
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
-   ||!str_contains($rendererSource,'always show its visual identity next to the name')
+   ||!str_contains($rendererSource,'All-or-none rule')
+   ||!str_contains($rendererSource,'show names only for BOTH sides')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
    ||!str_contains($rendererSource,"return str_replace(',','.',\$odd)")){
     throw new RuntimeException('Global premium renderer hooks missing');
+}
+if(str_contains($rendererSource,'private static function drawClubCrest')
+   ||str_contains($rendererSource,'Premium shield fallback')){
+    throw new RuntimeException('Synthetic crest fallback must stay disabled');
 }
 
 // Global footer rule: every bookmaker and every card type must publish the
