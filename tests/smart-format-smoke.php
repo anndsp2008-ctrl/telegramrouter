@@ -18,7 +18,7 @@ foreach([
     'SOMENTE em fatos explícitos',
     'Não invente forma recente',
     'Não chame a aposta de "valor"',
-    'Toda frase da análise deve poder ser rastreada'
+    'Toda frase factual deve ser rastreável aos dados disponíveis'
 ] as $analysisPolicyToken){
     if(!str_contains($smartFormattingSource,$analysisPolicyToken))
         throw new RuntimeException('Professional grounded analysis policy missing: '.$analysisPolicyToken);
