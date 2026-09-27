@@ -290,11 +290,13 @@ HTML;
             }
         }
         if($formatted!==null){
-            $newText=SmartFormatting::normalizePublishedStakeText(
-                \App\CardLayoutEmojis::clean(
-                    (string)$formatted['caption'],$rule,!empty($formatted['contingency'])
-                )
-            );
+            // Generated smart-card captions keep their structural emojis globally.
+            // The card renderer already strips emojis only from analysis/details.
+            $isContingency=!empty($formatted['contingency']);
+            $captionForDelivery=$isContingency
+                ?\App\CardLayoutEmojis::clean((string)$formatted['caption'],$rule,true)
+                :(string)$formatted['caption'];
+            $newText=SmartFormatting::normalizePublishedStakeText(trim($captionForDelivery));
             $output=$formatted['mode'];
             $card=$formatted['image'];
             $isContingency=!empty($formatted['contingency']);
