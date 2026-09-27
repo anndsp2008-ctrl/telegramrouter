@@ -46,7 +46,7 @@ $geminiResearchSource=(string)file_get_contents(__DIR__.'/../scripts/smart-gemin
 foreach([
     'public static function researchAnalysis',
     "[['type'=>'web_search']]",
-    "'type'??'')!=='url_citation'"
+    "'type']??'')!=='url_citation'"
 ] as $openAIResearchToken){
     if(!str_contains($openAIProviderSource,$openAIResearchToken))
         throw new RuntimeException('OpenAI grounded sports research missing: '.$openAIResearchToken);
