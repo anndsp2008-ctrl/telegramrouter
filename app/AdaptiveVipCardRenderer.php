@@ -347,7 +347,7 @@ final class AdaptiveVipCardRenderer
             $marketSelectionGap=15;
             $rowH=$builder||count($legs)===1
                 ?max(124,42+count($marketLines)*32+$marketSelectionGap+count($selectionLines)*38)
-                :max(174,49+count($matchLines)*30+count($leagueLines)*23
+                :max(190,61+count($matchLines)*30+count($leagueLines)*23
                     +(!empty($leg['date'])?27:0)+count($marketLines)*29
                     +$marketSelectionGap+count($selectionLines)*36);
 
@@ -431,15 +431,13 @@ final class AdaptiveVipCardRenderer
 
                 $cursor=$top+65;
                 $sides=self::matchSides((string)$leg['match']);
-                if($sides!==null && self::flagSpec($sides[0])!==null && self::flagSpec($sides[1])!==null){
+                if($sides!==null){
                     [$left,$right]=$sides;
-                    $leftSpec=self::flagSpec($left);
-                    $rightSpec=self::flagSpec($right);
 
-                    self::drawFlag($im,168,$eventIconY,$leftSpec);
+                    self::drawTeamIdentity($im,168,$eventIconY,$left,$green,$white,$bg,$bold,48);
                     self::textFit($im,205,$top+72,$left,29,$white,$bold,260);
                     self::text($im,446,$top+72,'x',24,$muted,$bold);
-                    self::drawFlag($im,508,$eventIconY,$rightSpec);
+                    self::drawTeamIdentity($im,508,$eventIconY,$right,$green,$white,$bg,$bold,48);
                     self::textFit($im,548,$top+72,$right,29,$white,$bold,430);
                     $cursor=$top+116;
                 }else{
@@ -500,8 +498,19 @@ final class AdaptiveVipCardRenderer
                     $ty=$cursor+34;
 
                     if(!$builder && count($legs)>1){
-                        foreach($matchLines as $line){
-                            self::text($im,$textX,$ty,$line,22,$white,$bold);$ty+=30;
+                        $rowSides=self::matchSides((string)$leg['match']);
+                        if($rowSides!==null){
+                            [$leftTeam,$rightTeam]=$rowSides;
+                            self::drawTeamIdentity($im,$textX+16,$ty-8,$leftTeam,$green,$white,$bg,$bold,34);
+                            self::textFit($im,$textX+40,$ty,$leftTeam,20,$white,$bold,240);
+                            self::text($im,$textX+300,$ty,'x',18,$muted,$bold);
+                            self::drawTeamIdentity($im,$textX+348,$ty-8,$rightTeam,$green,$white,$bg,$bold,34);
+                            self::textFit($im,$textX+374,$ty,$rightTeam,20,$white,$bold,270);
+                            $ty+=36;
+                        }else{
+                            foreach($matchLines as $line){
+                                self::text($im,$textX,$ty,$line,22,$white,$bold);$ty+=30;
+                            }
                         }
                         foreach($leagueLines as $line){
                             self::text($im,$textX,$ty,$line,16,$dim,$font);$ty+=23;
@@ -668,38 +677,147 @@ final class AdaptiveVipCardRenderer
         if(preg_match('~bélgica|belgica|belgium~u',$t))return ['type'=>'v3','colors'=>['#111111','#ffd90c','#ef3340']];
         if(preg_match('~argentina~u',$t))return ['type'=>'h3','colors'=>['#75aadb','#ffffff','#75aadb']];
         if(preg_match('~brasil|brazil~u',$t))return ['type'=>'brazil','colors'=>['#009c3b','#ffdf00','#002776']];
+        if(preg_match('~portugal~u',$t))return ['type'=>'v3','colors'=>['#046a38','#da291c','#ffcc00']];
+        if(preg_match('~holanda|netherlands|pa[ií]ses baixos~u',$t))return ['type'=>'h3','colors'=>['#ae1c28','#ffffff','#21468b']];
+        if(preg_match('~estados unidos|usa|united states~u',$t))return ['type'=>'h3','colors'=>['#b22234','#ffffff','#3c3b6e']];
+        if(preg_match('~m[eé]xico|mexico~u',$t))return ['type'=>'v3','colors'=>['#006847','#ffffff','#ce1126']];
+        if(preg_match('~col[oô]mbia|colombia~u',$t))return ['type'=>'h3','colors'=>['#fcd116','#003893','#ce1126']];
+        if(preg_match('~uruguai|uruguay~u',$t))return ['type'=>'h3','colors'=>['#ffffff','#5bc0eb','#ffffff']];
+        if(preg_match('~chile~u',$t))return ['type'=>'h3','colors'=>['#ffffff','#d52b1e','#0039a6']];
+        if(preg_match('~jap[aã]o|japan~u',$t))return ['type'=>'japan','colors'=>['#ffffff','#bc002d']];
+        if(preg_match('~su[ií][cç]a|switzerland~u',$t))return ['type'=>'swiss','colors'=>['#d52b1e','#ffffff']];
+        if(preg_match('~pol[oô]nia|poland~u',$t))return ['type'=>'h3','colors'=>['#ffffff','#dc143c','#dc143c']];
+        if(preg_match('~cro[aá]cia|croatia~u',$t))return ['type'=>'h3','colors'=>['#ff0000','#ffffff','#171796']];
+        if(preg_match('~dinamarca|denmark~u',$t))return ['type'=>'swiss','colors'=>['#c8102e','#ffffff']];
+        if(preg_match('~su[eé]cia|sweden~u',$t))return ['type'=>'swiss','colors'=>['#006aa7','#fecc00']];
+        if(preg_match('~noruega|norway~u',$t))return ['type'=>'swiss','colors'=>['#ba0c2f','#ffffff']];
+        if(preg_match('~turquia|turkey|türkiye~u',$t))return ['type'=>'japan','colors'=>['#e30a17','#ffffff']];
+        if(preg_match('~coreia do sul|south korea~u',$t))return ['type'=>'japan','colors'=>['#ffffff','#cd2e3a']];
         return null;
     }
 
-    private static function drawFlag($im,int $cx,int $cy,array $spec): void
+    private static function drawTeamIdentity(
+        $im,int $cx,int $cy,string $team,int $accent,int $white,int $dark,string $bold,int $size=44
+    ): void {
+        $flag=self::flagSpec($team);
+        if($flag!==null){
+            self::drawFlagSized($im,$cx,$cy,$flag,$size);
+            return;
+        }
+        self::drawClubCrest($im,$cx,$cy,$team,$accent,$white,$dark,$bold,$size);
+    }
+
+    private static function drawClubCrest(
+        $im,int $cx,int $cy,string $team,int $accent,int $white,int $dark,string $bold,int $size
+    ): void {
+        $size=max(30,min(58,$size));
+        $half=(int)round($size/2);
+        $top=$cy-$half;
+        $bottom=$cy+$half;
+        $left=$cx-$half+3;
+        $right=$cx+$half-3;
+
+        // Premium shield fallback for clubs without bundled official artwork.
+        $hash=abs(crc32(mb_strtolower(trim($team),'UTF-8')));
+        $palette=['#39ff88','#29d7ff','#ffb347','#ff5d8f','#a77bff','#ffd84a'];
+        $primary=self::color($im,$palette[$hash%count($palette)]);
+
+        imagefilledpolygon($im,[
+            $cx,$top,
+            $right,$top+7,
+            $right-2,$cy+7,
+            $cx,$bottom,
+            $left+2,$cy+7,
+            $left,$top+7
+        ],$primary);
+        imagepolygon($im,[
+            $cx,$top,
+            $right,$top+7,
+            $right-2,$cy+7,
+            $cx,$bottom,
+            $left+2,$cy+7,
+            $left,$top+7
+        ],$white);
+
+        $inner=max(18,$size-10);
+        $ih=(int)round($inner/2);
+        imagefilledpolygon($im,[
+            $cx,$cy-$ih,
+            $cx+$ih-3,$cy-$ih+6,
+            $cx+$ih-5,$cy+5,
+            $cx,$cy+$ih,
+            $cx-$ih+5,$cy+5,
+            $cx-$ih+3,$cy-$ih+6
+        ],$dark);
+
+        $initials=self::teamInitials($team);
+        $fontSize=max(9,(int)round($size*.23));
+        $tw=self::width($initials,$bold,$fontSize);
+        self::text($im,$cx-(int)($tw/2),$cy+(int)round($fontSize*.38),$initials,$fontSize,$primary,$bold);
+    }
+
+    private static function teamInitials(string $team): string
     {
-        $diam=40;
-        $outline=self::color($im,'#c9d6e3');
-        imagefilledellipse($im,$cx,$cy,$diam+4,$diam+4,$outline);
+        $clean=preg_replace('~[^\p{L}\p{N} ]+~u',' ',trim($team))??trim($team);
+        $parts=array_values(array_filter(preg_split('~\s+~u',$clean)?:[],static fn($v)=>$v!==''));
+        if($parts===[])return '?';
+
+        $ignore=['fc','cf','ac','sc','club','clube','de','da','do','the'];
+        $letters='';
+        foreach($parts as $part){
+            if(in_array(mb_strtolower($part,'UTF-8'),$ignore,true))continue;
+            $letters.=mb_strtoupper(mb_substr($part,0,1,'UTF-8'),'UTF-8');
+            if(mb_strlen($letters,'UTF-8')>=3)break;
+        }
+        if($letters==='')$letters=mb_strtoupper(mb_substr($parts[0],0,2,'UTF-8'),'UTF-8');
+        return mb_substr($letters,0,3,'UTF-8');
+    }
+
+    private static function drawFlagSized($im,int $cx,int $cy,array $spec,int $size): void
+    {
+        $size=max(30,min(58,$size));
+        $outline=self::color($im,'#d7e0e8');
+        imagefilledellipse($im,$cx,$cy,$size+4,$size+4,$outline);
         $type=$spec['type'];
         $colors=$spec['colors'];
-        $base=self::color($im,$colors[0]);
-        imagefilledellipse($im,$cx,$cy,$diam,$diam,$base);
+        imagefilledellipse($im,$cx,$cy,$size,$size,self::color($im,$colors[0]));
+
+        $r=(int)floor($size*.40);
         if($type==='england'){
             $red=self::color($im,$colors[1]);
-            imagefilledrectangle($im,$cx-4,$cy-18,$cx+4,$cy+18,$red);
-            imagefilledrectangle($im,$cx-18,$cy-4,$cx+18,$cy+4,$red);
+            $bar=max(3,(int)round($size*.10));
+            imagefilledrectangle($im,$cx-$bar,$cy-$r,$cx+$bar,$cy+$r,$red);
+            imagefilledrectangle($im,$cx-$r,$cy-$bar,$cx+$r,$cy+$bar,$red);
         }elseif($type==='h3'){
+            $band=max(5,(int)ceil(($r*2)/3));
             for($i=0;$i<3;$i++){
-                $c=self::color($im,$colors[$i]);
-                imagefilledrectangle($im,$cx-17,$cy-15+$i*10,$cx+17,$cy-6+$i*10,$c);
+                $color=self::color($im,$colors[$i]);
+                imagefilledrectangle($im,$cx-$r,$cy-$r+$i*$band,$cx+$r,$cy-$r+($i+1)*$band,$color);
             }
         }elseif($type==='v3'){
+            $band=max(5,(int)ceil(($r*2)/3));
             for($i=0;$i<3;$i++){
-                $c=self::color($im,$colors[$i]);
-                imagefilledrectangle($im,$cx-15+$i*10,$cy-17,$cx-6+$i*10,$cy+17,$c);
+                $color=self::color($im,$colors[$i]);
+                imagefilledrectangle($im,$cx-$r+$i*$band,$cy-$r,$cx-$r+($i+1)*$band,$cy+$r,$color);
             }
         }elseif($type==='brazil'){
             $yellow=self::color($im,$colors[1]);
             $blue=self::color($im,$colors[2]);
-            imagefilledpolygon($im,[$cx,$cy-13,$cx+15,$cy,$cx,$cy+13,$cx-15,$cy],$yellow);
-            imagefilledellipse($im,$cx,$cy,14,14,$blue);
+            imagefilledpolygon($im,[$cx,$cy-$r+3,$cx+$r-2,$cy,$cx,$cy+$r-3,$cx-$r+2,$cy],$yellow);
+            imagefilledellipse($im,$cx,$cy,max(9,(int)($size*.32)),max(9,(int)($size*.32)),$blue);
+        }elseif($type==='japan'){
+            imagefilledellipse($im,$cx,$cy,max(10,(int)($size*.38)),max(10,(int)($size*.38)),self::color($im,'#bc002d'));
+        }elseif($type==='swiss'){
+            $white=self::color($im,'#ffffff');
+            $bar=max(3,(int)($size*.10));
+            imagefilledrectangle($im,$cx-$bar,$cy-$r+6,$cx+$bar,$cy+$r-6,$white);
+            imagefilledrectangle($im,$cx-$r+6,$cy-$bar,$cx+$r-6,$cy+$bar,$white);
         }
+    }
+
+    private static function drawFlag($im,int $cx,int $cy,array $spec): void
+    {
+        self::drawFlagSized($im,$cx,$cy,$spec,40);
     }
 
     private static function sportKey(array $bet,array $leg=[]): string
