@@ -99,10 +99,18 @@ if(($unknownBet['bookmaker']??'')!=='Casa desconhecida')throw new RuntimeExcepti
 
 $rendererSource=file_get_contents(__DIR__.'/../app/AdaptiveVipCardRenderer.php');
 if(!is_string($rendererSource)
-   ||!str_contains($rendererSource,'Approved branded layout used by Betano and bet365 previews')
-   ||!str_contains($rendererSource,'Bet Builder intentionally has NO odd beside each selection')
-   ||!str_contains($rendererSource,'Game time is intentionally absent everywhere')){
-    throw new RuntimeException('Approved visual template hooks missing');
+   ||!str_contains($rendererSource,'Global premium card layout used by every bookmaker and every bet type')
+   ||!str_contains($rendererSource,'Global Bet Builder rule: never draw a per-selection odd')
+   ||!str_contains($rendererSource,'Values are rendered once')
+   ||!str_contains($rendererSource,'drawPremiumCard')){
+    throw new RuntimeException('Global premium visual template hooks missing');
+}
+
+// Regression for the exact crowded footer/CTA case: the approved renderer must
+// use one bounded text draw for "10 unidades" and computed centering for CTA.
+if(!str_contains($rendererSource,"self::FIXED_STAKE.' unidades'")
+   ||!str_contains($rendererSource,'$start=540-(int)(($prefixW+$gap+$brandW)/2)')){
+    throw new RuntimeException('Premium spacing regression guard missing');
 }
 
 echo "CARD_MODELS_SMOKE_TESTS_PASSED\n";
