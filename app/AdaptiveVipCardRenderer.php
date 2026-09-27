@@ -1070,7 +1070,7 @@ final class AdaptiveVipCardRenderer
 
         $img=@imagecreatefromstring($bytes);
         if($img===false)return null;
-        imagedestroy($img);
+        unset($img);
 
         $tmp=$path.'.tmp-'.bin2hex(random_bytes(4));
         if(file_put_contents($tmp,$bytes,LOCK_EX)===false){
@@ -1098,7 +1098,7 @@ final class AdaptiveVipCardRenderer
         $sw=imagesx($src);
         $sh=imagesy($src);
         if($sw<=0||$sh<=0){
-            imagedestroy($src);
+            unset($src);
             return false;
         }
 
@@ -1111,7 +1111,7 @@ final class AdaptiveVipCardRenderer
         imagealphablending($im,true);
         imagesavealpha($im,true);
         $ok=imagecopyresampled($im,$src,$dx,$dy,0,0,$dw,$dh,$sw,$sh);
-        imagedestroy($src);
+        unset($src);
         return $ok;
     }
 
@@ -1165,7 +1165,7 @@ final class AdaptiveVipCardRenderer
                 $body=curl_exec($ch);
                 $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
                 $effective=(string)curl_getinfo($ch,CURLINFO_EFFECTIVE_URL);
-                // PHP 8.5 deprecates curl_close(); releasing the handle by
+                // PHP 8.5 deprecates explicit cURL handle closing; releasing it by
                 // dropping the object avoids MadelineProto converting that
                 // deprecation into a render exception.
                 unset($ch);
