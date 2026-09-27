@@ -40,6 +40,37 @@ if(str_contains($smartFormattingSource,'reconheça de forma natural que a origem
     throw new RuntimeException('Legacy source-commentary analysis instruction is still active');
 echo "SMART_FORMAT_GLOBAL_DIRECT_TIPSTER_ANALYSIS_POLICY_TESTS_PASSED\n";
 
+// Live-research enrichment: only generated analysis may use search-grounded facts.
+$openAIProviderSource=(string)file_get_contents(__DIR__.'/../app/OpenAIProvider.php');
+$geminiResearchSource=(string)file_get_contents(__DIR__.'/../scripts/smart-gemini-research.php');
+foreach([
+    'public static function researchAnalysis',
+    "[['type'=>'web_search']]",
+    "'type'??'')!=='url_citation'"
+] as $openAIResearchToken){
+    if(!str_contains($openAIProviderSource,$openAIResearchToken))
+        throw new RuntimeException('OpenAI grounded sports research missing: '.$openAIResearchToken);
+}
+foreach([
+    "'googleSearch'=>(object)[]",
+    "'groundingMetadata']['groundingChunks']",
+    "unset($ch)"
+] as $geminiResearchToken){
+    if(!str_contains($geminiResearchSource,$geminiResearchToken))
+        throw new RuntimeException('Gemini grounded sports research missing: '.$geminiResearchToken);
+}
+foreach([
+    "if($localized!==null && $sourceAnalysis==='')",
+    'enrichGeneratedAnalysis($localized,$provider,$rule)',
+    "'research_sources'",
+    'Fontes consultadas',
+    'NO_VERIFIABLE_SOURCES'
+] as $researchFlowToken){
+    if(!str_contains($smartFormattingSource,$researchFlowToken))
+        throw new RuntimeException('Grounded generated-analysis flow missing: '.$researchFlowToken);
+}
+echo "SMART_FORMAT_GROUNDED_GAME_RESEARCH_POLICY_TESTS_PASSED\n";
+
 // PR #77 regression: MadelineProto promotes PHP warnings to exceptions.
 // A missing /tmp backoff marker must be a normal first-run state.
 $backoffFile='/tmp/tmr-smart-gemini-backoff-until';
