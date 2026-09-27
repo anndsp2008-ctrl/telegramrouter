@@ -202,6 +202,8 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private static function drawTeamIdentity')
    ||!str_contains($rendererSource,'private static function drawClubCrest')
    ||!str_contains($rendererSource,'private static function drawFlagSized')
+   ||!str_contains($rendererSource,'private static function selectionParticipant')
+   ||!str_contains($rendererSource,'always show its visual identity next to the name')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
    ||!str_contains($rendererSource,"return str_replace(',','.',\$odd)")){
     throw new RuntimeException('Global premium renderer hooks missing');
