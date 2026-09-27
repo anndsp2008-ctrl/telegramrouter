@@ -205,6 +205,8 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private static function resolveParticipantIdentity')
    ||!str_contains($rendererSource,'private static function officialTeamBadgePath')
    ||!str_contains($rendererSource,'private static function drawResolvedIdentity')
+   ||!str_contains($rendererSource,'private static function drawProportionalMatchup')
+   ||!str_contains($rendererSource,'Both sides share one font size and the complete group is centered')
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'All-or-none rule')
@@ -215,6 +217,10 @@ if(!is_string($rendererSource)
 if(str_contains($rendererSource,'private static function drawClubCrest')
    ||str_contains($rendererSource,'Premium shield fallback')){
     throw new RuntimeException('Synthetic crest fallback must stay disabled');
+}
+if(str_contains($rendererSource,"self::text(\$im,446,\$top+72,'x'")
+   ||str_contains($rendererSource,"self::text(\$im,\$textX+300,\$ty,'x'")){
+    throw new RuntimeException('Fixed matchup coordinates reintroduced');
 }
 if(str_contains($rendererSource,'curl_close(')
    ||str_contains($rendererSource,'imagedestroy(')){
