@@ -120,59 +120,8 @@ final class OpenAIProvider
         return $attempt;
     }
 
-    /**
-     * Optional live research used only to enrich AI-generated sports analysis.
-     * Web-derived claims are returned with source URLs so callers can expose
-     * clickable citations alongside the Telegram card.
-     * @param array<string,mixed> $bet
-     * @return array{ok:bool,text?:string,sources?:array<int,array{title:string,url:string}>,model:string,fallback_used:bool,latency_ms:int,http_code:?int,reason?:string}
-     */
-    public static function researchAnalysis(array $bet,string $target='pt-BR'): array
-    {
-        $match=trim((string)($bet['match']??''));
-        $market=trim((string)($bet['market']??''));
-        $selection=trim((string)($bet['selection']??''));
-        $league=trim((string)($bet['league']??''));
-        if($match===''||$market===''||$selection===''){
-            return ['ok'=>false,'model'=>self::primaryModel(),'fallback_used'=>false,'latency_ms'=>0,'http_code'=>null,'reason'=>'OPENAI_RESEARCH_INPUT_INCOMPLETE'];
-        }
-
-        $prompt="Atue como um tipster esportivo profissional analisando ESTA partida específica. ".
-            "Use pesquisa na web quando ela puder melhorar a análise com fatos atuais e verificáveis. ".
-            "Priorize fontes esportivas confiáveis e dados diretamente relevantes ao mercado escolhido, como forma recente, produção ofensiva/defensiva, médias do mercado, mando, classificação, desfalques confirmados ou contexto competitivo, SOMENTE quando encontrados de forma confiável. ".
-            "Nunca invente estatísticas, tendências ou notícias. Não use a odd como prova de desempenho. ".
-            "Se a pesquisa não trouxer evidência confiável suficiente, limite-se à leitura técnica do mercado e da seleção sem comentar falta de dados, origem, comprovante ou bilhete. ".
-            "Escreva 3 a 5 frases coesas, naturais e objetivas, como um apostador que estudou o jogo e está justificando a própria entrada. ".
-            "Não cite nomes de sites nem URLs dentro da análise; as fontes serão exibidas separadamente. ".
-            "Responda somente com a análise em {$target}.
-
-".
-            "Partida: {$match}
-Competição: {$league}
-Mercado: {$market}
-Seleção: {$selection}";
-
-        $key=self::apiKey();
-        $models=[self::primaryModel()];
-        if(self::fallbackEnabled()){
-            $fallback=self::fallbackModel();
-            if($fallback!==$models[0])$models[]=$fallback;
-        }
-        $last=[
-            'ok'=>false,'model'=>$models[0],'fallback_used'=>false,'latency_ms'=>0,
-            'http_code'=>null,'reason'=>'OPENAI_RESEARCH_UNAVAILABLE'
-        ];
-        foreach($models as $index=>$model){
-            $attempt=self::request($key,$model,$prompt,null,false,true);
-            $attempt['fallback_used']=$index>0;
-            $last=$attempt;
-            if(!empty($attempt['ok']) && trim((string)($attempt['text']??''))!=='')return $attempt;
-        }
-        return $last;
-    }
-
     /** @return array{ok:bool,text?:string,model:string,fallback_used:bool,latency_ms:int,http_code:?int,reason?:string} */
-    private static function request(string $key,string $model,string $prompt,?string $image,bool $json,bool $webSearch=false): array
+    private static function request(string $key,string $model,string $prompt,?string $image,bool $json): array
     {
         if($key===''){
             return ['ok'=>false,'model'=>$model,'fallback_used'=>false,'latency_ms'=>0,'http_code'=>null,'reason'=>'OPENAI_KEY_MISSING'];
@@ -206,10 +155,6 @@ Seleção: {$selection}";
             'reasoning'=>['effort'=>'low']
         ];
         if($json)$payload['text']=['format'=>['type'=>'json_object']];
-        if($webSearch){
-            $payload['tools']=[['type'=>'web_search']];
-            $payload['tool_choice']='auto';
-        }
 
         $encoded=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
         if(!is_string($encoded)){
@@ -249,22 +194,12 @@ Seleção: {$selection}";
             return ['ok'=>false,'model'=>$model,'fallback_used'=>false,'latency_ms'=>$latency,'http_code'=>$http?:null,'reason'=>$reason];
         }
 
-        $text='';$sources=[];
+        $text='';
         foreach(($data['output']??[]) as $item){
             if(!is_array($item) || ($item['type']??'')!=='message')continue;
             foreach(($item['content']??[]) as $part){
                 if(is_array($part) && ($part['type']??'')==='output_text'){
                     $text.=(string)($part['text']??'');
-                    foreach(($part['annotations']??[]) as $annotation){
-                        if(!is_array($annotation) || ($annotation['type']??'')!=='url_citation')continue;
-                        $url=trim((string)($annotation['url']??''));
-                        if($url===''||filter_var($url,FILTER_VALIDATE_URL)===false)continue;
-                        $sources[$url]=[
-                            'title'=>mb_substr(trim((string)($annotation['title']??'')),0,120,'UTF-8'),
-                            'url'=>$url
-                        ];
-                        if(count($sources)>=3)break;
-                    }
                 }
             }
         }
@@ -272,8 +207,6 @@ Seleção: {$selection}";
         if($text===''){
             return ['ok'=>false,'model'=>$model,'fallback_used'=>false,'latency_ms'=>$latency,'http_code'=>$http,'reason'=>'OPENAI_RESPONSE_EMPTY'];
         }
-        $success=['ok'=>true,'text'=>$text,'model'=>$model,'fallback_used'=>false,'latency_ms'=>$latency,'http_code'=>$http];
-        if($webSearch)$success['sources']=array_values($sources);
-        return $success;
+        return ['ok'=>true,'text'=>$text,'model'=>$model,'fallback_used'=>false,'latency_ms'=>$latency,'http_code'=>$http];
     }
 }
