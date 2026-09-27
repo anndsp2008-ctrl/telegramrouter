@@ -10,7 +10,7 @@ final class AdaptiveVipCardRenderer
         return 'CARD ADAPTATIVO: identifique a casa de aposta SOMENTE quando houver nome ou logotipo inequívoco no texto ou na imagem. '
             .'No campo bookmaker use o nome canônico (ex.: Betano, bet365); se não for possível identificar, deixe vazio. '
             .'Preencha card_legs como STRING contendo um array JSON de 1 a 16 objetos na ordem real do bilhete. '
-            .'Cada objeto deve ter somente strings: match, league, date, market, selection, odd. '
+            .'Cada objeto deve ter somente strings: sport, match, league, date, market, selection, odd. Em sport, informe o esporte daquela seleção quando identificável. '
             .'Nunca inclua horário em card_legs; date pode conter apenas a data explicitamente visível, sem hora. '
             .'Para aposta simples, card_legs tem 1 objeto. Para dupla, 2 seleções de jogos distintos. '
             .'Para múltipla, 3 ou mais seleções/jogos. Para Bet Builder/Criar Aposta/Crear Apuesta, inclua cada condição do mesmo jogo como um objeto separado, repetindo match quando necessário. '
@@ -36,6 +36,7 @@ final class AdaptiveVipCardRenderer
             $selection=trim((string)($data['selection']??''));
             if($match!==''&&$market!==''&&$selection!==''){
                 $legs=[[
+                    'sport'=>trim((string)($data['sport']??'')),
                     'match'=>$match,
                     'league'=>trim((string)($data['league']??'')),
                     'date'=>self::dateOnly((string)($data['day']??'')),
@@ -82,7 +83,7 @@ final class AdaptiveVipCardRenderer
         ];
     }
 
-    /** @return list<array{match:string,league:string,date:string,market:string,selection:string,odd:string}> */
+    /** @return list<array{sport:string,match:string,league:string,date:string,market:string,selection:string,odd:string}> */
     private static function parseLegs(string $raw): array
     {
         $raw=trim($raw);
@@ -92,6 +93,7 @@ final class AdaptiveVipCardRenderer
         $out=[];
         foreach($decoded as $row){
             if(!is_array($row))return [];
+            $sport=self::cleanText($row['sport']??'',80);
             $match=self::cleanText($row['match']??'',240);
             $league=self::cleanText($row['league']??'',180);
             $date=self::dateOnly((string)($row['date']??''));
@@ -100,14 +102,14 @@ final class AdaptiveVipCardRenderer
             $odd=self::cleanOdd((string)($row['odd']??''));
             if($match===''||$market===''||$selection==='')return [];
             $out[]=[
-                'match'=>$match,'league'=>$league,'date'=>$date,
+                'sport'=>$sport,'match'=>$match,'league'=>$league,'date'=>$date,
                 'market'=>$market,'selection'=>$selection,'odd'=>$odd
             ];
         }
         return $out;
     }
 
-    /** @return list<array{match:string,league:string,date:string,market:string,selection:string,odd:string}> */
+    /** @return list<array{sport:string,match:string,league:string,date:string,market:string,selection:string,odd:string}> */
     private static function parseLegacyDouble(string $raw): array
     {
         if(strlen($raw)>16000)return [];
@@ -121,7 +123,7 @@ final class AdaptiveVipCardRenderer
             $selection=self::cleanText($row['selection']??'',260);
             if($match===''||$market===''||$selection==='')return [];
             $out[]=[
-                'match'=>$match,'league'=>'','date'=>'',
+                'sport'=>'','match'=>$match,'league'=>'','date'=>'',
                 'market'=>$market,'selection'=>$selection,
                 'odd'=>self::cleanOdd((string)($row['odd']??''))
             ];
@@ -216,7 +218,7 @@ final class AdaptiveVipCardRenderer
             // same match. Show the event once so Telegram text cannot look like
             // two independent bets.
             $first=$legs[0];
-            $lines[]='⚽ '.($first['match']??'');
+            $lines[]=self::sportEmoji(self::sportKey($bet,$first)).' '.($first['match']??'');
             if(!empty($first['league']))$lines[]='🏆 '.$first['league'];
             if(!empty($first['date']))$lines[]='📅 '.$first['date'];
             $lines[]='';
@@ -229,7 +231,7 @@ final class AdaptiveVipCardRenderer
             }
         }else{
             foreach($legs as $index=>$leg){
-                $lines[]='⚽ '.($index+1).'. '.($leg['match']??'');
+                $lines[]=self::sportEmoji(self::sportKey($bet,$leg)).' '.($index+1).'. '.($leg['match']??'');
                 if(!empty($leg['league']))$lines[]='🏆 '.$leg['league'];
                 if(!empty($leg['date']))$lines[]='📅 '.$leg['date'];
                 $lines[]='🎯 Mercado: '.($leg['market']??'');
@@ -420,7 +422,7 @@ final class AdaptiveVipCardRenderer
                 self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,26,$panel);
 
                 $eventIconY=$top+55;
-                self::footballIcon($im,88,$eventIconY,$white,$bg);
+                self::drawSportIcon($im,88,$eventIconY,self::sportKey($bet,$leg),$green,$white,$bg);
 
                 $cursor=$top+65;
                 $sides=self::matchSides((string)$leg['match']);
@@ -476,11 +478,17 @@ final class AdaptiveVipCardRenderer
                     [$index,$leg,$matchLines,$leagueLines,$marketLines,$selectionLines,$rowH]=$selectionRow;
                     $circleY=$cursor+42;
 
-                    // Open selection marker from the reference.
-                    imageellipse($im,106,$circleY,29,29,$green);
-                    imageellipse($im,106,$circleY,25,25,$green);
-                    if($rowIndex<count($selectionRows)-1){
-                        imageline($im,106,$circleY+16,106,$cursor+$rowH+4,$green);
+                    if(!$builder && count($legs)>1){
+                        self::drawSportIcon(
+                            $im,106,$circleY,self::sportKey($bet,$leg),$green,$white,$bg,42
+                        );
+                    }else{
+                        // Bet Builder keeps the linked-condition marker from the reference.
+                        imageellipse($im,106,$circleY,29,29,$green);
+                        imageellipse($im,106,$circleY,25,25,$green);
+                        if($rowIndex<count($selectionRows)-1){
+                            imageline($im,106,$circleY+16,106,$cursor+$rowH+4,$green);
+                        }
                     }
 
                     $textX=166;
@@ -686,15 +694,261 @@ final class AdaptiveVipCardRenderer
         }
     }
 
-    private static function footballIcon($im,int $cx,int $cy,int $white,int $dark): void
+    private static function sportKey(array $bet,array $leg=[]): string
     {
-        imagefilledellipse($im,$cx,$cy,42,42,$white);
-        imageellipse($im,$cx,$cy,42,42,self::color($im,'#8ea0b1'));
-        imagefilledpolygon($im,[$cx,$cy-7,$cx+7,$cy-2,$cx+4,$cy+7,$cx-4,$cy+7,$cx-7,$cy-2],$dark);
-        imageline($im,$cx-7,$cy-2,$cx-15,$cy-9,$dark);
-        imageline($im,$cx+7,$cy-2,$cx+15,$cy-9,$dark);
-        imageline($im,$cx+4,$cy+7,$cx+11,$cy+15,$dark);
-        imageline($im,$cx-4,$cy+7,$cx-11,$cy+15,$dark);
+        $raw=mb_strtolower(trim((string)($leg['sport']??$bet['sport']??'')),'UTF-8');
+        $context=$raw.' '.mb_strtolower(trim(
+            (string)($leg['league']??'').' '.(string)($leg['market']??'').' '.(string)($leg['match']??'')
+        ),'UTF-8');
+
+        if(preg_match('~\b(?:futebol americano|american football|nfl|ncaa football)\b~u',$context))return 'american_football';
+        if(preg_match('~\b(?:basquete|basketball|nba|wnba|euroleague|ncaab)\b~u',$context))return 'basketball';
+        if(preg_match('~\b(?:t[eê]nis de mesa|table tennis|ping[ -]?pong)\b~u',$context))return 'table_tennis';
+        if(preg_match('~\b(?:t[eê]nis|tennis|atp|wta)\b~u',$context))return 'tennis';
+        if(preg_match('~\b(?:v[oô]lei|volleyball|voleibol)\b~u',$context))return 'volleyball';
+        if(preg_match('~\b(?:beisebol|baseball|mlb)\b~u',$context))return 'baseball';
+        if(preg_match('~\b(?:h[oó]quei|hockey|nhl)\b~u',$context))return 'hockey';
+        if(preg_match('~\b(?:e-?sports?|esports|counter[- ]?strike|cs2|valorant|league of legends|dota)\b~u',$context))return 'esports';
+        if(preg_match('~\b(?:mma|ufc|boxe|boxing|kickboxing|muay thai)\b~u',$context))return 'combat';
+        if(preg_match('~\b(?:f[óo]rmula ?1|formula ?1|f1|motogp|motorsport|automobilismo|nascar)\b~u',$context))return 'motorsport';
+        if(preg_match('~\b(?:snooker|sinuca|bilhar|billiards?|pool)\b~u',$context))return 'snooker';
+        if(preg_match('~\b(?:dardos?|darts?)\b~u',$context))return 'darts';
+        if(preg_match('~\b(?:handebol|handball)\b~u',$context))return 'handball';
+        if(preg_match('~\b(?:futebol|football|soccer|premier league|champions league|libertadores|serie a|la liga|bundesliga)\b~u',$context))return 'football';
+
+        return 'generic';
+    }
+
+    private static function sportEmoji(string $sport): string
+    {
+        return match($sport){
+            'basketball'=>'🏀',
+            'tennis'=>'🎾',
+            'volleyball'=>'🏐',
+            'table_tennis'=>'🏓',
+            'baseball'=>'⚾',
+            'american_football'=>'🏈',
+            'hockey'=>'🏒',
+            'esports'=>'🎮',
+            'combat'=>'🥊',
+            'motorsport'=>'🏁',
+            'snooker'=>'🎱',
+            'darts'=>'🎯',
+            'handball'=>'🤾',
+            'football'=>'⚽',
+            default=>'🏅'
+        };
+    }
+
+    private static function drawSportIcon(
+        $im,int $cx,int $cy,string $sport,int $accent,int $white,int $dark,int $size=52
+    ): void {
+        $size=max(34,min(64,$size));
+        match($sport){
+            'basketball'=>self::basketballIcon($im,$cx,$cy,$size),
+            'tennis'=>self::tennisIcon($im,$cx,$cy,$size,$white),
+            'volleyball'=>self::volleyballIcon($im,$cx,$cy,$size,$white,$accent,$dark),
+            'table_tennis'=>self::tableTennisIcon($im,$cx,$cy,$size,$white,$accent,$dark),
+            'baseball'=>self::baseballIcon($im,$cx,$cy,$size,$white),
+            'american_football'=>self::americanFootballIcon($im,$cx,$cy,$size,$white),
+            'hockey'=>self::hockeyIcon($im,$cx,$cy,$size,$white,$accent,$dark),
+            'esports'=>self::esportsIcon($im,$cx,$cy,$size,$accent,$dark),
+            'combat'=>self::combatIcon($im,$cx,$cy,$size,$accent,$dark),
+            'motorsport'=>self::motorsportIcon($im,$cx,$cy,$size,$white,$dark),
+            'snooker'=>self::snookerIcon($im,$cx,$cy,$size,$accent,$white,$dark),
+            'darts'=>self::dartsIcon($im,$cx,$cy,$size,$accent,$white,$dark),
+            'handball'=>self::handballIcon($im,$cx,$cy,$size,$accent,$white,$dark),
+            'football'=>self::footballIconPremium($im,$cx,$cy,$size,$white,$dark),
+            default=>self::genericSportIcon($im,$cx,$cy,$size,$accent,$white,$dark)
+        };
+    }
+
+    private static function footballIconPremium($im,int $cx,int $cy,int $size,int $white,int $dark): void
+    {
+        $r=(int)round($size/2);
+        $outline=self::color($im,'#8ea1b4');
+        imagefilledellipse($im,$cx,$cy,$size,$size,$white);
+        imageellipse($im,$cx,$cy,$size,$size,$outline);
+        imageellipse($im,$cx,$cy,$size-3,$size-3,$outline);
+
+        $p=max(6,(int)round($size*0.16));
+        $pts=[];
+        for($i=0;$i<5;$i++){
+            $a=deg2rad(-90+$i*72);
+            $pts[]=(int)round($cx+cos($a)*$p);
+            $pts[]=(int)round($cy+sin($a)*$p);
+        }
+        imagefilledpolygon($im,$pts,$dark);
+
+        $anchors=[];
+        for($i=0;$i<5;$i++){
+            $a=deg2rad(-90+$i*72);
+            $ax=(int)round($cx+cos($a)*$r*0.72);
+            $ay=(int)round($cy+sin($a)*$r*0.72);
+            $anchors[]=[$ax,$ay];
+            imagefilledpolygon($im,[
+                $ax,$ay-(int)($p*0.55),
+                $ax+(int)($p*0.55),$ay-(int)($p*0.15),
+                $ax+(int)($p*0.35),$ay+(int)($p*0.5),
+                $ax-(int)($p*0.35),$ay+(int)($p*0.5),
+                $ax-(int)($p*0.55),$ay-(int)($p*0.15)
+            ],$dark);
+        }
+        foreach($anchors as [$ax,$ay])imageline($im,$cx,$cy,$ax,$ay,$dark);
+    }
+
+    private static function basketballIcon($im,int $cx,int $cy,int $size): void
+    {
+        $orange=self::color($im,'#f28c28');
+        $line=self::color($im,'#40220f');
+        imagefilledellipse($im,$cx,$cy,$size,$size,$orange);
+        imageellipse($im,$cx,$cy,$size,$size,$line);
+        imageline($im,$cx-(int)($size*.48),$cy,$cx+(int)($size*.48),$cy,$line);
+        imageline($im,$cx,$cy-(int)($size*.48),$cx,$cy+(int)($size*.48),$line);
+        imagearc($im,$cx-(int)($size*.34),$cy,$size,$size,300,60,$line);
+        imagearc($im,$cx+(int)($size*.34),$cy,$size,$size,120,240,$line);
+    }
+
+    private static function tennisIcon($im,int $cx,int $cy,int $size,int $white): void
+    {
+        $ball=self::color($im,'#c9f227');
+        imagefilledellipse($im,$cx,$cy,$size,$size,$ball);
+        imageellipse($im,$cx,$cy,$size,$size,self::color($im,'#799514'));
+        imagearc($im,$cx-(int)($size*.30),$cy,$size,$size,295,65,$white);
+        imagearc($im,$cx+(int)($size*.30),$cy,$size,$size,115,245,$white);
+    }
+
+    private static function volleyballIcon($im,int $cx,int $cy,int $size,int $white,int $accent,int $dark): void
+    {
+        imagefilledellipse($im,$cx,$cy,$size,$size,$white);
+        imageellipse($im,$cx,$cy,$size,$size,self::color($im,'#8798a9'));
+        $r=(int)($size*.44);
+        imagearc($im,$cx-$r,$cy-$r,$size,$size,5,92,$accent);
+        imagearc($im,$cx+$r,$cy-$r,$size,$size,95,182,$dark);
+        imagearc($im,$cx,$cy+$r,$size,$size,190,350,$accent);
+        imageline($im,$cx,$cy-$r,$cx+(int)($r*.65),$cy,$dark);
+        imageline($im,$cx,$cy-$r,$cx-(int)($r*.65),$cy,$dark);
+    }
+
+    private static function tableTennisIcon($im,int $cx,int $cy,int $size,int $white,int $accent,int $dark): void
+    {
+        $r=(int)($size*.28);
+        imagefilledellipse($im,$cx-6,$cy-5,$r*2,$r*2,$accent);
+        imageellipse($im,$cx-6,$cy-5,$r*2,$r*2,$white);
+        imagesetthickness($im,4);
+        imageline($im,$cx+4,$cy+6,$cx+18,$cy+20,$accent);
+        imagesetthickness($im,1);
+        imagefilledellipse($im,$cx+18,$cy-14,max(7,(int)($size*.14)),max(7,(int)($size*.14)),$white);
+    }
+
+    private static function baseballIcon($im,int $cx,int $cy,int $size,int $white): void
+    {
+        $red=self::color($im,'#e24545');
+        imagefilledellipse($im,$cx,$cy,$size,$size,$white);
+        imageellipse($im,$cx,$cy,$size,$size,self::color($im,'#8ea1b4'));
+        imagearc($im,$cx-(int)($size*.22),$cy,$size,$size,305,55,$red);
+        imagearc($im,$cx+(int)($size*.22),$cy,$size,$size,125,235,$red);
+        for($i=-2;$i<=2;$i++){
+            imageline($im,$cx-8,$cy+$i*6,$cx-3,$cy+$i*6+3,$red);
+            imageline($im,$cx+8,$cy+$i*6,$cx+3,$cy+$i*6+3,$red);
+        }
+    }
+
+    private static function americanFootballIcon($im,int $cx,int $cy,int $size,int $white): void
+    {
+        $brown=self::color($im,'#9a572e');
+        $dark=self::color($im,'#4a2a18');
+        imagefilledellipse($im,$cx,$cy,$size,(int)($size*.62),$brown);
+        imageellipse($im,$cx,$cy,$size,(int)($size*.62),$dark);
+        imageline($im,$cx-10,$cy,$cx+10,$cy,$white);
+        for($i=-2;$i<=2;$i++)imageline($im,$cx+$i*5,$cy-5,$cx+$i*5,$cy+5,$white);
+    }
+
+    private static function hockeyIcon($im,int $cx,int $cy,int $size,int $white,int $accent,int $dark): void
+    {
+        imagesetthickness($im,5);
+        imageline($im,$cx-16,$cy-20,$cx+8,$cy+14,$white);
+        imageline($im,$cx+8,$cy+14,$cx+24,$cy+14,$white);
+        imagesetthickness($im,1);
+        imagefilledellipse($im,$cx-12,$cy+17,(int)($size*.55),(int)($size*.20),$dark);
+        imageellipse($im,$cx-12,$cy+17,(int)($size*.55),(int)($size*.20),$accent);
+    }
+
+    private static function esportsIcon($im,int $cx,int $cy,int $size,int $accent,int $dark): void
+    {
+        $w=(int)($size*.82);$h=(int)($size*.50);
+        self::rounded($im,$cx-(int)($w/2),$cy-(int)($h/2),$w,$h,10,$accent);
+        self::rounded($im,$cx-(int)($w/2)+3,$cy-(int)($h/2)+3,$w-6,$h-6,8,$dark);
+        imageline($im,$cx-(int)($w*.22),$cy,$cx-(int)($w*.08),$cy,$accent);
+        imageline($im,$cx-(int)($w*.15),$cy-7,$cx-(int)($w*.15),$cy+7,$accent);
+        imagefilledellipse($im,$cx+(int)($w*.18),$cy-5,6,6,$accent);
+        imagefilledellipse($im,$cx+(int)($w*.29),$cy+5,6,6,$accent);
+    }
+
+    private static function combatIcon($im,int $cx,int $cy,int $size,int $accent,int $dark): void
+    {
+        self::rounded($im,$cx-18,$cy-20,34,34,12,$accent);
+        self::rounded($im,$cx-14,$cy-16,26,26,9,$dark);
+        self::rounded($im,$cx-6,$cy+7,26,14,6,$accent);
+        imageline($im,$cx+4,$cy-12,$cx+4,$cy+7,$accent);
+        imageline($im,$cx-5,$cy-12,$cx-5,$cy+7,$accent);
+    }
+
+    private static function motorsportIcon($im,int $cx,int $cy,int $size,int $white,int $dark): void
+    {
+        $cell=max(5,(int)($size/7));
+        $x0=$cx-(int)($cell*2);$y0=$cy-(int)($cell*2);
+        for($r=0;$r<4;$r++){
+            for($c=0;$c<4;$c++){
+                imagefilledrectangle(
+                    $im,$x0+$c*$cell,$y0+$r*$cell,$x0+($c+1)*$cell,$y0+($r+1)*$cell,
+                    (($r+$c)%2===0)?$white:$dark
+                );
+            }
+        }
+        imageline($im,$x0,$y0,$x0-8,$y0+$cell*5,$white);
+    }
+
+    private static function snookerIcon($im,int $cx,int $cy,int $size,int $accent,int $white,int $dark): void
+    {
+        imagefilledellipse($im,$cx-8,$cy+5,(int)($size*.64),(int)($size*.64),$dark);
+        imageellipse($im,$cx-8,$cy+5,(int)($size*.64),(int)($size*.64),$accent);
+        imagefilledellipse($im,$cx+15,$cy-9,(int)($size*.42),(int)($size*.42),$white);
+        imageellipse($im,$cx+15,$cy-9,(int)($size*.42),(int)($size*.42),$accent);
+    }
+
+    private static function dartsIcon($im,int $cx,int $cy,int $size,int $accent,int $white,int $dark): void
+    {
+        imagefilledellipse($im,$cx,$cy,$size,$size,$dark);
+        imageellipse($im,$cx,$cy,$size,$size,$accent);
+        imageellipse($im,$cx,$cy,(int)($size*.66),(int)($size*.66),$white);
+        imageellipse($im,$cx,$cy,(int)($size*.32),(int)($size*.32),$accent);
+        imagefilledellipse($im,$cx,$cy,7,7,$accent);
+        imageline($im,$cx+5,$cy-5,$cx+24,$cy-24,$white);
+    }
+
+    private static function handballIcon($im,int $cx,int $cy,int $size,int $accent,int $white,int $dark): void
+    {
+        imagefilledellipse($im,$cx,$cy,$size,$size,$accent);
+        imageellipse($im,$cx,$cy,$size,$size,$white);
+        imagearc($im,$cx,$cy,$size-8,$size-8,25,155,$dark);
+        imagearc($im,$cx,$cy,$size-8,$size-8,205,335,$dark);
+        imageline($im,$cx-(int)($size*.35),$cy,$cx+(int)($size*.35),$cy,$dark);
+    }
+
+    private static function genericSportIcon($im,int $cx,int $cy,int $size,int $accent,int $white,int $dark): void
+    {
+        imagefilledellipse($im,$cx,$cy,$size,$size,$dark);
+        imageellipse($im,$cx,$cy,$size,$size,$accent);
+        $r=(int)($size*.24);
+        $pts=[];
+        for($i=0;$i<10;$i++){
+            $a=deg2rad(-90+$i*36);
+            $rr=$i%2===0?$r:(int)($r*.45);
+            $pts[]=(int)round($cx+cos($a)*$rr);
+            $pts[]=(int)round($cy+sin($a)*$rr);
+        }
+        imagefilledpolygon($im,$pts,$accent);
     }
 
     private static function calendarIcon($im,int $x,int $y,int $color): void
