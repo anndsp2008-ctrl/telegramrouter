@@ -696,7 +696,8 @@ final class AdaptiveVipCardRenderer
 
     private static function sportKey(array $bet,array $leg=[]): string
     {
-        $raw=mb_strtolower(trim((string)($leg['sport']??$bet['sport']??'')),'UTF-8');
+        $legSport=trim((string)($leg['sport']??''));
+        $raw=mb_strtolower($legSport!==''?$legSport:trim((string)($bet['sport']??'')),'UTF-8');
         $context=$raw.' '.mb_strtolower(trim(
             (string)($leg['league']??'').' '.(string)($leg['market']??'').' '.(string)($leg['match']??'')
         ),'UTF-8');
