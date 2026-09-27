@@ -12,13 +12,13 @@ final class CardLayoutEmojis
         if(empty($rule['remove_emojis']))return Transform::clean($caption,$rule,[]);
 
         $protected=[];
-        $protect=static function(string $value,array $patterns) use (&$protected): string {
+        $protect=static function(string $value,array $patterns,int $limit=1) use (&$protected): string {
             foreach($patterns as $pattern=>$emoji){
                 $value=preg_replace_callback($pattern,static function() use (&$protected,$emoji): string {
                     $marker='TMRCARDLAYOUTICON'.count($protected).'END';
                     $protected[$marker]=$emoji;
                     return $marker;
-                },$value,1)??$value;
+                },$value,$limit)??$value;
             }
             return $value;
         };
@@ -38,6 +38,16 @@ final class CardLayoutEmojis
             }
             $header=$analysisStart===null?$caption:substr($caption,0,$analysisStart);
             $body=$analysisStart===null?'':substr($caption,$analysisStart);
+            if(str_starts_with($header,'🏆 DUPLA • 2 seleções')){
+                $header=$protect($header,[
+                    '/^⚽(?=[ \t][12]\. )/mu'=>'⚽',
+                    '/^🎯(?=[ \t]Mercado:)/mu'=>'🎯',
+                    '/^✅(?=[ \t]Seleção:)/mu'=>'✅',
+                    '/^📈(?=[ \t]Odd:)/mu'=>'📈',
+                    '/^⚡(?=[ \t]\+2 • Pagamento antecipado)/mu'=>'⚡',
+                    '/^📈(?=[ \t]Odd total:)/mu'=>'📈'
+                ],2);
+            }
             $header=$protect($header,[
                 '/\\A⚽(?=[ \\t])/u'=>'⚽',
                 '/^🏆(?=[ \\t])/mu'=>'🏆',

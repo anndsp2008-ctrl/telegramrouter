@@ -68,3 +68,13 @@ if(!str_contains($footer,'⚡ TelegramRouter'))
     throw new RuntimeException('Service footer decoration was removed');
 
 echo "CARD_LAYOUT_EMOJIS_TESTS_PASSED\n";
+
+$double="🏆 DUPLA • 2 seleções\n\n⚽ 1. Dinamarca x País de Gales\n🎯 Mercado: Escanteios\n✅ Seleção: Mais de 7,5\n📈 Odd: 1,35\n\n⚽ 2. Alemanha x Grécia\n🎯 Mercado: Resultado da partida\n✅ Seleção: Alemanha vence\n📈 Odd: 1,45\n⚡ +2 • Pagamento antecipado\n\n📈 Odd total: 1,95\n📍 Stake: 10\n\n📝 Análise original:\n🔥 Texto do autor";
+foreach([0,1] as $remove){
+    $clean=CardLayoutEmojis::clean($double,['remove_emojis'=>$remove]);
+    foreach(['⚽'=>2,'🎯'=>2,'✅'=>2,'📈'=>3,'🏆'=>1,'📍'=>1,'⚡'=>1,'📝'=>1] as $emoji=>$count){
+        if(substr_count($clean,$emoji)!==$count)throw new RuntimeException('Double layout emoji missing: '.$emoji);
+    }
+    if($remove && str_contains($clean,'🔥'))throw new RuntimeException('Source emoji cleanup changed');
+}
+echo "DOUBLE_CAPTION_EMOJIS_TESTS_PASSED\n";

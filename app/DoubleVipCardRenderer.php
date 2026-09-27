@@ -67,17 +67,18 @@ final class DoubleVipCardRenderer
 
     public static function caption(array $bet): string
     {
-        $lines=['DUPLA • 2 seleções',''];
+        $lines=['🏆 DUPLA • 2 seleções',''];
         foreach($bet['legs'] as $index=>$leg){
-            $lines[]=($index+1).'. '.$leg['match'];
-            $lines[]=$leg['market'].' • '.$leg['selection'];
-            $lines[]='Odd: '.self::odd($leg['odd']);
-            if($leg['promotion']==='betano_early_payout_2')$lines[]='+2 • Pagamento antecipado';
+            $lines[]='⚽ '.($index+1).'. '.$leg['match'];
+            $lines[]='🎯 Mercado: '.$leg['market'];
+            $lines[]='✅ Seleção: '.$leg['selection'];
+            $lines[]='📈 Odd: '.self::odd($leg['odd']);
+            if($leg['promotion']==='betano_early_payout_2')$lines[]='⚡ +2 • Pagamento antecipado';
             $lines[]='';
         }
-        $lines[]='Odd total: '.self::odd($bet['odd']);
-        $lines[]='Stake: '.SmartFormatting::FIXED_STAKE;
-        if(($bet['analysis']??'')!=='')$lines[]="\nAnálise original:\n".$bet['analysis'];
+        $lines[]='📈 Odd total: '.self::odd($bet['odd']);
+        $lines[]='📍 Stake: '.SmartFormatting::FIXED_STAKE;
+        if(($bet['analysis']??'')!=='')$lines[]="\n📝 Análise original:\n".$bet['analysis'];
         return implode("\n",$lines);
     }
 
