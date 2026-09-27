@@ -204,9 +204,39 @@ final class OpenAIProvider
             }
         }
         $text=trim($text);
+        $usage=is_array($data['usage']??null)?$data['usage']:[];
+        $inputTokens=max(0,(int)($usage['input_tokens']??0));
+        $outputTokens=max(0,(int)($usage['output_tokens']??0));
+        $totalTokens=max(0,(int)($usage['total_tokens']??($inputTokens+$outputTokens)));
+        $cachedTokens=max(0,(int)($usage['input_tokens_details']['cached_tokens']??0));
+        $reasoningTokens=max(0,(int)($usage['output_tokens_details']['reasoning_tokens']??0));
+        error_log('TMR_OPENAI_USAGE '.json_encode([
+            'model'=>$model,
+            'input_tokens'=>$inputTokens,
+            'cached_tokens'=>$cachedTokens,
+            'output_tokens'=>$outputTokens,
+            'reasoning_tokens'=>$reasoningTokens,
+            'total_tokens'=>$totalTokens,
+            'latency_ms'=>$latency,
+            'http_code'=>$http
+        ],JSON_UNESCAPED_SLASHES));
         if($text===''){
             return ['ok'=>false,'model'=>$model,'fallback_used'=>false,'latency_ms'=>$latency,'http_code'=>$http,'reason'=>'OPENAI_RESPONSE_EMPTY'];
         }
-        return ['ok'=>true,'text'=>$text,'model'=>$model,'fallback_used'=>false,'latency_ms'=>$latency,'http_code'=>$http];
+        return [
+            'ok'=>true,
+            'text'=>$text,
+            'model'=>$model,
+            'fallback_used'=>false,
+            'latency_ms'=>$latency,
+            'http_code'=>$http,
+            'usage'=>[
+                'input_tokens'=>$inputTokens,
+                'cached_tokens'=>$cachedTokens,
+                'output_tokens'=>$outputTokens,
+                'reasoning_tokens'=>$reasoningTokens,
+                'total_tokens'=>$totalTokens
+            ]
+        ];
     }
 }
