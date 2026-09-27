@@ -341,10 +341,14 @@ final class AdaptiveVipCardRenderer
             }
             if($matchLines===null||$marketLines===null||$selectionLines===null)return null;
 
+            // Global typography spacing: market and selection are separate
+            // visual groups and must never touch/overlap, even after Telegram scaling.
+            $marketSelectionGap=15;
             $rowH=$builder||count($legs)===1
-                ?max(108,38+count($marketLines)*31+count($selectionLines)*35)
-                :max(154,45+count($matchLines)*30+count($leagueLines)*23
-                    +(!empty($leg['date'])?27:0)+count($marketLines)*27+count($selectionLines)*32);
+                ?max(124,42+count($marketLines)*32+$marketSelectionGap+count($selectionLines)*38)
+                :max(174,49+count($matchLines)*30+count($leagueLines)*23
+                    +(!empty($leg['date'])?27:0)+count($marketLines)*29
+                    +$marketSelectionGap+count($selectionLines)*36);
 
             $selectionRows[]=[$index,$leg,$matchLines,$leagueLines,$marketLines,$selectionLines,$rowH];
             $selectionBodyH+=$rowH;
@@ -507,16 +511,19 @@ final class AdaptiveVipCardRenderer
                             $ty+=29;
                         }
                         foreach($marketLines as $line){
-                            self::text($im,$textX,$ty,$line,18,$muted,$font);$ty+=27;
+                            self::text($im,$textX,$ty,$line,18,$muted,$font);$ty+=29;
                         }
                     }else{
                         foreach($marketLines as $line){
-                            self::text($im,$textX,$ty,$line,23,$white,$bold);$ty+=31;
+                            self::text($im,$textX,$ty,$line,23,$white,$bold);$ty+=32;
                         }
                     }
 
+                    // Keep a fixed breathing space between the market label and
+                    // the selected outcome. This is a global card rule.
+                    $ty+=15;
                     foreach($selectionLines as $line){
-                        self::text($im,$textX,$ty,$line,26,$green,$bold);$ty+=35;
+                        self::text($im,$textX,$ty,$line,26,$green,$bold);$ty+=38;
                     }
 
                     if(!$builder && !empty($leg['odd'])){
