@@ -523,7 +523,7 @@ if(!str_contains($openAISource,'TMR_OPENAI_USAGE')){
             'http_code'=>$http
         ],JSON_UNESCAPED_SLASHES));
 PHP;
-    $openAISource=str_replace($usageAnchor,$usagePatch."\\n".$usageAnchor,$openAISource);
+    $openAISource=str_replace($usageAnchor,$usagePatch."\n".$usageAnchor,$openAISource);
     $openAITemp=$openAIPath.'.usage-candidate';
     if(@file_put_contents($openAITemp,$openAISource)===false){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_WRITE_FAILED\\n");exit(1);}
     $openAILint=[];$openAIStatus=0;
