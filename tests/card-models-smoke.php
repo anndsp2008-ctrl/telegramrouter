@@ -51,8 +51,8 @@ $fixtures=[
             'sport'=>'Futebol','odd'=>'1.82','visual_multiple_evidence'=>'Bet Builder',
             'analysis'=>'As duas condições pertencem ao mesmo confronto e precisam ocorrer em conjunto para a entrada ser vencedora.',
             'card_legs'=>json_encode([
-                ['match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026','market'=>'Ambas as equipes marcam','selection'=>'Sim','odd'=>''],
-                ['match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026','market'=>'Total de gols','selection'=>'Menos de 5,5 gols','odd'=>'']
+                ['match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026','market'=>'Ambas as equipes marcam','selection'=>'Sim','odd'=>'1.82'],
+                ['match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026','market'=>'Total de gols','selection'=>'Menos de 5,5 gols','odd'=>'1.82']
             ],JSON_UNESCAPED_UNICODE)
         ]
     ]
@@ -69,6 +69,13 @@ foreach($fixtures as $fixture){
         if(str_contains($caption,$forbidden))throw new RuntimeException('Game time leaked into caption');
     }
     if(!str_contains($caption,'📝 Análise:'))throw new RuntimeException('Analysis missing from caption');
+    if($fixture['expected']==='bet_builder'){
+        foreach($bet['legs'] as $leg){
+            if(($leg['odd']??'')!=='')throw new RuntimeException('Bet Builder kept per-selection odd');
+        }
+        if(str_contains($caption,'📈 Odd:'))throw new RuntimeException('Bet Builder caption exposed per-selection odd');
+        if(substr_count($caption,'Odd total:')!==1)throw new RuntimeException('Bet Builder must expose one total odd only');
+    }
 
     $image=AdaptiveVipCardRenderer::render($bet);
     if($image===null)throw new RuntimeException('Render failed: '.$fixture['expected']);
@@ -89,5 +96,13 @@ $unknown=$fixtures[0]['data'];
 $unknown['bookmaker']='';
 $unknownBet=AdaptiveVipCardRenderer::extract($unknown,'',false);
 if(($unknownBet['bookmaker']??'')!=='Casa desconhecida')throw new RuntimeException('Unknown bookmaker fallback failed');
+
+$rendererSource=file_get_contents(__DIR__.'/../app/AdaptiveVipCardRenderer.php');
+if(!is_string($rendererSource)
+   ||!str_contains($rendererSource,'Approved branded layout used by Betano and bet365 previews')
+   ||!str_contains($rendererSource,'Bet Builder intentionally has NO odd beside each selection')
+   ||!str_contains($rendererSource,'Game time is intentionally absent everywhere')){
+    throw new RuntimeException('Approved visual template hooks missing');
+}
 
 echo "CARD_MODELS_SMOKE_TESTS_PASSED\n";
