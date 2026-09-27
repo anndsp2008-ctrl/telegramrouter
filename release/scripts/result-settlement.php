@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';require __DIR__.'/../config/config.php';require __DIR__.'/../app/Database.php';
-use App\Results\{TrackingStore,ApiFootballClient,SettlementEngine};
-$s=TrackingStore::settings();if(empty($s['enabled'])||empty($s['check_results']))exit(0);$key=(string)(getenv('API_FOOTBALL_KEY')?:'');if($key==='')exit(0);$api=new ApiFootballClient($key);
+use App\Results\{TrackingStore,ApiFootballClient,SettlementEngine,FixtureMatcher};
+$s=TrackingStore::settings();if(empty($s['enabled'])||empty($s['check_results']))exit(0);$key=(string)(getenv('API_FOOTBALL_KEY')?:'');if($key==='')exit(0);$api=new ApiFootballClient($key);$matcher=new FixtureMatcher($api);
+foreach(TrackingStore::unmatched() as $bet){try{$fixture=$matcher->match($bet['home_team']??null,$bet['away_team']??null);if($fixture)TrackingStore::setFixture((int)$bet['id'],$fixture);}catch(Throwable $e){error_log('TMR_FIXTURE_MATCH_NON_FATAL '.get_class($e));}}
 foreach(TrackingStore::pending() as $bet){try{$fixture=$api->fixture((int)$bet['fixture_id']);$short=(string)($fixture['fixture']['status']['short']??'');if(!in_array($short,['FT','AET','PEN'],true))continue;$stats=$api->fixtureStatistics((int)$bet['fixture_id']);$stats['goals_total']=(float)($fixture['goals']['home']??0)+(float)($fixture['goals']['away']??0);$result=SettlementEngine::settle($bet,$stats);TrackingStore::settle((int)$bet['id'],$result,['fixture_status'=>$short,'stats'=>$stats]);}catch(Throwable $e){error_log('TMR_RESULT_SETTLEMENT_NON_FATAL '.get_class($e));}}
