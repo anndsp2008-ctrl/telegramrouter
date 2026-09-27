@@ -1086,8 +1086,23 @@ final class SmartFormatting
             ||trim((string)($bet['market']??''))===''
             ||trim((string)($bet['selection']??''))==='')return $bet;
 
+        $researchProvider=$provider;
+        if($researchProvider==='workers_ai'){
+            // Workers AI has no native general-web grounding in this Router.
+            // Reuse only a search-capable provider that the SAME rule already
+            // configured as primary/fallback; never introduce a hidden provider.
+            $researchProvider='';
+            foreach(self::$providerOrder as $configured){
+                if(in_array($configured,['openai','gemini'],true)){
+                    $researchProvider=$configured;
+                    break;
+                }
+            }
+            if($researchProvider==='')return $bet;
+        }
+
         $result=null;
-        if($provider==='openai'){
+        if($researchProvider==='openai'){
             try {
                 $result=OpenAIProvider::researchAnalysis(
                     $bet,
@@ -1096,20 +1111,20 @@ final class SmartFormatting
             } catch(\Throwable $error) {
                 $result=['ok'=>false,'latency_ms'=>0,'http_code'=>null,'reason'=>'OPENAI_RESEARCH_EXCEPTION'];
             }
-        } elseif($provider==='gemini'){
+        } elseif($researchProvider==='gemini'){
             $result=self::requestGeminiResearch($bet,$rule);
         } else {
             return $bet;
         }
 
         if(!is_array($result))return $bet;
-        self::recordResearchTelemetry($provider,$result);
+        self::recordResearchTelemetry($researchProvider,$result);
 
         $analysis=trim((string)($result['text']??''));
         $sources=self::normalizeResearchSources($result['sources']??[]);
         if(empty($result['ok'])||$analysis===''||$sources===[]){
             error_log('TMR_SMART_ANALYSIS_RESEARCH '.json_encode([
-                'provider'=>$provider,'success'=>false,'sources'=>count($sources),
+                'provider'=>$researchProvider,'success'=>false,'sources'=>count($sources),
                 'reason'=>(string)($result['reason']??'NO_VERIFIABLE_SOURCES')
             ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
             return $bet;
@@ -1121,7 +1136,7 @@ final class SmartFormatting
             $analysis
         )===1){
             error_log('TMR_SMART_ANALYSIS_RESEARCH_META_REJECTED '.json_encode([
-                'provider'=>$provider
+                'provider'=>$researchProvider
             ]));
             return $bet;
         }
@@ -1131,7 +1146,7 @@ final class SmartFormatting
         $bet['analysis']=$clean;
         $bet['research_sources']=$sources;
         error_log('TMR_SMART_ANALYSIS_RESEARCH '.json_encode([
-            'provider'=>$provider,'success'=>true,'sources'=>count($sources)
+            'provider'=>$researchProvider,'success'=>true,'sources'=>count($sources)
         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
         return $bet;
     }
