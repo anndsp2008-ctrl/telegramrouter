@@ -16,7 +16,7 @@ $query=$pdo->prepare(
 $query->execute(['router_rules','translation_provider']);
 $columnType=strtolower((string)($query->fetchColumn()?:''));
 if($columnType==='')throw new RuntimeException('ROUTER_PROVIDER_COLUMN_MISSING');
-if(str_contains($columnType,"'workers_ai'")){
+if(str_contains($columnType,"'workers_ai'") || str_contains($columnType,"'openai'")){
     $source=file_get_contents($installer);
     if(!is_string($source))throw new RuntimeException('GOOGLE_CLOUD_INSTALLER_UNREADABLE');
     $patches=[
@@ -25,13 +25,13 @@ if(str_contains($columnType,"'workers_ai'")){
         ."'azure'".'");'
         =>
         '$pdo->exec("ALTER TABLE router_rules MODIFY translation_provider ENUM('
-        ."'azure','gemini','google_cloud','workers_ai'".') NOT NULL DEFAULT '
+        ."'azure','openai','gemini','google_cloud','workers_ai'".') NOT NULL DEFAULT '
         ."'azure'".'");',
         '$pdo->exec("ALTER TABLE translation_attempts MODIFY provider ENUM('
         ."'azure','gemini','google_cloud'".') NOT NULL");'
         =>
         '$pdo->exec("ALTER TABLE translation_attempts MODIFY provider ENUM('
-        ."'azure','gemini','google_cloud','workers_ai'".') NOT NULL");'
+        ."'azure','openai','gemini','google_cloud','workers_ai'".') NOT NULL");'
     ];
     foreach($patches as $old=>$new){
         if(substr_count($source,$old)!==1){
@@ -43,7 +43,7 @@ if(str_contains($columnType,"'workers_ai'")){
     // Keep its location unchanged so relative includes keep working.
     if(file_put_contents($installer,$source,LOCK_EX)===false)
         throw new RuntimeException('GOOGLE_CLOUD_INSTALLER_PATCH_FAILED');
-    echo "GOOGLE_CLOUD_WORKERS_ENUM_PRESERVED\n";
+    echo "GOOGLE_CLOUD_PROVIDER_ENUMS_PRESERVED\n";
 }
 $exit=1;
 passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg($installer),$exit);
