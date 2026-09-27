@@ -84,7 +84,7 @@ foreach($fixtures as $fixture){
     $image=AdaptiveVipCardRenderer::render($bet);
     if($image===null)throw new RuntimeException('Render failed: '.$fixture['expected']);
     $size=getimagesize($image);
-    if(!is_array($size)||($size['mime']??'')!=='image/png'||($size[0]??0)!==1080){
+    if(!is_array($size)||($size['mime']??'')!=='image/png'||($size[0]??0)!==1199){
         @unlink($image);
         throw new RuntimeException('Invalid PNG: '.$fixture['expected']);
     }
@@ -103,17 +103,19 @@ if(($unknownBet['bookmaker']??'')!=='Casa desconhecida')throw new RuntimeExcepti
 
 $rendererSource=file_get_contents(__DIR__.'/../app/AdaptiveVipCardRenderer.php');
 if(!is_string($rendererSource)
-   ||!str_contains($rendererSource,'Global premium card layout used by every bookmaker and every bet type')
-   ||!str_contains($rendererSource,'Global Bet Builder rule: never draw a per-selection odd')
-   ||!str_contains($rendererSource,'Values are rendered once')
-   ||!str_contains($rendererSource,'drawPremiumCard')){
+   ||!str_contains($rendererSource,'Reference premium layout used globally for every generated betting card')
+   ||!str_contains($rendererSource,'Global Bet Builder rule: each selection has no individual odd')
+   ||!str_contains($rendererSource,'Reference-style metrics footer')
+   ||!str_contains($rendererSource,'drawPremiumCard')
+   ||!str_contains($rendererSource,'Rule: date only. Never append or infer a match time here')){
     throw new RuntimeException('Global premium visual template hooks missing');
 }
 
 // Global footer rule: every bookmaker and every card type must publish the
 // same Telegram Router identity, with no bookmaker-specific "APOSTAR NA" CTA.
-if(!str_contains($rendererSource,"self::FIXED_STAKE.' unidades'")
-   ||!str_contains($rendererSource,"\$label='Telegram Router - Apostas VIP'")
+if(!str_contains($rendererSource,"\$label='Telegram Router - Apostas VIP'")
+   ||!str_contains($rendererSource,"self::text(\$im,158,\$footerY+104,self::FIXED_STAKE")
+   ||!str_contains($rendererSource,"self::text(\$im,158,\$footerY+142,'unidades'")
    ||str_contains($rendererSource,"'APOSTAR NA '")
    ||str_contains($rendererSource,"'APOSTA ENCAMINHADA'")){
     throw new RuntimeException('Global premium footer rule missing');
