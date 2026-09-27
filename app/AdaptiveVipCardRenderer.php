@@ -4,6 +4,7 @@ namespace App;
 final class AdaptiveVipCardRenderer
 {
     private const FIXED_STAKE='10';
+    private static bool $identityAssetsDisabled=false;
 
     public static function extractionInstruction(): string
     {
@@ -258,11 +259,31 @@ final class AdaptiveVipCardRenderer
         if(!extension_loaded('gd')||!function_exists('imagettftext'))return null;
         $font=self::font(false);$bold=self::font(true);
         if($font===null||$bold===null)return null;
+
+        self::$identityAssetsDisabled=false;
         try{
             return self::draw($bet,$font,$bold);
         }catch(\Throwable $e){
-            error_log('TMR_ADAPTIVE_CARD_RENDER_FAILED '.get_class($e));
+            error_log('TMR_ADAPTIVE_CARD_RENDER_RETRY_NAMES_ONLY '.get_class($e));
+
+            // Never fall back to the legacy visual card because a flag/badge
+            // provider, cache or image decoder failed. Retry the SAME premium
+            // card with participant names only.
+            self::$identityAssetsDisabled=true;
+            try{
+                $path=self::draw($bet,$font,$bold);
+                if($path!==null){
+                    error_log('TMR_ADAPTIVE_CARD_NAMES_ONLY_READY');
+                    return $path;
+                }
+            }catch(\Throwable $retryError){
+                error_log('TMR_ADAPTIVE_CARD_RENDER_FAILED '.get_class($retryError));
+            }finally{
+                self::$identityAssetsDisabled=false;
+            }
             return null;
+        }finally{
+            self::$identityAssetsDisabled=false;
         }
     }
 
@@ -807,6 +828,7 @@ final class AdaptiveVipCardRenderer
      */
     private static function resolvePairIdentity(string $match,string $league=''): ?array
     {
+        if(self::$identityAssetsDisabled)return null;
         static $memory=[];
 
         $key=sha1(mb_strtolower(trim($match).'|'.trim($league),'UTF-8'));
