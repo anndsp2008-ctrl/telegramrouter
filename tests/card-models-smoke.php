@@ -121,9 +121,12 @@ if(!is_string($rendererSource)
 if(!str_contains($rendererSource,"\$label='Telegram Router - Apostas VIP'")
    ||!str_contains($rendererSource,"self::text(\$im,158,\$footerY+104,self::FIXED_STAKE")
    ||!str_contains($rendererSource,"self::text(\$im,158,\$footerY+142,'unidades'")
+   ||!str_contains($rendererSource,'Global footer is text-only. No Telegram icon.')
+   ||!str_contains($rendererSource,'Deliberately no glow/')
    ||str_contains($rendererSource,"'APOSTAR NA '")
-   ||str_contains($rendererSource,"'APOSTA ENCAMINHADA'")){
-    throw new RuntimeException('Global premium footer rule missing');
+   ||str_contains($rendererSource,"'APOSTA ENCAMINHADA'")
+   ||str_contains($rendererSource,'self::telegramIcon($im,398,$ctaY+50,$greenSoft)')){
+    throw new RuntimeException('Global premium footer/clean-background rule missing');
 }
 
 $smartRuntime=file_get_contents(__DIR__.'/../runtime-smart-format.php');
