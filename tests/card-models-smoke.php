@@ -158,7 +158,9 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private static function basketballIcon')
    ||!str_contains($rendererSource,'private static function tennisIcon')
    ||!str_contains($rendererSource,'private static function volleyballIcon')
-   ||!str_contains($rendererSource,'private static function sportKey')){
+   ||!str_contains($rendererSource,'private static function sportKey')
+   ||!str_contains($rendererSource,'$marketSelectionGap=15')
+   ||!str_contains($rendererSource,'Keep a fixed breathing space between the market label and')){
     throw new RuntimeException('Global premium visual template hooks missing');
 }
 
