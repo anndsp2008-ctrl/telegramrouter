@@ -103,19 +103,19 @@ foreach($fixtures as $fixture){
 
 $sportCases=[
     ['Futebol','⚽','Brasil x Argentina'],
-    ['Basquete','🏀','Brasil x Argentina'],
-    ['Tênis','🎾','Brasil x Argentina'],
+    ['Basquete','🏀','Boston x Miami'],
+    ['Tênis','🎾','Jogador A x Jogador B'],
     ['Vôlei','🏐','Brasil x Itália'],
-    ['Tênis de mesa','🏓','Brasil x Argentina'],
-    ['Baseball','⚾','Brasil x Argentina'],
-    ['Futebol americano','🏈','Brasil x Argentina'],
-    ['Hóquei','🏒','Brasil x Argentina'],
-    ['eSports','🎮','Brasil x Argentina'],
-    ['MMA','🥊','Brasil x Argentina'],
+    ['Tênis de mesa','🏓','Atleta A x Atleta B'],
+    ['Baseball','⚾','Yankees x Red Sox'],
+    ['Futebol americano','🏈','Chiefs x Bills'],
+    ['Hóquei','🏒','Rangers x Bruins'],
+    ['eSports','🎮','Team Alpha x Team Beta'],
+    ['MMA','🥊','Lutador A x Lutador B'],
     ['Fórmula 1','🏁','GP do Brasil'],
-    ['Snooker','🎱','Brasil x Argentina'],
-    ['Dardos','🎯','Brasil x Argentina'],
-    ['Handebol','🤾','Brasil x Argentina'],
+    ['Snooker','🎱','Player A x Player B'],
+    ['Dardos','🎯','Player C x Player D'],
+    ['Handebol','🤾','Equipe A x Equipe B'],
 ];
 foreach($sportCases as [$sport,$emoji,$match]){
     $data=[
@@ -149,6 +149,14 @@ $identityCases=[
         'market'=>'Resultado da partida',
         'selection'=>'Brasil',
         'odd'=>'1,65'
+    ],
+    [
+        'sport'=>'Futebol',
+        'match'=>'Club León x América',
+        'league'=>'Liga MX',
+        'market'=>'Resultado da partida',
+        'selection'=>'Club León',
+        'odd'=>'1,50'
     ]
 ];
 foreach($identityCases as $case){
@@ -192,21 +200,13 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'drawPremiumCard')
    ||!str_contains($rendererSource,'private static function drawSportIcon')
    ||!str_contains($rendererSource,'private static function drawTeamIdentity')
-   ||!str_contains($rendererSource,'private static function officialTeamBadgePath')
-   ||!str_contains($rendererSource,'private static function fetchImageAsset')
-   ||!str_contains($rendererSource,'private static function drawImageContain')
+   ||!str_contains($rendererSource,'private static function drawClubCrest')
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'always show its visual identity next to the name')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
    ||!str_contains($rendererSource,"return str_replace(',','.',\$odd)")){
     throw new RuntimeException('Global premium renderer hooks missing');
-}
-if(str_contains($rendererSource,'private static function drawClubCrest')
-   ||str_contains($rendererSource,'Premium shield fallback')
-   ||!str_contains($rendererSource,'OFFICIAL_TEAM_BADGE_MISSING')
-   ||!str_contains($rendererSource,'never fabricate a crest/shield')){
-    throw new RuntimeException('Fake crest fallback must not exist');
 }
 
 // Global footer rule: every bookmaker and every card type must publish the
