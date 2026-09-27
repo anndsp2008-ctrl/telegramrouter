@@ -9,13 +9,13 @@ $fixtures=[
         'expected'=>'simple',
         'data'=>[
             'bookmaker'=>'Betano','bet_kind'=>'single','selections_count'=>'1',
-            'sport'=>'Futebol','status'=>'','odd'=>'1.82','day'=>'26/09/2026',
+            'sport'=>'Futebol','status'=>'','odd'=>'1,82','day'=>'26/09/2026',
             'match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional',
             'market'=>'Ambas as equipes marcam','selection'=>'Sim',
             'analysis'=>'Confronto equilibrado, com uma seleção objetiva e coerente com a proposta da entrada.',
             'card_legs'=>json_encode([[
                 'match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026',
-                'market'=>'Ambas as equipes marcam','selection'=>'Sim','odd'=>'1.82'
+                'market'=>'Ambas as equipes marcam','selection'=>'Sim','odd'=>'1,82'
             ]],JSON_UNESCAPED_UNICODE)
         ]
     ],
@@ -63,6 +63,9 @@ foreach($fixtures as $fixture){
     if($bet===null)throw new RuntimeException('Fixture extraction failed: '.$fixture['expected']);
     if(($bet['kind']??'')!==$fixture['expected'])throw new RuntimeException('Wrong type: '.$fixture['expected']);
     if(($bet['stake']??'')!=='10')throw new RuntimeException('Stake normalization failed');
+    if($fixture['expected']==='simple' && ($bet['odd']??'')!=='1.82'){
+        throw new RuntimeException('Odd decimal point normalization failed');
+    }
 
     $caption=AdaptiveVipCardRenderer::caption($bet);
     foreach(['13:45','16:00','18:30'] as $forbidden){
@@ -72,6 +75,10 @@ foreach($fixtures as $fixture){
         if(!str_contains($caption,$layoutEmoji))throw new RuntimeException('Structural emoji missing: '.$layoutEmoji);
     }
     if(str_contains($caption,'🔥'))throw new RuntimeException('Analysis emoji leaked into Telegram caption');
+    if($fixture['expected']==='simple'){
+        if(!str_contains($caption,'📊 Odd total: 1.82'))throw new RuntimeException('Dot odd missing in caption');
+        if(str_contains($caption,'Odd total: 1,82'))throw new RuntimeException('Comma odd leaked into caption');
+    }
     if(!str_contains($caption,'📝 Análise:'))throw new RuntimeException('Analysis missing from caption');
     if($fixture['expected']==='bet_builder'){
         foreach($bet['legs'] as $leg){
@@ -160,7 +167,8 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private static function volleyballIcon')
    ||!str_contains($rendererSource,'private static function sportKey')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
-   ||!str_contains($rendererSource,'Keep a fixed breathing space between the market label and')){
+   ||!str_contains($rendererSource,'Keep a fixed breathing space between the market label and')
+   ||!str_contains($rendererSource,"return str_replace(',','.',$odd)")){
     throw new RuntimeException('Global premium visual template hooks missing');
 }
 
