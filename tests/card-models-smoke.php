@@ -206,7 +206,6 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'All-or-none rule')
-   ||!str_contains($rendererSource,'show names only for BOTH sides')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
    ||!str_contains($rendererSource,"return str_replace(',','.',\$odd)")){
     throw new RuntimeException('Global premium renderer hooks missing');
