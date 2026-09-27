@@ -509,8 +509,8 @@ final class AdaptiveVipCardRenderer
 
         self::rounded($im,$contentX,$ctaY,$contentW,$ctaH,24,$green);
         self::rounded($im,$contentX+3,$ctaY+3,$contentW-6,$ctaH-6,21,self::color($im,'#004e31'));
-        self::telegramIcon($im,310,$ctaY+51,$greenSoft);
-        self::drawCtaLabel($im,$ctaY+63,$bookmaker,$brandKey,$bold,$white,$greenSoft,$yellow);
+        self::telegramIcon($im,300,$ctaY+51,$greenSoft);
+        self::drawCtaLabel($im,$ctaY+63,$bold,$white);
 
         $path=sys_get_temp_dir().'/tmr-premium-global-'.bin2hex(random_bytes(12)).'.png';
         $ok=imagepng($im,$path,7);
@@ -520,25 +520,20 @@ final class AdaptiveVipCardRenderer
         return $path;
     }
 
-    private static function drawCtaLabel($im,int $baseline,string $bookmaker,string $brandKey,string $bold,int $white,int $green,int $yellow): void
+    /**
+     * Global card footer identity. It is intentionally independent from the
+     * bookmaker and bet type so every published card carries the same label.
+     */
+    private static function drawCtaLabel($im,int $baseline,string $bold,int $white): void
     {
-        $prefix=$brandKey==='unknown'||$brandKey==='generic'?'APOSTA ENCAMINHADA':'APOSTAR NA ';
-        if($prefix==='APOSTA ENCAMINHADA'){
-            $size=26;
-            $w=self::width($prefix,$bold,$size);
-            self::text($im,540-(int)($w/2),$baseline,$prefix,$size,$white,$bold);
-            return;
-        }
-
-        $brand=$brandKey==='bet365'?'bet365':mb_strtoupper($bookmaker,'UTF-8');
-        $size=26;
-        $prefixW=self::width($prefix,$bold,$size);
-        $brandW=self::width($brand,$bold,$size);
-        $gap=10;
-        $start=540-(int)(($prefixW+$gap+$brandW)/2);
-        self::text($im,$start,$baseline,$prefix,$size,$white,$bold);
-        $brandColor=$brandKey==='bet365'?$yellow:$green;
-        self::text($im,$start+$prefixW+$gap,$baseline,$brand,$size,$brandColor,$bold);
+        $label='Telegram Router - Apostas VIP';
+        $size=25;
+        $maxWidth=610;
+        while($size>18 && self::width($label,$bold,$size)>$maxWidth)$size--;
+        $labelWidth=self::width($label,$bold,$size);
+        $textCenter=575;
+        $start=$textCenter-(int)($labelWidth/2);
+        self::text($im,$start,$baseline,$label,$size,$white,$bold);
     }
 
     private static function listIcon($im,int $x,int $y,int $color): void
