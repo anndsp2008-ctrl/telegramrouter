@@ -54,13 +54,13 @@ foreach([
 foreach([
     "'googleSearch'=>(object)[]",
     "'groundingMetadata']['groundingChunks']",
-    "unset($ch)"
+    'unset($ch)'
 ] as $geminiResearchToken){
     if(!str_contains($geminiResearchSource,$geminiResearchToken))
         throw new RuntimeException('Gemini grounded sports research missing: '.$geminiResearchToken);
 }
 foreach([
-    "if($localized!==null && $sourceAnalysis==='')",
+    "if(\$localized!==null && \$sourceAnalysis==='')",
     'enrichGeneratedAnalysis($localized,$provider,$rule)',
     "'research_sources'",
     'Fontes consultadas',
