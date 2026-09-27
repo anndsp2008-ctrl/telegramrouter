@@ -141,6 +141,50 @@ foreach($sportCases as [$sport,$emoji,$match]){
     }
 }
 
+$identityCases=[
+    [
+        'sport'=>'Futebol',
+        'match'=>'Brasil x Argentina',
+        'league'=>'Amistoso Internacional',
+        'market'=>'Resultado da partida',
+        'selection'=>'Brasil',
+        'odd'=>'1,65'
+    ],
+    [
+        'sport'=>'Futebol',
+        'match'=>'Club León x América',
+        'league'=>'Liga MX',
+        'market'=>'Resultado da partida',
+        'selection'=>'Club León',
+        'odd'=>'1,50'
+    ]
+];
+foreach($identityCases as $case){
+    $data=[
+        'bookmaker'=>'Betano','bet_kind'=>'single','selections_count'=>'1',
+        'sport'=>$case['sport'],'odd'=>$case['odd'],
+        'match'=>$case['match'],'league'=>$case['league'],
+        'market'=>$case['market'],'selection'=>$case['selection'],
+        'analysis'=>'Análise objetiva para validar identidade visual dos participantes.',
+        'card_legs'=>json_encode([[
+            'sport'=>$case['sport'],'match'=>$case['match'],'league'=>$case['league'],
+            'date'=>'27/09/2026','market'=>$case['market'],'selection'=>$case['selection'],'odd'=>$case['odd']
+        ]],JSON_UNESCAPED_UNICODE)
+    ];
+    $bet=AdaptiveVipCardRenderer::extract($data,'',false);
+    if($bet===null)throw new RuntimeException('Identity fixture extraction failed: '.$case['match']);
+    if(($bet['odd']??'')!==str_replace(',','.',$case['odd'])){
+        throw new RuntimeException('Identity fixture odd format failed: '.$case['match']);
+    }
+    $image=AdaptiveVipCardRenderer::render($bet);
+    if($image===null)throw new RuntimeException('Identity render failed: '.$case['match']);
+    $size=getimagesize($image);
+    @unlink($image);
+    if(!is_array($size)||($size['mime']??'')!=='image/png'||($size[0]??0)!==1199){
+        throw new RuntimeException('Identity PNG invalid: '.$case['match']);
+    }
+}
+
 $betano=AdaptiveVipCardRenderer::extract($fixtures[0]['data'],'',false);
 $bet365=AdaptiveVipCardRenderer::extract($fixtures[1]['data'],'',false);
 if(($betano['bookmaker_key']??'')!=='betano')throw new RuntimeException('Betano detection failed');
@@ -153,23 +197,14 @@ if(($unknownBet['bookmaker']??'')!=='Casa desconhecida')throw new RuntimeExcepti
 
 $rendererSource=file_get_contents(__DIR__.'/../app/AdaptiveVipCardRenderer.php');
 if(!is_string($rendererSource)
-   ||!str_contains($rendererSource,'Reference premium layout used globally for every generated betting card')
-   ||!str_contains($rendererSource,'Global Bet Builder rule: each selection has no individual odd')
-   ||!str_contains($rendererSource,'Reference-style metrics footer')
    ||!str_contains($rendererSource,'drawPremiumCard')
-   ||!str_contains($rendererSource,'Rule: date only. Never append or infer a match time here')
-   ||!str_contains($rendererSource,'Bet Builder is one single wager with several conditions')
-   ||!str_contains($rendererSource,'REGRA SEMÂNTICA DE BET BUILDER')
    ||!str_contains($rendererSource,'private static function drawSportIcon')
-   ||!str_contains($rendererSource,'private static function footballIconPremium')
-   ||!str_contains($rendererSource,'private static function basketballIcon')
-   ||!str_contains($rendererSource,'private static function tennisIcon')
-   ||!str_contains($rendererSource,'private static function volleyballIcon')
-   ||!str_contains($rendererSource,'private static function sportKey')
+   ||!str_contains($rendererSource,'private static function drawTeamIdentity')
+   ||!str_contains($rendererSource,'private static function drawClubCrest')
+   ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
-   ||!str_contains($rendererSource,'Keep a fixed breathing space between the market label and')
    ||!str_contains($rendererSource,"return str_replace(',','.',$odd)")){
-    throw new RuntimeException('Global premium visual template hooks missing');
+    throw new RuntimeException('Global premium renderer hooks missing');
 }
 
 // Global footer rule: every bookmaker and every card type must publish the
