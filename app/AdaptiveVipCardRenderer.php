@@ -218,7 +218,7 @@ final class AdaptiveVipCardRenderer
         }
         if(!empty($bet['odd']))$lines[]='📊 Odd total: '.$bet['odd'];
         $lines[]='📍 Stake: '.self::FIXED_STAKE;
-        $analysis=trim((string)($bet['analysis']??''));
+        $analysis=self::stripEmojis(trim((string)($bet['analysis']??'')));
         if($analysis!==''){
             $lines[]='';
             $lines[]='📝 Análise:';
