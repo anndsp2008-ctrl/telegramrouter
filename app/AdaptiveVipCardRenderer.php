@@ -441,8 +441,9 @@ final class AdaptiveVipCardRenderer
                     self::textFit($im,548,$top+72,$right,29,$white,$bold,430);
                     $cursor=$top+116;
                 }else{
+                    self::drawClubCrest($im,168,$eventIconY,(string)$leg['match'],$green,$white,$bg,$bold,44);
                     foreach($matchLines as $line){
-                        self::text($im,145,$cursor,$line,28,$white,$bold);
+                        self::text($im,205,$cursor,$line,28,$white,$bold);
                         $cursor+=38;
                     }
                     $cursor+=3;
@@ -532,8 +533,23 @@ final class AdaptiveVipCardRenderer
                     // Keep a fixed breathing space between the market label and
                     // the selected outcome. This is a global card rule.
                     $ty+=15;
+
+                    // If the selected outcome is one of the teams/countries from
+                    // the match, always show its visual identity next to the name.
+                    $participant=self::selectionParticipant(
+                        (string)($leg['selection']??''),
+                        (string)($leg['match']??'')
+                    );
+                    $selectionTextX=$textX;
+                    if($participant!==null){
+                        self::drawTeamIdentity(
+                            $im,$textX+17,$ty-9,$participant,$green,$white,$bg,$bold,34
+                        );
+                        $selectionTextX=$textX+45;
+                    }
+
                     foreach($selectionLines as $line){
-                        self::text($im,$textX,$ty,$line,26,$green,$bold);$ty+=38;
+                        self::text($im,$selectionTextX,$ty,$line,26,$green,$bold);$ty+=38;
                     }
 
                     if(!$builder && !empty($leg['odd'])){
@@ -659,10 +675,59 @@ final class AdaptiveVipCardRenderer
     /** @return array{0:string,1:string}|null */
     private static function matchSides(string $match): ?array
     {
-        $parts=preg_split('~\s+(?:x|×|vs\.?|v)\s+~iu',trim($match),2);
-        if(!is_array($parts)||count($parts)!==2)return null;
-        $a=trim($parts[0]);$b=trim($parts[1]);
-        return $a!==''&&$b!==''?[$a,$b]:null;
+        $match=trim(preg_replace('~\s+~u',' ',$match)??$match);
+        if($match==='')return null;
+
+        $patterns=[
+            '~\s+(?:x|×|vs\.?|versus|v\.?|@)\s+~iu',
+            '~\s+[\-–—]\s+~u',
+            '~\s*×\s*~u'
+        ];
+
+        foreach($patterns as $pattern){
+            $parts=preg_split($pattern,$match,2);
+            if(is_array($parts)&&count($parts)===2){
+                $a=trim($parts[0]);$b=trim($parts[1]);
+                if($a!==''&&$b!=='')return [$a,$b];
+            }
+        }
+        return null;
+    }
+
+    private static function selectionParticipant(string $selection,string $match): ?string
+    {
+        $sides=self::matchSides($match);
+        if($sides===null)return null;
+
+        $normalizedSelection=self::participantKey($selection);
+        if($normalizedSelection==='')return null;
+
+        foreach($sides as $side){
+            $key=self::participantKey($side);
+            if($key==='')continue;
+
+            if($normalizedSelection===$key)return $side;
+
+            if(mb_strlen($key,'UTF-8')>=3
+                && preg_match('~(?:^| )'.preg_quote($key,'~').'(?: |$)~u',$normalizedSelection)){
+                return $side;
+            }
+        }
+
+        return null;
+    }
+
+    private static function participantKey(string $value): string
+    {
+        $value=mb_strtolower(trim($value),'UTF-8');
+        $value=preg_replace(
+            '~\b(?:vit[oó]ria|vencedor|vence|ganha|winner|win|resultado|result|moneyline|ml)\b~u',
+            ' ',
+            $value
+        )??$value;
+        $value=preg_replace('~\b(?:do|da|de|dos|das|the)\b~u',' ',$value)??$value;
+        $value=preg_replace('~[^\p{L}\p{N}]+~u',' ',$value)??$value;
+        return trim(preg_replace('~\s+~u',' ',$value)??$value);
     }
 
     /** @return array{type:string,colors:list<string>}|null */
