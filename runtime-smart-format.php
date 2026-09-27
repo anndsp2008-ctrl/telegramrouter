@@ -502,10 +502,7 @@ if(is_file(__DIR__.'/runtime-ai-learning.php'))require __DIR__.'/runtime-ai-lear
 $openAIPath=__DIR__.'/app/OpenAIProvider.php';
 $openAISource=@file_get_contents($openAIPath);
 if(!is_string($openAISource)){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_SOURCE_MISSING\\n");exit(1);}
-$telemetryComplete=str_contains($openAISource,"$usage=is_array($data['usage']??null)?$data['usage']:[];")
-    && str_contains($openAISource,"'total_tokens'=>$totalTokens")
-    && str_contains($openAISource,"'http_code'=>$http");
-if(!$telemetryComplete){
+if(!str_contains($openAISource,'TMR_OPENAI_USAGE')){
     $usageAnchor="        if(\$text===''){\n            return ['ok'=>false,'model'=>\$model,'fallback_used'=>false,'latency_ms'=>\$latency,'http_code'=>\$http,'reason'=>'OPENAI_RESPONSE_EMPTY'];\n        }";
     if(substr_count($openAISource,$usageAnchor)!==1){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_ANCHOR_MISMATCH\\n");exit(1);}
     $usagePatch=<<<'PHP'
