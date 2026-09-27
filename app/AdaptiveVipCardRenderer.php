@@ -819,8 +819,14 @@ final class AdaptiveVipCardRenderer
         }
 
         [$left,$right]=$sides;
-        $leftIdentity=self::resolveParticipantIdentity($left,$league);
-        $rightIdentity=self::resolveParticipantIdentity($right,$league);
+        try{
+            $leftIdentity=self::resolveParticipantIdentity($left,$league);
+            $rightIdentity=self::resolveParticipantIdentity($right,$league);
+        }catch(\Throwable $e){
+            error_log('TMR_TEAM_IDENTITY_LOOKUP_SKIPPED '.get_class($e));
+            $memory[$key]=null;
+            return null;
+        }
 
         if($leftIdentity===null||$rightIdentity===null){
             $memory[$key]=null;
@@ -1049,7 +1055,11 @@ final class AdaptiveVipCardRenderer
     {
         if(!self::allowedAssetUrl($url))return null;
 
-        $dir=self::assetCacheDir();
+        try{
+            $dir=self::assetCacheDir();
+        }catch(\Throwable $e){
+            return null;
+        }
         $safeKey=preg_replace('~[^a-z0-9._-]+~i','-',substr($key,0,100))??'asset';
         $path=$dir.'/'.$safeKey.'.img';
 
@@ -1155,7 +1165,10 @@ final class AdaptiveVipCardRenderer
                 $body=curl_exec($ch);
                 $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
                 $effective=(string)curl_getinfo($ch,CURLINFO_EFFECTIVE_URL);
-                curl_close($ch);
+                // PHP 8.5 deprecates curl_close(); releasing the handle by
+                // dropping the object avoids MadelineProto converting that
+                // deprecation into a render exception.
+                unset($ch);
 
                 if(is_string($body)
                     &&$status>=200&&$status<300
