@@ -214,6 +214,10 @@ if(str_contains($rendererSource,'private static function drawClubCrest')
    ||str_contains($rendererSource,'Premium shield fallback')){
     throw new RuntimeException('Synthetic crest fallback must stay disabled');
 }
+if(str_contains($rendererSource,'curl_close(')
+   ||str_contains($rendererSource,'imagedestroy(')){
+    throw new RuntimeException('Deprecated PHP 8.5 resource cleanup leaked into premium renderer');
+}
 
 // Global footer rule: every bookmaker and every card type must publish the
 // same Telegram Router identity, with no bookmaker-specific "APOSTAR NA" CTA.
