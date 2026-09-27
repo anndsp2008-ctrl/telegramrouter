@@ -833,11 +833,15 @@ final class AdaptiveVipCardRenderer
         if(preg_match('~su[ií][cç]a|switzerland~u',$t))return ['type'=>'swiss','colors'=>['#d52b1e','#ffffff']];
         if(preg_match('~pol[oô]nia|poland~u',$t))return ['type'=>'h3','colors'=>['#ffffff','#dc143c','#dc143c']];
         if(preg_match('~cro[aá]cia|croatia~u',$t))return ['type'=>'h3','colors'=>['#ff0000','#ffffff','#171796']];
-        if(preg_match('~dinamarca|denmark~u',$t))return ['type'=>'swiss','colors'=>['#c8102e','#ffffff']];
-        if(preg_match('~su[eé]cia|sweden~u',$t))return ['type'=>'swiss','colors'=>['#006aa7','#fecc00']];
-        if(preg_match('~noruega|norway~u',$t))return ['type'=>'swiss','colors'=>['#ba0c2f','#ffffff']];
+        if(preg_match('~dinamarca|denmark~u',$t))return ['type'=>'nordic','colors'=>['#c8102e','#ffffff']];
+        if(preg_match('~su[eé]cia|sweden~u',$t))return ['type'=>'nordic','colors'=>['#006aa7','#fecc00']];
+        if(preg_match('~noruega|norway~u',$t))return ['type'=>'nordic','colors'=>['#ba0c2f','#ffffff','#00205b']];
         if(preg_match('~turquia|turkey|türkiye~u',$t))return ['type'=>'japan','colors'=>['#e30a17','#ffffff']];
         if(preg_match('~coreia do sul|south korea~u',$t))return ['type'=>'japan','colors'=>['#ffffff','#cd2e3a']];
+        if(preg_match('~malta~u',$t))return ['type'=>'malta','colors'=>['#ffffff','#cf142b','#b8b8b8']];
+        if(preg_match('~gales|wales~u',$t))return ['type'=>'wales','colors'=>['#ffffff','#00ab39','#d30731']];
+        if(preg_match('~gr[eé]cia|greece~u',$t))return ['type'=>'greece','colors'=>['#0d5eaf','#ffffff']];
+        if(preg_match('~liechtenstein~u',$t))return ['type'=>'liechtenstein','colors'=>['#002b7f','#ce1126','#ffd83d']];
         return null;
     }
 
@@ -883,7 +887,7 @@ final class AdaptiveVipCardRenderer
         ];
     }
 
-    /** @return array{kind:string,path:string}|null */
+    /** @return array{kind:string,path?:string,spec?:array}|null */
     private static function resolveParticipantIdentity(string $participant,string $league='',string $sport='football'): ?array
     {
         static $memory=[];
@@ -894,13 +898,22 @@ final class AdaptiveVipCardRenderer
         $cacheKey=sha1(mb_strtolower($participant.'|'.$league.'|'.$sport,'UTF-8'));
         if(array_key_exists($cacheKey,$memory))return $memory[$cacheKey];
 
-        // National selections: TheSportsDB country flag artwork.
+        // National selections: TheSportsDB is the primary source.
+        // If its artwork endpoint is temporarily unavailable, keep the flag
+        // visible with the built-in real-flag renderer instead of hiding both sides.
         $country=self::theSportsDbCountryName($participant);
         if($country!==null){
             $flagPath=self::sportsDbFlagPath($country);
             if($flagPath!==null){
                 return $memory[$cacheKey]=['kind'=>'image','path'=>$flagPath];
             }
+
+            $localFlag=self::flagSpec($participant);
+            if($localFlag!==null){
+                error_log('TMR_SPORTSDB_FLAG_LOCAL_FALLBACK '.self::safeLogName($participant));
+                return $memory[$cacheKey]=['kind'=>'flag','spec'=>$localFlag];
+            }
+
             $memory[$cacheKey]=null;
             return null;
         }
@@ -918,6 +931,11 @@ final class AdaptiveVipCardRenderer
     private static function drawResolvedIdentity(
         $im,int $cx,int $cy,array $identity,int $accent,int $white,int $dark,string $bold,int $size=44
     ): void {
+        if(($identity['kind']??'')==='flag' && is_array($identity['spec']??null)){
+            self::drawFlagSized($im,$cx,$cy,$identity['spec'],$size);
+            return;
+        }
+
         if(($identity['kind']??'')==='image' && is_string($identity['path']??null)){
             self::drawImageContain($im,$cx,$cy,$identity['path'],$size,$size);
         }
@@ -1189,8 +1207,18 @@ final class AdaptiveVipCardRenderer
         $slug=str_replace(' ','-',trim($country));
         if($slug==='')return null;
 
-        $url='https://www.thesportsdb.com/images/icons/flags/shiny/64/'.rawurlencode($slug).'.png';
-        return self::fetchImageAsset($url,'sportsdb-flag-'.sha1($country),30*86400);
+        foreach([64,32,16] as $size){
+            $url='https://www.thesportsdb.com/images/icons/flags/shiny/'.$size.'/'.rawurlencode($slug).'.png';
+            $asset=self::fetchImageAsset(
+                $url,
+                'sportsdb-flag-'.$size.'-'.sha1($country),
+                30*86400
+            );
+            if($asset!==null)return $asset;
+        }
+
+        error_log('TMR_SPORTSDB_FLAG_REMOTE_MISSING '.self::safeLogName($country));
+        return null;
     }
 
     private static function fetchImageAsset(string $url,string $key,int $ttl): ?string
@@ -1367,10 +1395,60 @@ final class AdaptiveVipCardRenderer
         }elseif($type==='japan'){
             imagefilledellipse($im,$cx,$cy,max(10,(int)($size*.38)),max(10,(int)($size*.38)),self::color($im,'#bc002d'));
         }elseif($type==='swiss'){
-            $white=self::color($im,'#ffffff');
+            $flagWhite=self::color($im,'#ffffff');
             $bar=max(3,(int)($size*.10));
-            imagefilledrectangle($im,$cx-$bar,$cy-$r+6,$cx+$bar,$cy+$r-6,$white);
-            imagefilledrectangle($im,$cx-$r+6,$cy-$bar,$cx+$r-6,$cy+$bar,$white);
+            imagefilledrectangle($im,$cx-$bar,$cy-$r+6,$cx+$bar,$cy+$r-6,$flagWhite);
+            imagefilledrectangle($im,$cx-$r+6,$cy-$bar,$cx+$r-6,$cy+$bar,$flagWhite);
+        }elseif($type==='nordic'){
+            $cross=self::color($im,$colors[1]);
+            $bar=max(3,(int)round($size*.10));
+            $vx=$cx-(int)round($size*.10);
+            imagefilledrectangle($im,$vx-$bar,$cy-$r,$vx+$bar,$cy+$r,$cross);
+            imagefilledrectangle($im,$cx-$r,$cy-$bar,$cx+$r,$cy+$bar,$cross);
+            if(isset($colors[2])){
+                $inner=self::color($im,$colors[2]);
+                $innerBar=max(2,(int)round($bar*.45));
+                imagefilledrectangle($im,$vx-$innerBar,$cy-$r,$vx+$innerBar,$cy+$r,$inner);
+                imagefilledrectangle($im,$cx-$r,$cy-$innerBar,$cx+$r,$cy+$innerBar,$inner);
+            }
+        }elseif($type==='malta'){
+            $red=self::color($im,$colors[1]);
+            imagefilledrectangle($im,$cx,$cy-$r,$cx+$r,$cy+$r,$red);
+            $silver=self::color($im,$colors[2]);
+            $cross=max(2,(int)round($size*.06));
+            $gx=$cx-(int)round($r*.55);$gy=$cy-(int)round($r*.55);
+            imagefilledrectangle($im,$gx-$cross,$gy-(int)($cross*2.2),$gx+$cross,$gy+(int)($cross*2.2),$silver);
+            imagefilledrectangle($im,$gx-(int)($cross*2.2),$gy-$cross,$gx+(int)($cross*2.2),$gy+$cross,$silver);
+        }elseif($type==='wales'){
+            $greenFlag=self::color($im,$colors[1]);
+            $red=self::color($im,$colors[2]);
+            imagefilledrectangle($im,$cx-$r,$cy,$cx+$r,$cy+$r,$greenFlag);
+            imagefilledpolygon($im,[
+                $cx-(int)($r*.55),$cy+(int)($r*.20),
+                $cx-(int)($r*.12),$cy-(int)($r*.25),
+                $cx+(int)($r*.15),$cy-(int)($r*.08),
+                $cx+(int)($r*.48),$cy-(int)($r*.28),
+                $cx+(int)($r*.30),$cy+(int)($r*.14),
+                $cx+(int)($r*.55),$cy+(int)($r*.30),
+                $cx+(int)($r*.02),$cy+(int)($r*.38)
+            ],$red);
+        }elseif($type==='greece'){
+            $blue=self::color($im,$colors[0]);
+            $flagWhite=self::color($im,$colors[1]);
+            $stripe=max(2,(int)floor(($r*2)/9));
+            for($i=0;$i<9;$i+=2){
+                imagefilledrectangle($im,$cx-$r,$cy-$r+$i*$stripe,$cx+$r,$cy-$r+($i+1)*$stripe,$blue);
+            }
+            imagefilledrectangle($im,$cx-$r,$cy-$r,$cx-(int)($r*.10),$cy-(int)($r*.10),$blue);
+            $bar=max(2,(int)round($size*.055));
+            $gx=$cx-(int)($r*.55);$gy=$cy-(int)($r*.55);
+            imagefilledrectangle($im,$gx-$bar,$cy-$r,$gx+$bar,$cy-(int)($r*.10),$flagWhite);
+            imagefilledrectangle($im,$cx-$r,$gy-$bar,$cx-(int)($r*.10),$gy+$bar,$flagWhite);
+        }elseif($type==='liechtenstein'){
+            $red=self::color($im,$colors[1]);
+            $gold=self::color($im,$colors[2]);
+            imagefilledrectangle($im,$cx-$r,$cy,$cx+$r,$cy+$r,$red);
+            imagefilledellipse($im,$cx-(int)($r*.48),$cy-(int)($r*.48),max(4,(int)($size*.12)),max(4,(int)($size*.08)),$gold);
         }
     }
 
