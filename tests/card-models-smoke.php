@@ -204,6 +204,12 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'TMR_ADAPTIVE_CARD_NAMES_ONLY_READY')
    ||!str_contains($rendererSource,'private static function resolveParticipantIdentity')
    ||!str_contains($rendererSource,'private static function officialTeamBadgePath')
+   ||!str_contains($rendererSource,"private const SPORTSDB_FREE_KEY='123'")
+   ||!str_contains($rendererSource,'search_all_teams.php')
+   ||!str_contains($rendererSource,'private static function sportsDbFlagPath')
+   ||!str_contains($rendererSource,'private static function theSportsDbCountryName')
+   ||!str_contains($rendererSource,'Malta')
+   ||!str_contains($rendererSource,'Liechtenstein')
    ||!str_contains($rendererSource,'private static function drawResolvedIdentity')
    ||!str_contains($rendererSource,'private static function drawProportionalMatchup')
    ||!str_contains($rendererSource,'Both sides share one font size and the complete group is centered')
@@ -216,6 +222,10 @@ if(!is_string($rendererSource)
 if(str_contains($rendererSource,'private static function drawClubCrest')
    ||str_contains($rendererSource,'Premium shield fallback')){
     throw new RuntimeException('Synthetic crest fallback must stay disabled');
+}
+if(str_contains($rendererSource,'flagcdn.com')
+   ||str_contains($rendererSource,'searchteams.php?t=')){
+    throw new RuntimeException('Identity provider must stay on TheSportsDB free endpoints');
 }
 if(str_contains($rendererSource,"self::text(\$im,446,\$top+72,'x'")
    ||str_contains($rendererSource,"self::text(\$im,\$textX+300,\$ty,'x'")){
