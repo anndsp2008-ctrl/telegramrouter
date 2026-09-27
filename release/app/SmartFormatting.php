@@ -23,6 +23,7 @@ final class SmartFormatting
     private static bool $multipleDetected=false;
     private static string $multipleDetails='';
     private static bool $multipleDetailsTranslated=false;
+    private static ?array $lastStructuredBet=null;
     /** Hard wall-clock budget for ONE logical Workers AI generation attempt. */
     private const WORKERS_LOGICAL_BUDGET_SECONDS=75.0;
 
@@ -321,6 +322,7 @@ final class SmartFormatting
         self::$multipleDetected=false;
         self::$multipleDetails='';
         self::$multipleDetailsTranslated=false;
+        self::$lastStructuredBet=null;
         $hasImage=$localImage!==null&&is_file($localImage);
         if($mode==='card' && !$hasImage
             && self::sourceIndicatesMultiple($sourceText)){
@@ -450,6 +452,7 @@ final class SmartFormatting
                 self::recordProviderAttempt(
                     $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
                 $bet=self::sentenceCaseBet($candidate);
+                self::$lastStructuredBet=$bet;
                 error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
                     'provider'=>$provider,
                     'attempt'=>$logicalAttempt,
@@ -1092,6 +1095,7 @@ final class SmartFormatting
         if($explicitLive)$bet['status']='AO VIVO';
         return $bet;
     }
+    public static function lastStructuredBet(): ?array { return self::$lastStructuredBet; }
     public static function asText(array $bet,bool $translated): string
     {
         $bet=self::sentenceCaseBet($bet);
