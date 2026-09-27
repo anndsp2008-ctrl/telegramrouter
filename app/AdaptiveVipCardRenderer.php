@@ -434,13 +434,14 @@ final class AdaptiveVipCardRenderer
                 if($sides!==null){
                     [$left,$right]=$sides;
 
-                    self::drawTeamIdentity($im,168,$eventIconY,$left,$green,$white,$bg,$bold,48,(string)($leg['league']??''));
+                    self::drawTeamIdentity($im,168,$eventIconY,$left,$green,$white,$bg,$bold,48);
                     self::textFit($im,205,$top+72,$left,29,$white,$bold,260);
                     self::text($im,446,$top+72,'x',24,$muted,$bold);
-                    self::drawTeamIdentity($im,508,$eventIconY,$right,$green,$white,$bg,$bold,48,(string)($leg['league']??''));
+                    self::drawTeamIdentity($im,508,$eventIconY,$right,$green,$white,$bg,$bold,48);
                     self::textFit($im,548,$top+72,$right,29,$white,$bold,430);
                     $cursor=$top+116;
                 }else{
+                    self::drawClubCrest($im,168,$eventIconY,(string)$leg['match'],$green,$white,$bg,$bold,44);
                     foreach($matchLines as $line){
                         self::text($im,205,$cursor,$line,28,$white,$bold);
                         $cursor+=38;
@@ -501,10 +502,10 @@ final class AdaptiveVipCardRenderer
                         $rowSides=self::matchSides((string)$leg['match']);
                         if($rowSides!==null){
                             [$leftTeam,$rightTeam]=$rowSides;
-                            self::drawTeamIdentity($im,$textX+16,$ty-8,$leftTeam,$green,$white,$bg,$bold,34,(string)($leg['league']??''));
+                            self::drawTeamIdentity($im,$textX+16,$ty-8,$leftTeam,$green,$white,$bg,$bold,34);
                             self::textFit($im,$textX+40,$ty,$leftTeam,20,$white,$bold,240);
                             self::text($im,$textX+300,$ty,'x',18,$muted,$bold);
-                            self::drawTeamIdentity($im,$textX+348,$ty-8,$rightTeam,$green,$white,$bg,$bold,34,(string)($leg['league']??''));
+                            self::drawTeamIdentity($im,$textX+348,$ty-8,$rightTeam,$green,$white,$bg,$bold,34);
                             self::textFit($im,$textX+374,$ty,$rightTeam,20,$white,$bold,270);
                             $ty+=36;
                         }else{
@@ -542,8 +543,7 @@ final class AdaptiveVipCardRenderer
                     $selectionTextX=$textX;
                     if($participant!==null){
                         self::drawTeamIdentity(
-                            $im,$textX+17,$ty-9,$participant,$green,$white,$bg,$bold,34,
-                            (string)($leg['league']??'')
+                            $im,$textX+17,$ty-9,$participant,$green,$white,$bg,$bold,34
                         );
                         $selectionTextX=$textX+45;
                     }
@@ -762,295 +762,80 @@ final class AdaptiveVipCardRenderer
     }
 
     private static function drawTeamIdentity(
-        $im,int $cx,int $cy,string $team,int $accent,int $white,int $dark,string $bold,int $size=44,string $league=''
+        $im,int $cx,int $cy,string $team,int $accent,int $white,int $dark,string $bold,int $size=44
     ): void {
-        $team=trim($team);
-        if($team==='')throw new \RuntimeException('TEAM_IDENTITY_EMPTY');
-
-        $countryCode=self::countryCode($team);
-        if($countryCode!==null){
-            $flagPath=self::remoteFlagPath($countryCode);
-            if($flagPath!==null && self::drawImageContain($im,$cx,$cy,$flagPath,$size,$size)){
-                return;
-            }
-
-            // Network-independent fallback is still the real national flag,
-            // drawn from its official colours/pattern when we have a local spec.
-            $flag=self::flagSpec($team);
-            if($flag!==null){
-                self::drawFlagSized($im,$cx,$cy,$flag,$size);
-                return;
-            }
-
-            throw new \RuntimeException('COUNTRY_FLAG_ASSET_MISSING '.self::safeLogName($team));
-        }
-
-        $badgePath=self::officialTeamBadgePath($team,$league);
-        if($badgePath!==null && self::drawImageContain($im,$cx,$cy,$badgePath,$size,$size)){
+        $flag=self::flagSpec($team);
+        if($flag!==null){
+            self::drawFlagSized($im,$cx,$cy,$flag,$size);
             return;
         }
-
-        // Mandatory rule: never fabricate a crest/shield. If an official team
-        // badge cannot be resolved, abort the premium card instead.
-        throw new \RuntimeException('OFFICIAL_TEAM_BADGE_MISSING '.self::safeLogName($team));
+        self::drawClubCrest($im,$cx,$cy,$team,$accent,$white,$dark,$bold,$size);
     }
 
-    private static function officialTeamBadgePath(string $team,string $league=''): ?string
+    private static function drawClubCrest(
+        $im,int $cx,int $cy,string $team,int $accent,int $white,int $dark,string $bold,int $size
+    ): void {
+        $size=max(30,min(58,$size));
+        $half=(int)round($size/2);
+        $top=$cy-$half;
+        $bottom=$cy+$half;
+        $left=$cx-$half+3;
+        $right=$cx+$half-3;
+
+        // Premium shield fallback for clubs without bundled official artwork.
+        $hash=abs(crc32(mb_strtolower(trim($team),'UTF-8')));
+        $palette=['#39ff88','#29d7ff','#ffb347','#ff5d8f','#a77bff','#ffd84a'];
+        $primary=self::color($im,$palette[$hash%count($palette)]);
+
+        imagefilledpolygon($im,[
+            $cx,$top,
+            $right,$top+7,
+            $right-2,$cy+7,
+            $cx,$bottom,
+            $left+2,$cy+7,
+            $left,$top+7
+        ],$primary);
+        imagepolygon($im,[
+            $cx,$top,
+            $right,$top+7,
+            $right-2,$cy+7,
+            $cx,$bottom,
+            $left+2,$cy+7,
+            $left,$top+7
+        ],$white);
+
+        $inner=max(18,$size-10);
+        $ih=(int)round($inner/2);
+        imagefilledpolygon($im,[
+            $cx,$cy-$ih,
+            $cx+$ih-3,$cy-$ih+6,
+            $cx+$ih-5,$cy+5,
+            $cx,$cy+$ih,
+            $cx-$ih+5,$cy+5,
+            $cx-$ih+3,$cy-$ih+6
+        ],$dark);
+
+        $initials=self::teamInitials($team);
+        $fontSize=max(9,(int)round($size*.23));
+        $tw=self::width($initials,$bold,$fontSize);
+        self::text($im,$cx-(int)($tw/2),$cy+(int)round($fontSize*.38),$initials,$fontSize,$primary,$bold);
+    }
+
+    private static function teamInitials(string $team): string
     {
-        static $memory=[];
+        $clean=preg_replace('~[^\p{L}\p{N} ]+~u',' ',trim($team))??trim($team);
+        $parts=array_values(array_filter(preg_split('~\s+~u',$clean)?:[],static fn($v)=>$v!==''));
+        if($parts===[])return '?';
 
-        $team=trim($team);
-        $league=trim($league);
-        if($team==='')return null;
-
-        $cacheKey=sha1(mb_strtolower($team.'|'.$league,'UTF-8'));
-        if(array_key_exists($cacheKey,$memory))return $memory[$cacheKey];
-
-        $query=self::teamSearchAlias($team,$league);
-        $url='https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t='.rawurlencode($query);
-        $json=self::httpGet($url,4,350000);
-        if($json===null){
-            $memory[$cacheKey]=null;
-            return null;
+        $ignore=['fc','cf','ac','sc','club','clube','de','da','do','the'];
+        $letters='';
+        foreach($parts as $part){
+            if(in_array(mb_strtolower($part,'UTF-8'),$ignore,true))continue;
+            $letters.=mb_strtoupper(mb_substr($part,0,1,'UTF-8'),'UTF-8');
+            if(mb_strlen($letters,'UTF-8')>=3)break;
         }
-
-        $decoded=json_decode($json,true,16);
-        $teams=is_array($decoded)&&is_array($decoded['teams']??null)?$decoded['teams']:[];
-        if($teams===[]){
-            $memory[$cacheKey]=null;
-            return null;
-        }
-
-        $wanted=self::teamCompareKey($team);
-        $best=null;$bestScore=-1;
-        foreach($teams as $candidate){
-            if(!is_array($candidate))continue;
-            $candidateName=trim((string)($candidate['strTeam']??''));
-            $badge=trim((string)($candidate['strBadge']??''));
-            if($candidateName===''||$badge==='')continue;
-
-            $candidateKey=self::teamCompareKey($candidateName);
-            $score=0;
-            if($wanted!==''&&$candidateKey===$wanted)$score+=100;
-            elseif($wanted!==''&&($candidateKey!=='' && (
-                str_contains($candidateKey,$wanted)||str_contains($wanted,$candidateKey)
-            )))$score+=55;
-
-            $candidateLeague=mb_strtolower(trim((string)($candidate['strLeague']??'')),'UTF-8');
-            $leagueKey=mb_strtolower($league,'UTF-8');
-            if($leagueKey!==''&&$candidateLeague!==''){
-                foreach(preg_split('~[^\p{L}\p{N}]+~u',$leagueKey)?:[] as $token){
-                    if(mb_strlen($token,'UTF-8')>=3 && str_contains($candidateLeague,$token))$score+=5;
-                }
-            }
-
-            $countryHint=self::leagueCountryHint($league);
-            $candidateCountry=mb_strtolower(trim((string)($candidate['strCountry']??'')),'UTF-8');
-            if($countryHint!==null && $candidateCountry!==''
-                && str_contains($candidateCountry,$countryHint))$score+=20;
-
-            if($score>$bestScore){$bestScore=$score;$best=$badge;}
-        }
-
-        if(!is_string($best)||$best===''||$bestScore<50){
-            $memory[$cacheKey]=null;
-            return null;
-        }
-
-        $asset=self::fetchImageAsset($best,'team-'.$cacheKey,7*86400);
-        $memory[$cacheKey]=$asset;
-        return $asset;
-    }
-
-    private static function teamSearchAlias(string $team,string $league): string
-    {
-        $teamTrim=trim($team);
-        $key=self::teamCompareKey($teamTrim);
-        $leagueKey=mb_strtolower($league,'UTF-8');
-
-        // Resolve common ambiguous display names with league context.
-        if($key==='america' && preg_match('~liga\s*mx|mexic~u',$leagueKey))return 'Club América';
-        if($key==='leon' && preg_match('~liga\s*mx|mexic~u',$leagueKey))return 'Club León';
-        if($key==='inter' && preg_match('~serie\s*a|ital~u',$leagueKey))return 'Inter Milan';
-        if($key==='sporting' && preg_match('~portugal|primeira~u',$leagueKey))return 'Sporting CP';
-
-        return $teamTrim;
-    }
-
-    private static function teamCompareKey(string $value): string
-    {
-        $value=mb_strtolower(trim($value),'UTF-8');
-        $value=strtr($value,[
-            'á'=>'a','à'=>'a','â'=>'a','ã'=>'a','ä'=>'a',
-            'é'=>'e','è'=>'e','ê'=>'e','ë'=>'e',
-            'í'=>'i','ì'=>'i','î'=>'i','ï'=>'i',
-            'ó'=>'o','ò'=>'o','ô'=>'o','õ'=>'o','ö'=>'o',
-            'ú'=>'u','ù'=>'u','û'=>'u','ü'=>'u','ç'=>'c','ñ'=>'n'
-        ]);
-        $value=preg_replace('~\b(?:fc|cf|ac|sc|club|clube|the|de|da|do|dos|das)\b~u',' ',$value)??$value;
-        $value=preg_replace('~[^\p{L}\p{N}]+~u',' ',$value)??$value;
-        return trim(preg_replace('~\s+~u',' ',$value)??$value);
-    }
-
-    private static function leagueCountryHint(string $league): ?string
-    {
-        $l=mb_strtolower($league,'UTF-8');
-        return match(true){
-            preg_match('~liga\s*mx|mexic~u',$l)===1=>'mexico',
-            preg_match('~premier league|championship|england|inglaterra~u',$l)===1=>'england',
-            preg_match('~la liga|spain|espanha~u',$l)===1=>'spain',
-            preg_match('~bundesliga|germany|alemanha~u',$l)===1=>'germany',
-            preg_match('~ligue\s*1|france|franca|frança~u',$l)===1=>'france',
-            preg_match('~primeira liga|portugal~u',$l)===1=>'portugal',
-            preg_match('~brasileir|brasil~u',$l)===1=>'brazil',
-            preg_match('~mls|united states|usa~u',$l)===1=>'united states',
-            default=>null
-        };
-    }
-
-    private static function countryCode(string $team): ?string
-    {
-        $k=self::teamCompareKey($team);
-        $map=[
-            'argentina'=>'ar','australia'=>'au','austria'=>'at','belgica'=>'be','belgium'=>'be',
-            'bolivia'=>'bo','brasil'=>'br','brazil'=>'br','bulgaria'=>'bg','camaroes'=>'cm','cameroon'=>'cm',
-            'canada'=>'ca','chile'=>'cl','china'=>'cn','colombia'=>'co','coreia do sul'=>'kr','south korea'=>'kr',
-            'costa rica'=>'cr','croacia'=>'hr','croatia'=>'hr','dinamarca'=>'dk','denmark'=>'dk',
-            'equador'=>'ec','ecuador'=>'ec','egito'=>'eg','egypt'=>'eg','escocia'=>'gb-sct','scotland'=>'gb-sct',
-            'eslovaquia'=>'sk','slovakia'=>'sk','eslovenia'=>'si','slovenia'=>'si','espanha'=>'es','spain'=>'es',
-            'estados unidos'=>'us','united states'=>'us','usa'=>'us','finlandia'=>'fi','finland'=>'fi',
-            'franca'=>'fr','france'=>'fr','gales'=>'gb-wls','wales'=>'gb-wls','alemanha'=>'de','germany'=>'de',
-            'ghana'=>'gh','grecia'=>'gr','greece'=>'gr','holanda'=>'nl','netherlands'=>'nl','hungria'=>'hu','hungary'=>'hu',
-            'inglaterra'=>'gb-eng','england'=>'gb-eng','irlanda'=>'ie','ireland'=>'ie','islandia'=>'is','iceland'=>'is',
-            'italia'=>'it','italy'=>'it','japao'=>'jp','japan'=>'jp','marrocos'=>'ma','morocco'=>'ma',
-            'mexico'=>'mx','nigeria'=>'ng','noruega'=>'no','norway'=>'no','nova zelandia'=>'nz','new zealand'=>'nz',
-            'paraguai'=>'py','paraguay'=>'py','peru'=>'pe','polonia'=>'pl','poland'=>'pl','portugal'=>'pt',
-            'republica tcheca'=>'cz','czech republic'=>'cz','romenia'=>'ro','romania'=>'ro',
-            'senegal'=>'sn','servia'=>'rs','serbia'=>'rs','suecia'=>'se','sweden'=>'se','suica'=>'ch','switzerland'=>'ch',
-            'tunisia'=>'tn','tunisia'=>'tn','turquia'=>'tr','turkey'=>'tr','ucrania'=>'ua','ukraine'=>'ua',
-            'uruguai'=>'uy','uruguay'=>'uy','venezuela'=>'ve'
-        ];
-        return $map[$k]??null;
-    }
-
-    private static function remoteFlagPath(string $code): ?string
-    {
-        $code=strtolower(trim($code));
-        if(!preg_match('~^[a-z]{2}(?:-[a-z]{3})?$~D',$code))return null;
-        return self::fetchImageAsset('https://flagcdn.com/w80/'.$code.'.png','flag-'.$code,30*86400);
-    }
-
-    private static function fetchImageAsset(string $url,string $key,int $ttl): ?string
-    {
-        if(!self::allowedAssetUrl($url))return null;
-
-        $dir=self::assetCacheDir();
-        $path=$dir.'/'.preg_replace('~[^a-z0-9._-]+~i','-',substr($key,0,100)).'.img';
-        if(is_file($path) && filesize($path)>100 && (time()-filemtime($path))<$ttl)return $path;
-
-        $bytes=self::httpGet($url,5,1500000);
-        if($bytes===null||strlen($bytes)<100)return null;
-
-        $img=@imagecreatefromstring($bytes);
-        if($img===false)return null;
-        imagedestroy($img);
-
-        $tmp=$path.'.tmp-'.bin2hex(random_bytes(4));
-        if(file_put_contents($tmp,$bytes,LOCK_EX)===false){@unlink($tmp);return null;}
-        @chmod($tmp,0600);
-        if(!@rename($tmp,$path)){@unlink($tmp);return null;}
-        return $path;
-    }
-
-    private static function drawImageContain($im,int $cx,int $cy,string $path,int $maxW,int $maxH): bool
-    {
-        $bytes=@file_get_contents($path);
-        if(!is_string($bytes)||$bytes==='')return false;
-        $src=@imagecreatefromstring($bytes);
-        if($src===false)return false;
-
-        $sw=imagesx($src);$sh=imagesy($src);
-        if($sw<=0||$sh<=0){imagedestroy($src);return false;}
-
-        $scale=min($maxW/$sw,$maxH/$sh);
-        $dw=max(1,(int)floor($sw*$scale));
-        $dh=max(1,(int)floor($sh*$scale));
-        $dx=$cx-(int)floor($dw/2);
-        $dy=$cy-(int)floor($dh/2);
-
-        imagealphablending($im,true);
-        imagesavealpha($im,true);
-        $ok=imagecopyresampled($im,$src,$dx,$dy,0,0,$dw,$dh,$sw,$sh);
-        imagedestroy($src);
-        return $ok;
-    }
-
-    private static function assetCacheDir(): string
-    {
-        static $dir=null;
-        if(is_string($dir))return $dir;
-
-        $base=(is_dir('/app/data')&&is_writable('/app/data'))?'/app/data':sys_get_temp_dir();
-        $dir=rtrim($base,'/').'/tmr-team-assets';
-        if(!is_dir($dir))@mkdir($dir,0700,true);
-        if(!is_dir($dir)||!is_writable($dir)){
-            $dir=sys_get_temp_dir().'/tmr-team-assets';
-            if(!is_dir($dir))@mkdir($dir,0700,true);
-        }
-        return $dir;
-    }
-
-    private static function allowedAssetUrl(string $url): bool
-    {
-        $parts=parse_url($url);
-        if(!is_array($parts)||strtolower((string)($parts['scheme']??''))!=='https')return false;
-        $host=strtolower((string)($parts['host']??''));
-        return $host==='www.thesportsdb.com'
-            ||$host==='thesportsdb.com'
-            ||str_ends_with($host,'.thesportsdb.com')
-            ||$host==='flagcdn.com'
-            ||$host==='www.flagcdn.com';
-    }
-
-    private static function httpGet(string $url,int $timeout,int $maxBytes): ?string
-    {
-        if(!self::allowedAssetUrl($url) && !str_starts_with($url,'https://www.thesportsdb.com/api/'))return null;
-
-        if(function_exists('curl_init')){
-            $ch=curl_init($url);
-            if($ch!==false){
-                curl_setopt_array($ch,[
-                    CURLOPT_RETURNTRANSFER=>true,
-                    CURLOPT_FOLLOWLOCATION=>true,
-                    CURLOPT_MAXREDIRS=>3,
-                    CURLOPT_CONNECTTIMEOUT=>$timeout,
-                    CURLOPT_TIMEOUT=>$timeout,
-                    CURLOPT_USERAGENT=>'TelegramRouter/1.0',
-                    CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS
-                ]);
-                $body=curl_exec($ch);
-                $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
-                $effective=(string)curl_getinfo($ch,CURLINFO_EFFECTIVE_URL);
-                curl_close($ch);
-
-                if(is_string($body)&&$status>=200&&$status<300
-                    &&strlen($body)<=$maxBytes&&self::allowedAssetUrl($effective))return $body;
-            }
-        }
-
-        $context=stream_context_create(['http'=>[
-            'method'=>'GET','timeout'=>$timeout,'follow_location'=>1,'max_redirects'=>3,
-            'header'=>"User-Agent: TelegramRouter/1.0\r\nAccept: application/json,image/*,*/*\r\n"
-        ]]);
-        $body=@file_get_contents($url,false,$context,0,$maxBytes+1);
-        if(!is_string($body)||strlen($body)>$maxBytes)return null;
-        return $body;
-    }
-
-    private static function safeLogName(string $value): string
-    {
-        $value=preg_replace('~[^\p{L}\p{N} ._-]+~u','',trim($value))??'';
-        return mb_substr($value,0,80,'UTF-8');
+        if($letters==='')$letters=mb_strtoupper(mb_substr($parts[0],0,2,'UTF-8'),'UTF-8');
+        return mb_substr($letters,0,3,'UTF-8');
     }
 
     private static function drawFlagSized($im,int $cx,int $cy,array $spec,int $size): void
@@ -1088,10 +873,10 @@ final class AdaptiveVipCardRenderer
         }elseif($type==='japan'){
             imagefilledellipse($im,$cx,$cy,max(10,(int)($size*.38)),max(10,(int)($size*.38)),self::color($im,'#bc002d'));
         }elseif($type==='swiss'){
-            $flagWhite=self::color($im,'#ffffff');
+            $white=self::color($im,'#ffffff');
             $bar=max(3,(int)($size*.10));
-            imagefilledrectangle($im,$cx-$bar,$cy-$r+6,$cx+$bar,$cy+$r-6,$flagWhite);
-            imagefilledrectangle($im,$cx-$r+6,$cy-$bar,$cx+$r-6,$cy+$bar,$flagWhite);
+            imagefilledrectangle($im,$cx-$bar,$cy-$r+6,$cx+$bar,$cy+$r-6,$white);
+            imagefilledrectangle($im,$cx-$r+6,$cy-$bar,$cx+$r-6,$cy+$bar,$white);
         }
     }
 
