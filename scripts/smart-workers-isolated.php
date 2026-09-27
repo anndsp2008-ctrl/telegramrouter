@@ -279,7 +279,7 @@ try{
     // Only the rescue vision model uses guided_json; the selected Llama 3.2
     // primary and the existing translation transport remain unchanged.
     $fields=$input['fields']??[];
-    if(!is_array($fields)||count($fields)>24)$fields=[];
+    if(!is_array($fields)||count($fields)>25)$fields=[];
     $fields=array_values(array_filter($fields,static fn($field): bool =>
         is_string($field)&&preg_match('/^[a-z_]{2,30}$/D',$field)===1));
 

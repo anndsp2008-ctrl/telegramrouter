@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace App;
+require_once __DIR__.'/DoubleVipCardRenderer.php';
 
 /**
  * Isolated, opt-in AI formatting. Existing forwarding is the only fallback.
@@ -196,7 +197,7 @@ final class SmartFormatting
     {
         if(trim($source)==='')return false;
         // Explicit slip headings, never a market such as "Dupla chance".
-        if(preg_match('~(?:^|\\R)\\s*(?:aposta\\s+)?(?:parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|multiple|dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',$source)===1)return true;
+        if(preg_match('~(?:^|\\R)\\s*(?:aposta\\s+)?(?:parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|multiple|dupla(?!\\s+chance)|doble(?!\\s+oportunidad)|double(?!\\s+chance))\\b~iu',$source)===1)return true;
         if(preg_match('~(?:^|\\R)\\s*(?:[2-9]|[1-9][0-9]+)\\s+(?:sele[cç][oõ]es|selections?|legs?|eventos?|events?)\\b~iu',$source)===1)return true;
         if(preg_match_all('~(?:^|\\R)\\s*(?:sele[cç][aã]o|selection|pick)\\s*[:\\-]~iu',$source)>=2)return true;
         // Bet Builder is not sufficient by itself: it may contain only one pick.
@@ -217,12 +218,12 @@ final class SmartFormatting
             $validCount=preg_match('/^[0-9]{1,3}$/D',$count)===1 && (int)$count>=2;
             $validKind=in_array($kind,[
                 'multiple','multi','bet_builder','bet builder','parlay','acca',
-                'dupla','double','múltipla','multipla','múltiple','combinada','acumulada'
+                'dupla','double','doble','múltipla','multipla','múltiple','combinada','acumulada'
             ],true);
             $visualCue=preg_match(
                 '~\\b(?:bet\\s*builder|criar\\s+aposta|crear\\s+apuesta|same[- ]game\\s+parlay|'.
                 'parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|m[uú]ltiple|multiple|'.
-                'dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',
+                'dupla(?!\\s+chance)|doble(?!\\s+oportunidad)|double(?!\\s+chance))\\b~iu',
                 $evidence
             )===1 || preg_match(
                 '~\\b(?:[2-9]|[1-9][0-9]+)\\s*(?:[- ]?sele[cç][oõ]es|selections?|legs?)\\b~iu',
@@ -361,7 +362,8 @@ final class SmartFormatting
         self::$telemetryTargetLanguage=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $hasImage=$localImage!==null&&is_file($localImage);
         if($mode==='card' && !$hasImage
-            && self::sourceIndicatesMultiple($sourceText)){
+            && self::sourceIndicatesMultiple($sourceText)
+            && !DoubleVipCardRenderer::sourceIsDouble($sourceText)){
             self::$multipleDetected=true;
             self::$aiFinishedAt=microtime(true);
             self::diag('MULTIPLE_TEXT_DIRECT_CONTINGENCY');
@@ -379,7 +381,7 @@ final class SmartFormatting
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
             'bet_kind','selections_count','multiple_details',
             'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details',
-            'visual_market_evidence','visual_selection_evidence'];
+            'visual_market_evidence','visual_selection_evidence','double_legs'];
         // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
         $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
@@ -428,6 +430,34 @@ final class SmartFormatting
                         usleep(350000);
                     }
                     continue;
+                }
+                if($mode==='card' && DoubleVipCardRenderer::isDouble($json,$hasImage)){
+                    self::$multipleDetected=true;
+                    $double=DoubleVipCardRenderer::extract($json,$hasImage);
+                    if($double!==null){
+                        $double['analysis']=$sourceAnalysis!==''?trim((string)($json['analysis']??'')):'';
+                        $double=self::preserveSourceAnalysisOutput($double,$sourceAnalysis,$rule,$translate);
+                        if($double!==null){
+                            foreach($double['legs'] as $index=>$leg){
+                                $localized=self::enforcePortugueseOutput($leg,$rule,$translate);
+                                if($localized===null){$double=null;break;}
+                                $double['legs'][$index]=$localized;
+                            }
+                        }
+                        if($double!==null && ($sourceAnalysis==='' || $double['analysis']!=='')){
+                            $caption=DoubleVipCardRenderer::caption($double);
+                            $renderStarted=microtime(true);
+                            $image=strlen(mb_convert_encoding($caption,'UTF-16LE','UTF-8'))/2<=4700?DoubleVipCardRenderer::render($double):null;
+                            self::$renderMs=max(0,(int)round((microtime(true)-$renderStarted)*1000));
+                            if($image!==null){
+                                self::$aiFinishedAt=microtime(true);
+                                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
+                                self::diag('DOUBLE_CARD_READY');
+                                return ['caption'=>$caption,'image'=>$image,'mode'=>'card'];
+                            }
+                        }
+                    }
+                    self::diag('DOUBLE_CARD_OR_FIELDS_INCOMPLETE');
                 }
                 if($mode==='card' && self::isMultipleTicket($json,$sourceText,$hasImage)){
                     self::$multipleDetected=true;
@@ -1085,7 +1115,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            self::multipleScopeInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete. Uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade como string numérica. ".
             "Se for multiple, preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção. Não resuma duas ou mais condições em uma única seleção. ".
@@ -1138,7 +1168,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            self::multipleScopeInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
@@ -1261,7 +1291,7 @@ final class SmartFormatting
         $prompt="Você interpreta dicas de apostas, SEM CRIAR OU ALTERAR DADOS. ".
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
-            self::multipleScopeInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
