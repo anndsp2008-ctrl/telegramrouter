@@ -249,229 +249,270 @@ final class AdaptiveVipCardRenderer
         if($analysis==='')return null;
 
         $bet['analysis']=$analysis;
-        $brandKey=(string)($bet['bookmaker_key']??'unknown');
-
-        if(in_array($brandKey,['betano','bet365'],true)){
-            return self::drawKnownCard($bet,$font,$bold);
-        }
-        return self::drawUnknownCard($bet,$font,$bold);
+        return self::drawPremiumCard($bet,$font,$bold);
     }
 
     /**
-     * Approved branded layout used by Betano and bet365 previews.
-     * Neon green is the interface accent; bookmaker colors are restricted to
-     * the brand mark. Game time is intentionally absent everywhere.
+     * Global premium card layout used by every bookmaker and every bet type.
+     * It keeps the same visual hierarchy as the approved previews and reserves
+     * fixed space for labels/values so text can never sit on top of numbers.
      */
-    private static function drawKnownCard(array $bet,string $font,string $bold): ?string
+    private static function drawPremiumCard(array $bet,string $font,string $bold): ?string
     {
-        $legs=$bet['legs'];
+        $legs=is_array($bet['legs']??null)?$bet['legs']:[];
+        if($legs===[])return null;
+
         $kind=(string)($bet['kind']??'simple');
         $builder=$kind==='bet_builder';
         $brandKey=(string)($bet['bookmaker_key']??'unknown');
         $bookmaker=trim((string)($bet['bookmaker']??''))?:'Casa desconhecida';
         $odd=trim((string)($bet['odd']??''))?:'—';
+        $analysis=trim((string)($bet['analysis']??''));
+        if($analysis==='')return null;
 
         $width=1080;
-        $margin=22;
+        $outerX=18;
         $contentX=34;
         $contentW=1012;
-        $headerH=148;
-        $y=$headerH+18;
+        $headerY=28;
+        $headerH=132;
+        $gap=18;
+        $y=$headerY+$headerH+$gap;
 
-        $analysisLines=self::wrap((string)$bet['analysis'],$font,20,850);
-        if($analysisLines===null)return null;
-
-        $layout=[];
+        $rows=[];
         if($builder){
             $first=$legs[0];
-            $eventH=188;
-            $layout[]=['builder_event',$y,$eventH,$first];
-            $y+=$eventH+18;
+            $matchLines=self::wrap((string)$first['match'],$bold,27,780);
+            $leagueLines=self::wrap((string)($first['league']??''),$font,18,760)??[];
+            if($matchLines===null)return null;
+            $eventH=92+count($matchLines)*37+count($leagueLines)*27+(!empty($first['date'])?36:0);
+            $eventH=max(190,$eventH);
+            $rows[]=['builder_event',$y,$eventH,$first,$matchLines,$leagueLines];
+            $y+=$eventH+$gap;
 
-            $rows=[];
-            $rowsH=82;
+            $selectionRows=[];
+            $selectionBodyH=0;
             foreach($legs as $index=>$leg){
-                $market=self::wrap((string)$leg['market'],$bold,23,770);
-                $selection=self::wrap((string)$leg['selection'],$bold,25,770);
-                if($market===null||$selection===null)return null;
-                $rh=max(96,42+count($market)*31+count($selection)*34);
-                $rows[]=['builder_selection',$index,$leg,$market,$selection,$rh];
-                $rowsH+=$rh;
+                $marketLines=self::wrap((string)$leg['market'],$bold,22,775);
+                $selectionLines=self::wrap((string)$leg['selection'],$bold,25,775);
+                if($marketLines===null||$selectionLines===null)return null;
+                $rowH=max(102,36+count($marketLines)*29+count($selectionLines)*34);
+                $selectionRows[]=[$index,$leg,$marketLines,$selectionLines,$rowH];
+                $selectionBodyH+=$rowH;
             }
-            $selectionH=$rowsH+24;
-            $layout[]=['builder_selections',$y,$selectionH,$rows];
-            $y+=$selectionH+20;
+            $selectionH=92+$selectionBodyH+22;
+            $rows[]=['builder_selections',$y,$selectionH,$selectionRows];
+            $y+=$selectionH+$gap;
         }else{
             foreach($legs as $index=>$leg){
-                $eventH=236;
-                $layout[]=['event',$y,$eventH,$index,$leg];
-                $y+=$eventH+16;
+                $matchLines=self::wrap((string)$leg['match'],$bold,25,670);
+                $leagueLines=self::wrap((string)($leg['league']??''),$font,17,650)??[];
+                $marketLines=self::wrap((string)$leg['market'],$font,18,690);
+                $selectionLines=self::wrap((string)$leg['selection'],$bold,24,690);
+                if($matchLines===null||$marketLines===null||$selectionLines===null)return null;
+                $rowH=82+count($matchLines)*34+count($leagueLines)*25+(!empty($leg['date'])?29:0)
+                    +count($marketLines)*27+count($selectionLines)*33;
+                $rowH=max(196,$rowH);
+                $rows[]=['event',$y,$rowH,$index,$leg,$matchLines,$leagueLines,$marketLines,$selectionLines];
+                $y+=$rowH+14;
             }
+            $y+=4;
         }
 
+        $analysisLines=self::wrap($analysis,$font,20,845);
+        if($analysisLines===null)return null;
         $analysisY=$y;
-        $analysisH=max(170,92+count($analysisLines)*31);
-        $footerY=$analysisY+$analysisH+20;
-        $footerH=142;
-        $ctaY=$footerY+$footerH+18;
-        $ctaH=104;
+        $analysisH=max(176,96+count($analysisLines)*32);
+        $footerY=$analysisY+$analysisH+$gap;
+        $footerH=160;
+        $ctaY=$footerY+$footerH+$gap;
+        $ctaH=102;
         $height=$ctaY+$ctaH+34;
-        if($height>3500)return null;
+        if($height>4300)return null;
 
         $im=imagecreatetruecolor($width,$height);
         if($im===false)return null;
         imagealphablending($im,true);
 
         $bg=self::color($im,'#020b0f');
-        $panel=self::color($im,'#06161c');
-        $panel2=self::color($im,'#082029');
-        $border=self::color($im,'#124352');
+        $panel=self::color($im,'#06171d');
+        $panel2=self::color($im,'#071e25');
+        $panel3=self::color($im,'#041319');
+        $border=self::color($im,'#12424e');
+        $borderSoft=self::color($im,'#0d3039');
         $green=self::color($im,'#39ff88');
-        $greenSoft=self::color($im,'#76ffae');
-        $white=self::color($im,'#f5f7fa');
-        $muted=self::color($im,'#aeb9d7');
-        $dim=self::color($im,'#758397');
-        $yellow=self::color($im,'#f4d90b');
+        $greenSoft=self::color($im,'#78ffad');
+        $white=self::color($im,'#f7f8fb');
+        $muted=self::color($im,'#aeb8d1');
+        $dim=self::color($im,'#728091');
         $orange=self::color($im,'#ff612d');
+        $yellow=self::color($im,'#f4d90b');
         imagefill($im,0,0,$bg);
 
-        self::rounded($im,16,16,1048,$height-32,30,$green);
-        self::rounded($im,19,19,1042,$height-38,27,$bg);
+        self::rounded($im,$outerX,16,1044,$height-32,30,$green);
+        self::rounded($im,$outerX+3,19,1038,$height-38,27,$bg);
 
-        // Header: dark green glow similar to the approved mockups.
-        self::rounded($im,$margin,$margin,1036,$headerH-20,24,$panel2);
-        for($i=0;$i<8;$i++){
-            $g=self::color($im,sprintf('#%02x%02x%02x',2,38+$i*4,30+$i*2));
-            imagefilledellipse($im,900+$i*9,62,330-$i*18,145-$i*7,$g);
-        }
-        imagefilledrectangle($im,$margin,$margin,1058,27,$green);
+        // Premium header: clean dark surface, brand left, type center, total odd right.
+        self::rounded($im,$contentX,$headerY,$contentW,$headerH,24,$border);
+        self::rounded($im,$contentX+2,$headerY+2,$contentW-4,$headerH-4,22,$panel2);
+        imagefilledrectangle($im,$contentX+18,$headerY+1,$contentX+$contentW-18,$headerY+4,$green);
 
-        self::brandText($im,58,103,$bookmaker,$brandKey,$bold,$white,$orange,$yellow);
+        self::brandText($im,58,$headerY+86,$bookmaker,$brandKey,$bold,$white,$orange,$yellow);
 
         $type=self::kindLabel($kind);
-        $typeW=max(218,min(300,self::width($type,$bold,22)+92));
-        $typeX=820-$typeW;
-        self::rounded($im,$typeX,50,$typeW,58,18,$green);
-        self::rounded($im,$typeX+3,53,$typeW-6,52,16,$panel);
-        self::linkIcon($im,$typeX+28,79,$green,2);
-        self::text($im,$typeX+64,88,$type,22,$green,$bold);
+        $typeW=max(220,min(292,self::width($type,$bold,20)+84));
+        $oddW=194;
+        $oddX=$contentX+$contentW-$oddW-18;
+        $typeX=$oddX-$typeW-20;
+        self::rounded($im,$typeX,$headerY+32,$typeW,58,18,$green);
+        self::rounded($im,$typeX+3,$headerY+35,$typeW-6,52,16,$panel3);
+        self::linkIcon($im,$typeX+27,$headerY+62,$green,2);
+        self::textFit($im,$typeX+61,$headerY+72,$type,20,$green,$bold,$typeW-78);
 
-        self::rounded($im,832,38,202,88,22,$green);
-        self::rounded($im,835,41,196,82,19,$panel);
-        self::text($im,860,69,'ODD TOTAL',15,$greenSoft,$bold);
-        self::textFit($im,864,111,$odd,39,$white,$bold,142);
+        self::rounded($im,$oddX,$headerY+22,$oddW,84,20,$green);
+        self::rounded($im,$oddX+3,$headerY+25,$oddW-6,78,17,$panel3);
+        self::text($im,$oddX+22,$headerY+51,'ODD TOTAL',14,$greenSoft,$bold);
+        self::textFit($im,$oddX+22,$headerY+91,$odd,38,$white,$bold,$oddW-44);
 
-        foreach($layout as $block){
-            if($block[0]==='builder_event'){
-                [, $top,$h,$leg]=$block;
+        foreach($rows as $row){
+            if($row[0]==='builder_event'){
+                [, $top,$h,$leg,$matchLines,$leagueLines]=$row;
                 self::rounded($im,$contentX,$top,$contentW,$h,24,$border);
                 self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,22,$panel);
-                self::drawMatchRow($im,62,$top+70,(string)$leg['match'],$font,$bold,$white,$muted);
-                $league=trim((string)($leg['league']??''));
-                if($league!=='')self::textFit($im,165,$top+119,$league,19,$muted,$font,760);
-                if(!empty($leg['date'])){
-                    self::calendarIcon($im,163,$top+151,$muted);
-                    self::text($im,205,$top+162,'Data: '.$leg['date'],18,$muted,$font);
+                self::footballIcon($im,70,$top+66,$white,$bg);
+
+                $cursor=$top+61;
+                $sides=self::matchSides((string)$leg['match']);
+                if($sides!==null && self::flagSpec($sides[0])!==null && self::flagSpec($sides[1])!==null){
+                    [$left,$right]=$sides;
+                    self::drawFlag($im,122,$top+63,self::flagSpec($left));
+                    self::textFit($im,160,$top+72,$left,26,$white,$bold,270);
+                    self::text($im,449,$top+72,'x',21,$muted,$bold);
+                    self::drawFlag($im,501,$top+63,self::flagSpec($right));
+                    self::textFit($im,538,$top+72,$right,26,$white,$bold,390);
+                    $cursor=$top+110;
+                }else{
+                    foreach($matchLines as $line){
+                        self::text($im,120,$cursor,$line,27,$white,$bold);$cursor+=37;
+                    }
+                    $cursor+=4;
                 }
-            }elseif($block[0]==='builder_selections'){
-                [, $top,$h,$rows]=$block;
+
+                foreach($leagueLines as $line){
+                    self::text($im,120,$cursor,$line,18,$muted,$font);$cursor+=27;
+                }
+                if(!empty($leg['date'])){
+                    self::calendarIcon($im,120,$cursor+9,$muted);
+                    self::text($im,162,$cursor+20,'Data: '.$leg['date'],18,$muted,$font);
+                }
+            }elseif($row[0]==='builder_selections'){
+                [, $top,$h,$selectionRows]=$row;
                 self::rounded($im,$contentX,$top,$contentW,$h,24,$border);
                 self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,22,$panel);
-                self::barsIcon($im,66,$top+50,$green);
-                self::text($im,112,$top+57,'SELEÇÕES ('.count($legs).')',22,$muted,$bold);
-                self::linkIcon($im,830,$top+49,$green,2);
-                self::text($im,866,$top+57,'Bet Builder',19,$green,$bold);
-                imageline($im,60,$top+76,1022,$top+76,$border);
+                self::listIcon($im,64,$top+51,$green);
+                self::text($im,116,$top+58,'SELEÇÕES ('.count($legs).')',21,$muted,$bold);
+                self::linkIcon($im,830,$top+50,$green,2);
+                self::text($im,868,$top+58,'Bet Builder',18,$green,$bold);
+                imageline($im,58,$top+81,1020,$top+81,$borderSoft);
 
-                $cursor=$top+91;
-                foreach($rows as $rowIndex=>$row){
-                    [, $index,$leg,$marketLines,$selectionLines,$rh]=$row;
-                    $cy=$cursor+42;
-                    self::circleNumber($im,83,$cy,$index+1,$green,$panel,$bold);
-                    if($rowIndex<count($rows)-1)imageline($im,83,$cy+25,83,$cursor+$rh+16,$green);
-                    $ty=$cursor+34;
+                $cursor=$top+92;
+                foreach($selectionRows as $rowIndex=>$selectionRow){
+                    [$index,$leg,$marketLines,$selectionLines,$rowH]=$selectionRow;
+                    $circleY=$cursor+38;
+                    imageellipse($im,84,$circleY,30,30,$green);
+                    imageellipse($im,84,$circleY,27,27,$green);
+                    if($rowIndex<count($selectionRows)-1)imageline($im,84,$circleY+16,84,$cursor+$rowH+4,$green);
+
+                    $ty=$cursor+32;
                     foreach($marketLines as $line){
-                        self::text($im,138,$ty,$line,23,$white,$bold);$ty+=31;
+                        self::text($im,132,$ty,$line,22,$white,$bold);$ty+=29;
                     }
                     foreach($selectionLines as $line){
-                        self::text($im,138,$ty,$line,25,$green,$bold);$ty+=34;
+                        self::text($im,132,$ty,$line,25,$green,$bold);$ty+=34;
                     }
-                    if($rowIndex<count($rows)-1)imageline($im,138,$cursor+$rh-2,1004,$cursor+$rh-2,$border);
-                    // Bet Builder intentionally has NO odd beside each selection.
-                    $cursor+=$rh;
+                    if($rowIndex<count($selectionRows)-1){
+                        imageline($im,132,$cursor+$rowH-5,1008,$cursor+$rowH-5,$borderSoft);
+                    }
+                    // Global Bet Builder rule: never draw a per-selection odd.
+                    $cursor+=$rowH;
                 }
             }else{
-                [, $top,$h,$index,$leg]=$block;
-                self::rounded($im,$contentX,$top,$contentW,$h,24,$border);
-                self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,22,$panel);
+                [, $top,$h,$index,$leg,$matchLines,$leagueLines,$marketLines,$selectionLines]=$row;
+                self::rounded($im,$contentX,$top,$contentW,$h,22,$border);
+                self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,20,$panel);
 
-                self::drawMatchRow($im,60,$top+62,(string)$leg['match'],$font,$bold,$white,$muted);
-                $league=trim((string)($leg['league']??''));
-                if($league!=='')self::textFit($im,165,$top+107,$league,18,$muted,$font,660);
+                self::circleNumber($im,72,$top+48,$index+1,$green,$panel,$bold);
+                $cursor=$top+44;
+                foreach($matchLines as $line){
+                    self::text($im,118,$cursor,$line,25,$white,$bold);$cursor+=34;
+                }
+                foreach($leagueLines as $line){
+                    self::text($im,118,$cursor,$line,17,$muted,$font);$cursor+=25;
+                }
                 if(!empty($leg['date'])){
-                    self::calendarIcon($im,163,$top+137,$muted);
-                    self::text($im,205,$top+149,$leg['date'],17,$muted,$font);
+                    self::calendarIcon($im,118,$cursor+7,$muted);
+                    self::text($im,158,$cursor+18,'Data: '.$leg['date'],16,$muted,$font);
+                    $cursor+=29;
+                }
+                $cursor+=8;
+                foreach($marketLines as $line){
+                    self::text($im,118,$cursor,$line,18,$muted,$font);$cursor+=27;
+                }
+                foreach($selectionLines as $line){
+                    self::text($im,118,$cursor,$line,24,$green,$bold);$cursor+=33;
                 }
 
-                $pill='SELEÇÃO '.($index+1);
-                $pillW=158;
-                self::rounded($im,856,$top+26,$pillW,46,16,$green);
-                self::rounded($im,859,$top+29,$pillW-6,40,14,$panel);
-                self::text($im,880,$top+57,$pill,17,$green,$bold);
-
-                self::rounded($im,52,$top+164,976,58,16,$border);
-                self::rounded($im,54,$top+166,972,54,14,$bg);
-                self::circleNumber($im,89,$top+193,$index+1,$green,$bg,$bold);
-                self::textFit($im,142,$top+188,(string)$leg['market'],21,$white,$bold,560);
-                self::textFit($im,142,$top+215,(string)$leg['selection'],22,$green,$bold,690);
-                // Approved Betano/bet365 models expose only the total price.
+                if(!empty($leg['odd'])){
+                    self::rounded($im,862,$top+32,150,74,16,$border);
+                    self::rounded($im,865,$top+35,144,68,13,$panel3);
+                    self::text($im,889,$top+58,'ODD',13,$muted,$bold);
+                    self::textFit($im,889,$top+93,(string)$leg['odd'],27,$white,$bold,96);
+                }
             }
         }
 
         self::rounded($im,$contentX,$analysisY,$contentW,$analysisH,24,$border);
         self::rounded($im,$contentX+2,$analysisY+2,$contentW-4,$analysisH-4,22,$panel);
-        self::barsIcon($im,66,$analysisY+54,$green);
-        self::text($im,112,$analysisY+59,'ANÁLISE',24,$green,$bold);
-        $cursor=$analysisY+100;
-        foreach($analysisLines as $line){self::text($im,112,$cursor,$line,20,$white,$font);$cursor+=31;}
+        self::barsIcon($im,62,$analysisY+57,$green);
+        self::text($im,116,$analysisY+62,'ANÁLISE',23,$green,$bold);
+        $cursor=$analysisY+103;
+        foreach($analysisLines as $line){
+            self::text($im,116,$cursor,$line,20,$white,$font);
+            $cursor+=32;
+        }
 
+        // Footer columns use independent fixed bounds. Values are rendered once
+        // inside each column to avoid "10unidades" and similar collisions.
         self::rounded($im,$contentX,$footerY,$contentW,$footerH,24,$border);
         self::rounded($im,$contentX+2,$footerY+2,$contentW-4,$footerH-4,22,$panel2);
 
-        self::coinsIcon($im,72,$footerY+72,$green);
-        self::text($im,118,$footerY+45,'STAKE',15,$muted,$bold);
-        self::text($im,118,$footerY+92,self::FIXED_STAKE,34,$white,$bold);
-        self::text($im,165,$footerY+92,'unidades',20,$white,$bold);
-        imageline($im,350,$footerY+28,350,$footerY+116,$border);
+        $col1X=62;$col1W=286;
+        $col2X=388;$col2W=250;
+        $col3X=704;$col3W=304;
+        imageline($im,365,$footerY+27,365,$footerY+$footerH-27,$border);
+        imageline($im,678,$footerY+27,678,$footerY+$footerH-27,$border);
 
-        self::barsIcon($im,400,$footerY+75,$green);
-        self::text($im,457,$footerY+45,'ODD TOTAL',15,$muted,$bold);
-        self::textFit($im,457,$footerY+94,$odd,36,$white,$bold,180);
-        imageline($im,675,$footerY+28,675,$footerY+116,$border);
+        self::coinsIcon($im,$col1X+12,$footerY+85,$green);
+        self::text($im,$col1X+54,$footerY+48,'STAKE',14,$muted,$bold);
+        self::textFit($im,$col1X+54,$footerY+104,self::FIXED_STAKE.' unidades',28,$white,$bold,$col1W-62);
 
-        self::targetIcon($im,722,$footerY+77,$green);
-        self::text($im,779,$footerY+45,'TIPO',15,$muted,$bold);
+        self::barsIcon($im,$col2X+6,$footerY+87,$green);
+        self::text($im,$col2X+58,$footerY+48,'ODD TOTAL',14,$muted,$bold);
+        self::textFit($im,$col2X+58,$footerY+104,$odd,33,$white,$bold,$col2W-66);
+
+        self::targetIcon($im,$col3X+13,$footerY+83,$green);
+        self::text($im,$col3X+61,$footerY+48,'TIPO',14,$muted,$bold);
         $footerType=$kind==='bet_builder'
             ?(count($legs)===2?'Dupla (Bet Builder)':'Bet Builder')
             :ucfirst(mb_strtolower($type,'UTF-8'));
-        self::textFit($im,779,$footerY+94,$footerType,23,$white,$bold,245);
+        self::textFit($im,$col3X+61,$footerY+102,$footerType,21,$white,$bold,$col3W-72);
 
         self::rounded($im,$contentX,$ctaY,$contentW,$ctaH,24,$green);
-        self::rounded($im,$contentX+3,$ctaY+3,$contentW-6,$ctaH-6,21,self::color($im,'#006e3b'));
-        for($i=0;$i<6;$i++){
-            $shade=self::color($im,sprintf('#%02x%02x%02x',0,108+$i*7,58+$i*5));
-            imagefilledellipse($im,880+$i*20,$ctaY+50,500-$i*45,110-$i*8,$shade);
-        }
-        self::telegramIcon($im,315,$ctaY+52,$greenSoft);
-        self::text($im,378,$ctaY+66,'APOSTAR NA',27,$white,$bold);
-        if($brandKey==='bet365'){
-            self::text($im,603,$ctaY+66,'bet',31,$white,$bold);
-            self::text($im,660,$ctaY+66,'365',31,$yellow,$bold);
-        }else{
-            self::text($im,604,$ctaY+66,'BETANO',31,$white,$bold);
-        }
+        self::rounded($im,$contentX+3,$ctaY+3,$contentW-6,$ctaH-6,21,self::color($im,'#004e31'));
+        self::telegramIcon($im,310,$ctaY+51,$greenSoft);
+        self::drawCtaLabel($im,$ctaY+63,$bookmaker,$brandKey,$bold,$white,$greenSoft,$yellow);
 
-        $path=sys_get_temp_dir().'/tmr-approved-card-'.bin2hex(random_bytes(12)).'.png';
+        $path=sys_get_temp_dir().'/tmr-premium-global-'.bin2hex(random_bytes(12)).'.png';
         $ok=imagepng($im,$path,7);
         unset($im);
         if(!$ok){@unlink($path);return null;}
@@ -479,162 +520,34 @@ final class AdaptiveVipCardRenderer
         return $path;
     }
 
-    /**
-     * Approved neutral model. Unknown bookmakers keep the compact preview:
-     * question mark brand, green accents and no bookmaker-specific CTA.
-     */
-    private static function drawUnknownCard(array $bet,string $font,string $bold): ?string
+    private static function drawCtaLabel($im,int $baseline,string $bookmaker,string $brandKey,string $bold,int $white,int $green,int $yellow): void
     {
-        $legs=$bet['legs'];
-        $kind=(string)($bet['kind']??'simple');
-        $builder=$kind==='bet_builder';
-        $bookmaker=trim((string)($bet['bookmaker']??''))?:'Casa desconhecida';
-        $odd=trim((string)($bet['odd']??''))?:'—';
-
-        $width=1080;
-        $contentX=28;
-        $contentW=1024;
-        $headerH=118;
-        $y=138;
-
-        $blocks=[];
-        if($builder){
-            $first=$legs[0];
-            $eventH=155;
-            $blocks[]=['builder_event',$y,$eventH,$first];
-            $y+=$eventH+12;
-            $rows=[];
-            $rowsH=20;
-            foreach($legs as $index=>$leg){
-                $market=self::wrap((string)$leg['market'],$bold,20,700);
-                $selection=self::wrap((string)$leg['selection'],$bold,22,700);
-                if($market===null||$selection===null)return null;
-                $rh=max(82,28+count($market)*27+count($selection)*31);
-                $rows[]=['builder_selection',$index,$leg,$market,$selection,$rh];
-                $rowsH+=$rh;
-            }
-            $blocks[]=['builder_selections',$y,$rowsH+24,$rows];
-            $y+=$rowsH+36;
-        }else{
-            foreach($legs as $index=>$leg){
-                $h=188;
-                $blocks[]=['event',$y,$h,$index,$leg];
-                $y+=$h+12;
-            }
+        $prefix=$brandKey==='unknown'||$brandKey==='generic'?'APOSTA ENCAMINHADA':'APOSTAR NA ';
+        if($prefix==='APOSTA ENCAMINHADA'){
+            $size=26;
+            $w=self::width($prefix,$bold,$size);
+            self::text($im,540-(int)($w/2),$baseline,$prefix,$size,$white,$bold);
+            return;
         }
 
-        $analysisLines=self::wrap((string)$bet['analysis'],$font,20,820);
-        if($analysisLines===null)return null;
-        $analysisY=$y+4;
-        $analysisH=max(156,82+count($analysisLines)*31);
-        $footerY=$analysisY+$analysisH+14;
-        $footerH=132;
-        $height=$footerY+$footerH+26;
-        if($height>3500)return null;
+        $brand=$brandKey==='bet365'?'bet365':mb_strtoupper($bookmaker,'UTF-8');
+        $size=26;
+        $prefixW=self::width($prefix,$bold,$size);
+        $brandW=self::width($brand,$bold,$size);
+        $gap=10;
+        $start=540-(int)(($prefixW+$gap+$brandW)/2);
+        self::text($im,$start,$baseline,$prefix,$size,$white,$bold);
+        $brandColor=$brandKey==='bet365'?$yellow:$green;
+        self::text($im,$start+$prefixW+$gap,$baseline,$brand,$size,$brandColor,$bold);
+    }
 
-        $im=imagecreatetruecolor($width,$height);
-        if($im===false)return null;
-        $bg=self::color($im,'#020c10');
-        $panel=self::color($im,'#06171d');
-        $panel2=self::color($im,'#082029');
-        $border=self::color($im,'#164552');
-        $green=self::color($im,'#39ff88');
-        $white=self::color($im,'#f5f7fa');
-        $muted=self::color($im,'#b0bad4');
-        imagefill($im,0,0,$bg);
-
-        self::rounded($im,16,16,1048,$height-32,26,$green);
-        self::rounded($im,19,19,1042,$height-38,23,$bg);
-
-        self::rounded($im,28,26,1024,92,22,$panel2);
-        for($i=0;$i<6;$i++){
-            $shade=self::color($im,sprintf('#%02x%02x%02x',0,58+$i*6,44+$i*3));
-            imagefilledellipse($im,815+$i*18,60,390-$i*40,100-$i*7,$shade);
+    private static function listIcon($im,int $x,int $y,int $color): void
+    {
+        for($i=0;$i<3;$i++){
+            $yy=$y-18+$i*13;
+            imagefilledellipse($im,$x,$yy,6,6,$color);
+            imagefilledrectangle($im,$x+12,$yy-2,$x+38,$yy+2,$color);
         }
-        self::questionIcon($im,72,72,$green,$muted,$bold);
-        self::textFit($im,130,83,$bookmaker,30,$white,$bold,540);
-        $type=self::kindLabel($kind);
-        $tw=max(180,min(265,self::width($type,$bold,20)+58));
-        self::rounded($im,1024-$tw,42,$tw,52,16,$green);
-        self::rounded($im,1027-$tw,45,$tw-6,46,14,$panel);
-        self::text($im,1024-$tw+(int)(($tw-self::width($type,$bold,20))/2),76,$type,20,$green,$bold);
-
-        foreach($blocks as $block){
-            if($block[0]==='builder_event'){
-                [, $top,$h,$leg]=$block;
-                self::rounded($im,$contentX,$top,$contentW,$h,20,$border);
-                self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,18,$panel);
-                self::drawMatchRow($im,55,$top+55,(string)$leg['match'],$font,$bold,$white,$muted);
-                if(!empty($leg['league']))self::textFit($im,155,$top+96,(string)$leg['league'],17,$muted,$font,760);
-                if(!empty($leg['date'])){
-                    self::calendarIcon($im,154,$top+122,$muted);
-                    self::text($im,192,$top+133,$leg['date'],16,$muted,$font);
-                }
-            }elseif($block[0]==='builder_selections'){
-                [, $top,$h,$rows]=$block;
-                self::rounded($im,$contentX,$top,$contentW,$h,20,$border);
-                self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,18,$panel);
-                $cursor=$top+19;
-                foreach($rows as $rowIndex=>$row){
-                    [, $index,$leg,$markets,$selections,$rh]=$row;
-                    $cy=$cursor+33;
-                    self::circleNumber($im,78,$cy,$index+1,$green,$panel,$bold);
-                    if($rowIndex<count($rows)-1)imageline($im,78,$cy+23,78,$cursor+$rh+8,$green);
-                    $ty=$cursor+28;
-                    foreach($markets as $line){self::text($im,126,$ty,$line,20,$white,$bold);$ty+=27;}
-                    foreach($selections as $line){self::text($im,126,$ty,$line,22,$green,$bold);$ty+=31;}
-                    // No individual odds in Bet Builder, including unknown houses.
-                    $cursor+=$rh;
-                }
-            }else{
-                [, $top,$h,$index,$leg]=$block;
-                self::rounded($im,$contentX,$top,$contentW,$h,20,$border);
-                self::rounded($im,$contentX+2,$top+2,$contentW-4,$h-4,18,$panel);
-                self::drawMatchRow($im,55,$top+50,(string)$leg['match'],$font,$bold,$white,$muted);
-                if(!empty($leg['league']))self::textFit($im,155,$top+91,(string)$leg['league'],16,$muted,$font,690);
-                if(!empty($leg['date'])){
-                    self::calendarIcon($im,154,$top+116,$muted);
-                    self::text($im,192,$top+128,$leg['date'],15,$muted,$font);
-                }
-                self::targetIcon($im,65,$top+157,$green);
-                self::textFit($im,120,$top+151,(string)$leg['market'],19,$white,$bold,600);
-                self::textFit($im,120,$top+178,(string)$leg['selection'],20,$green,$bold,600);
-                if(!$builder && !empty($leg['odd'])){
-                    self::rounded($im,890,$top+123,126,52,12,$border);
-                    self::rounded($im,893,$top+126,120,46,10,$bg);
-                    self::textFit($im,917,$top+159,(string)$leg['odd'],24,$white,$bold,76);
-                }
-            }
-        }
-
-        self::rounded($im,$contentX,$analysisY,$contentW,$analysisH,20,$border);
-        self::rounded($im,$contentX+2,$analysisY+2,$contentW-4,$analysisH-4,18,$panel);
-        self::barsIcon($im,64,$analysisY+50,$green);
-        self::text($im,112,$analysisY+56,'ANÁLISE',23,$green,$bold);
-        $cursor=$analysisY+92;
-        foreach($analysisLines as $line){self::text($im,112,$cursor,$line,20,$white,$font);$cursor+=31;}
-
-        self::rounded($im,$contentX,$footerY,$contentW,$footerH,20,$border);
-        self::rounded($im,$contentX+2,$footerY+2,$contentW-4,$footerH-4,18,$panel2);
-        self::coinsIcon($im,65,$footerY+69,$green);
-        self::text($im,110,$footerY+42,'STAKE',14,$muted,$bold);
-        self::text($im,110,$footerY+83,self::FIXED_STAKE,31,$white,$bold);
-        self::text($im,150,$footerY+83,'unidades',18,$white,$font);
-        imageline($im,344,$footerY+23,344,$footerY+108,$border);
-        self::barsIcon($im,390,$footerY+69,$green);
-        self::text($im,445,$footerY+42,'ODD TOTAL',14,$muted,$bold);
-        self::textFit($im,445,$footerY+85,$odd,32,$white,$bold,170);
-        imageline($im,682,$footerY+23,682,$footerY+108,$border);
-        self::homeIcon($im,727,$footerY+66,$green);
-        self::text($im,778,$footerY+42,'CASA',14,$muted,$bold);
-        self::textFit($im,778,$footerY+81,$bookmaker,21,$white,$bold,245);
-
-        $path=sys_get_temp_dir().'/tmr-approved-neutral-'.bin2hex(random_bytes(12)).'.png';
-        $ok=imagepng($im,$path,7);
-        unset($im);
-        if(!$ok){@unlink($path);return null;}
-        @chmod($path,0600);
-        return $path;
     }
 
     /** Draws the football icon, flags for known national teams, and match names. */
