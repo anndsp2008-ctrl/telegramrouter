@@ -15,7 +15,7 @@ final class AdaptiveVipCardRenderer
             .'Para aposta simples, card_legs tem 1 objeto. Para dupla, 2 seleções de jogos distintos. '
             .'Para múltipla, 3 ou mais seleções/jogos. Para Bet Builder/Criar Aposta/Crear Apuesta, inclua cada condição do mesmo jogo como um objeto separado, repetindo match quando necessário. '
             .'REGRA OBRIGATÓRIA DE BET BUILDER: cada objeto de card_legs deve ter odd vazia. Bet Builder possui somente a odd total no campo odd principal; nunca copie a odd total para cada seleção e nunca invente odd individual. '
-            .'Não invente jogos, mercados, seleções, datas ou odds. odd no nível principal é a odd total exibida no bilhete; não recalcule. '
+            .'Não invente jogos, mercados, seleções, datas ou odds. odd no nível principal é a odd total exibida no bilhete; não recalcule. REGRA GLOBAL DE ODDS: toda odd decimal deve usar ponto como separador (ex.: 1.50, 1.65, 2.10), nunca vírgula. '
             .'Em analysis, preserve a análise do autor quando existir; quando não existir, siga a política global e gere a análise profissional também para simples, dupla, múltipla e Bet Builder. '
             .'REGRA SEMÂNTICA DE BET BUILDER: Bet Builder é UMA ÚNICA APOSTA composta por duas ou mais condições/seleções do MESMO JOGO. Na análise, nunca descreva essas condições como duas apostas, duas entradas, apostas separadas ou apostas independentes. Use termos como "uma única aposta", "duas condições da mesma aposta" ou "seleções combinadas no mesmo Bet Builder". '
             .'O card nunca deve exibir horário do jogo. ';
@@ -192,7 +192,8 @@ final class AdaptiveVipCardRenderer
         $odd=trim($odd);
         if($odd==='')return '';
         if(!preg_match('/^\d{1,5}(?:[.,]\d{1,3})?$/D',$odd))return '';
-        return str_replace('.',',',$odd);
+        // Global odds format: decimal point, regardless of source locale.
+        return str_replace(',','.',$odd);
     }
 
     private static function dateOnly(string $value): string
