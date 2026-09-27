@@ -79,6 +79,9 @@ foreach($fixtures as $fixture){
         }
         if(str_contains($caption,'📈 Odd:'))throw new RuntimeException('Bet Builder caption exposed per-selection odd');
         if(substr_count($caption,'Odd total:')!==1)throw new RuntimeException('Bet Builder must expose one total odd only');
+        if(substr_count($caption,'⚽ Inglaterra x Espanha')!==1)throw new RuntimeException('Bet Builder event must be shown once');
+        if(str_contains($caption,'⚽ 1.')||str_contains($caption,'⚽ 2.'))throw new RuntimeException('Bet Builder caption looks like separate bets');
+        if(!str_contains($caption,'🧩 Seleções (2) da mesma aposta:'))throw new RuntimeException('Bet Builder single-wager wording missing');
     }
 
     $image=AdaptiveVipCardRenderer::render($bet);
@@ -107,7 +110,9 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'Global Bet Builder rule: each selection has no individual odd')
    ||!str_contains($rendererSource,'Reference-style metrics footer')
    ||!str_contains($rendererSource,'drawPremiumCard')
-   ||!str_contains($rendererSource,'Rule: date only. Never append or infer a match time here')){
+   ||!str_contains($rendererSource,'Rule: date only. Never append or infer a match time here')
+   ||!str_contains($rendererSource,'Bet Builder is one single wager with several conditions')
+   ||!str_contains($rendererSource,'REGRA SEMÂNTICA DE BET BUILDER')){
     throw new RuntimeException('Global premium visual template hooks missing');
 }
 
