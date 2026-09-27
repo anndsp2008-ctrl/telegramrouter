@@ -211,8 +211,14 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'Malta')
    ||!str_contains($rendererSource,'Liechtenstein')
    ||!str_contains($rendererSource,'private static function drawResolvedIdentity')
-   ||!str_contains($rendererSource,'private static function drawProportionalMatchup')
-   ||!str_contains($rendererSource,'Both sides share one font size and the complete group is centered')
+   ||!str_contains($rendererSource,'private static function drawLeftAlignedMatchup')
+   ||!str_contains($rendererSource,'always left-aligned')
+   ||!str_contains($rendererSource,'self::drawLeftAlignedMatchup(
+                        $im,
+                        145,')
+   ||!str_contains($rendererSource,'self::drawLeftAlignedMatchup(
+                                $im,
+                                $textX,')
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
@@ -228,8 +234,10 @@ if(str_contains($rendererSource,'flagcdn.com')
     throw new RuntimeException('Identity provider must stay on TheSportsDB free endpoints');
 }
 if(str_contains($rendererSource,"self::text(\$im,446,\$top+72,'x'")
-   ||str_contains($rendererSource,"self::text(\$im,\$textX+300,\$ty,'x'")){
-    throw new RuntimeException('Fixed matchup coordinates reintroduced');
+   ||str_contains($rendererSource,"self::text(\$im,\$textX+300,\$ty,'x'")
+   ||str_contains($rendererSource,'drawProportionalMatchup(')
+   ||str_contains($rendererSource,'$centerX-(int)floor($total/2)')){
+    throw new RuntimeException('Centered/fixed matchup layout reintroduced');
 }
 if(str_contains($rendererSource,'curl_close(')
    ||str_contains($rendererSource,'imagedestroy(')){
