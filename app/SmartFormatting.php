@@ -23,6 +23,10 @@ final class SmartFormatting
     private static bool $multipleDetected=false;
     private static string $multipleDetails='';
     private static bool $multipleDetailsTranslated=false;
+    /** Telemetry only; never contains source message text or credentials. */
+    private static int $telemetryRuleId=0;
+    private static string $telemetrySourceChat='';
+    private static string $telemetryTargetLanguage='pt-BR';
     /** Hard wall-clock budget for ONE logical Workers AI generation attempt. */
     private const WORKERS_LOGICAL_BUDGET_SECONDS=75.0;
 
@@ -82,6 +86,37 @@ final class SmartFormatting
             'latency_ms'=>$latency,
             'reasons'=>$reasons
         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+        // The integrations dashboard reads translation_attempts(context=message).
+        // Smart-card AI previously existed only in logs, so real OpenAI/Gemini/Workers
+        // usage was invisible in Traduções/Sucessos/Falhas/Latência/Último uso.
+        // Record only privacy-safe attempt metadata; telemetry can never block routing.
+        if(in_array($provider,['openai','gemini','workers_ai'],true)){
+            try {
+                $fallbackUsed=self::$providerOrder!==[] && $provider!==self::$providerOrder[0];
+                $errorText=$success?null:($reasons!==[]?implode('; ',$reasons):'SMART_PROVIDER_FAILED_'.strtoupper($provider));
+                Repository::recordTranslationAttempt([
+                    'source_chat'=>self::$telemetrySourceChat,
+                    'message_id'=>0,
+                    'rule_id'=>self::$telemetryRuleId>0?self::$telemetryRuleId:null,
+                    'provider'=>$provider,
+                    'success'=>$success,
+                    'fallback_used'=>$fallbackUsed,
+                    'http_code'=>null,
+                    'source_language'=>null,
+                    'target_language'=>self::$telemetryTargetLanguage,
+                    'latency_ms'=>$latency,
+                    'text_chars'=>0,
+                    'text_bytes'=>0,
+                    'error_text'=>$errorText,
+                    'context'=>'message',
+                ]);
+            } catch(\Throwable $telemetryError) {
+                error_log('TMR_SMART_FORMAT_TELEMETRY_FAILED '.json_encode([
+                    'provider'=>$provider,
+                    'exception'=>get_class($telemetryError)
+                ],JSON_UNESCAPED_SLASHES));
+            }
+        }
     }
 
     /** @return array{provider_order:list<string>,attempts:list<array{provider:string,attempt:int,success:bool,latency_ms:int,reasons:list<string>}>,reason:string,ai_ms:int,render_ms:int} */
@@ -321,6 +356,9 @@ final class SmartFormatting
         self::$multipleDetected=false;
         self::$multipleDetails='';
         self::$multipleDetailsTranslated=false;
+        self::$telemetryRuleId=(int)($rule['id']??0);
+        self::$telemetrySourceChat=(string)($rule['source_chat']??'');
+        self::$telemetryTargetLanguage=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $hasImage=$localImage!==null&&is_file($localImage);
         if($mode==='card' && !$hasImage
             && self::sourceIndicatesMultiple($sourceText)){
