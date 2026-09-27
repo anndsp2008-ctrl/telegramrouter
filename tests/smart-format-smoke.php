@@ -10,6 +10,21 @@ require __DIR__.'/../app/PurePngVipCardRenderer.php';
 require __DIR__.'/../app/VipCardRenderer.php';
 require __DIR__.'/../app/SmartFormatting.php';
 
+// Generated analysis must sound professional without fabricating sports context.
+$smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+foreach([
+    'tom de tipster profissional',
+    'em 3 a 5 frases',
+    'SOMENTE em fatos explícitos',
+    'Não invente forma recente',
+    'Não chame a aposta de "valor"',
+    'Toda frase da análise deve poder ser rastreada'
+] as $analysisPolicyToken){
+    if(!str_contains($smartFormattingSource,$analysisPolicyToken))
+        throw new RuntimeException('Professional grounded analysis policy missing: '.$analysisPolicyToken);
+}
+echo "SMART_FORMAT_PROFESSIONAL_GROUNDED_ANALYSIS_POLICY_TESTS_PASSED\n";
+
 // PR #77 regression: MadelineProto promotes PHP warnings to exceptions.
 // A missing /tmp backoff marker must be a normal first-run state.
 $backoffFile='/tmp/tmr-smart-gemini-backoff-until';
