@@ -430,20 +430,31 @@ final class AdaptiveVipCardRenderer
                 self::drawSportIcon($im,88,$eventIconY,self::sportKey($bet,$leg),$green,$white,$bg);
 
                 $cursor=$top+65;
+                $pairIdentity=self::resolvePairIdentity(
+                    (string)$leg['match'],
+                    (string)($leg['league']??'')
+                );
                 $sides=self::matchSides((string)$leg['match']);
                 if($sides!==null){
                     [$left,$right]=$sides;
 
-                    self::drawTeamIdentity($im,168,$eventIconY,$left,$green,$white,$bg,$bold,48);
-                    self::textFit($im,205,$top+72,$left,29,$white,$bold,260);
-                    self::text($im,446,$top+72,'x',24,$muted,$bold);
-                    self::drawTeamIdentity($im,508,$eventIconY,$right,$green,$white,$bg,$bold,48);
-                    self::textFit($im,548,$top+72,$right,29,$white,$bold,430);
+                    // All-or-none rule: only show identities when BOTH sides
+                    // have a real flag/official badge. Otherwise show names only.
+                    if($pairIdentity!==null){
+                        self::drawResolvedIdentity($im,168,$eventIconY,$pairIdentity['left'],$green,$white,$bg,$bold,48);
+                        self::textFit($im,205,$top+72,$left,29,$white,$bold,260);
+                        self::text($im,446,$top+72,'x',24,$muted,$bold);
+                        self::drawResolvedIdentity($im,508,$eventIconY,$pairIdentity['right'],$green,$white,$bg,$bold,48);
+                        self::textFit($im,548,$top+72,$right,29,$white,$bold,430);
+                    }else{
+                        self::textFit($im,150,$top+72,$left,29,$white,$bold,330);
+                        self::text($im,500,$top+72,'x',24,$muted,$bold);
+                        self::textFit($im,545,$top+72,$right,29,$white,$bold,450);
+                    }
                     $cursor=$top+116;
                 }else{
-                    self::drawClubCrest($im,168,$eventIconY,(string)$leg['match'],$green,$white,$bg,$bold,44);
                     foreach($matchLines as $line){
-                        self::text($im,205,$cursor,$line,28,$white,$bold);
+                        self::text($im,145,$cursor,$line,28,$white,$bold);
                         $cursor+=38;
                     }
                     $cursor+=3;
@@ -502,11 +513,22 @@ final class AdaptiveVipCardRenderer
                         $rowSides=self::matchSides((string)$leg['match']);
                         if($rowSides!==null){
                             [$leftTeam,$rightTeam]=$rowSides;
-                            self::drawTeamIdentity($im,$textX+16,$ty-8,$leftTeam,$green,$white,$bg,$bold,34);
-                            self::textFit($im,$textX+40,$ty,$leftTeam,20,$white,$bold,240);
-                            self::text($im,$textX+300,$ty,'x',18,$muted,$bold);
-                            self::drawTeamIdentity($im,$textX+348,$ty-8,$rightTeam,$green,$white,$bg,$bold,34);
-                            self::textFit($im,$textX+374,$ty,$rightTeam,20,$white,$bold,270);
+                            $rowPairIdentity=self::resolvePairIdentity(
+                                (string)$leg['match'],
+                                (string)($leg['league']??'')
+                            );
+
+                            if($rowPairIdentity!==null){
+                                self::drawResolvedIdentity($im,$textX+16,$ty-8,$rowPairIdentity['left'],$green,$white,$bg,$bold,34);
+                                self::textFit($im,$textX+40,$ty,$leftTeam,20,$white,$bold,240);
+                                self::text($im,$textX+300,$ty,'x',18,$muted,$bold);
+                                self::drawResolvedIdentity($im,$textX+348,$ty-8,$rowPairIdentity['right'],$green,$white,$bg,$bold,34);
+                                self::textFit($im,$textX+374,$ty,$rightTeam,20,$white,$bold,270);
+                            }else{
+                                self::textFit($im,$textX,$ty,$leftTeam,20,$white,$bold,285);
+                                self::text($im,$textX+305,$ty,'x',18,$muted,$bold);
+                                self::textFit($im,$textX+340,$ty,$rightTeam,20,$white,$bold,330);
+                            }
                             $ty+=36;
                         }else{
                             foreach($matchLines as $line){
@@ -542,10 +564,25 @@ final class AdaptiveVipCardRenderer
                     );
                     $selectionTextX=$textX;
                     if($participant!==null){
-                        self::drawTeamIdentity(
-                            $im,$textX+17,$ty-9,$participant,$green,$white,$bg,$bold,34
+                        $selectionPair=self::resolvePairIdentity(
+                            (string)($leg['match']??''),
+                            (string)($leg['league']??'')
                         );
-                        $selectionTextX=$textX+45;
+                        if($selectionPair!==null){
+                            $sides=self::matchSides((string)($leg['match']??''));
+                            $descriptor=null;
+                            if($sides!==null){
+                                $participantKey=self::participantKey($participant);
+                                if($participantKey===self::participantKey($sides[0]))$descriptor=$selectionPair['left'];
+                                elseif($participantKey===self::participantKey($sides[1]))$descriptor=$selectionPair['right'];
+                            }
+                            if(is_array($descriptor)){
+                                self::drawResolvedIdentity(
+                                    $im,$textX+17,$ty-9,$descriptor,$green,$white,$bg,$bold,34
+                                );
+                                $selectionTextX=$textX+45;
+                            }
+                        }
                     }
 
                     foreach($selectionLines as $line){
