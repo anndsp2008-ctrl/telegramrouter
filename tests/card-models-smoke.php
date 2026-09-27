@@ -94,6 +94,46 @@ foreach($fixtures as $fixture){
     @unlink($image);
 }
 
+$sportCases=[
+    ['Futebol','⚽','Brasil x Argentina'],
+    ['Basquete','🏀','Boston x Miami'],
+    ['Tênis','🎾','Jogador A x Jogador B'],
+    ['Vôlei','🏐','Brasil x Itália'],
+    ['Tênis de mesa','🏓','Atleta A x Atleta B'],
+    ['Baseball','⚾','Yankees x Red Sox'],
+    ['Futebol americano','🏈','Chiefs x Bills'],
+    ['Hóquei','🏒','Rangers x Bruins'],
+    ['eSports','🎮','Team Alpha x Team Beta'],
+    ['MMA','🥊','Lutador A x Lutador B'],
+    ['Fórmula 1','🏁','GP do Brasil'],
+    ['Snooker','🎱','Player A x Player B'],
+    ['Dardos','🎯','Player C x Player D'],
+    ['Handebol','🤾','Equipe A x Equipe B'],
+];
+foreach($sportCases as [$sport,$emoji,$match]){
+    $data=[
+        'bookmaker'=>'Betano','bet_kind'=>'single','selections_count'=>'1',
+        'sport'=>$sport,'odd'=>'1.75','match'=>$match,'league'=>'Competição teste',
+        'market'=>'Mercado teste','selection'=>'Seleção teste',
+        'analysis'=>'Análise esportiva objetiva para validar o ícone do esporte.',
+        'card_legs'=>json_encode([[
+            'sport'=>$sport,'match'=>$match,'league'=>'Competição teste','date'=>'27/09/2026',
+            'market'=>'Mercado teste','selection'=>'Seleção teste','odd'=>'1.75'
+        ]],JSON_UNESCAPED_UNICODE)
+    ];
+    $bet=AdaptiveVipCardRenderer::extract($data,'',false);
+    if($bet===null)throw new RuntimeException('Sport fixture extraction failed: '.$sport);
+    $caption=AdaptiveVipCardRenderer::caption($bet);
+    if(!str_contains($caption,$emoji))throw new RuntimeException('Wrong sport emoji: '.$sport);
+    $image=AdaptiveVipCardRenderer::render($bet);
+    if($image===null)throw new RuntimeException('Sport icon render failed: '.$sport);
+    $size=getimagesize($image);
+    @unlink($image);
+    if(!is_array($size)||($size['mime']??'')!=='image/png'||($size[0]??0)!==1199){
+        throw new RuntimeException('Invalid sport PNG: '.$sport);
+    }
+}
+
 $betano=AdaptiveVipCardRenderer::extract($fixtures[0]['data'],'',false);
 $bet365=AdaptiveVipCardRenderer::extract($fixtures[1]['data'],'',false);
 if(($betano['bookmaker_key']??'')!=='betano')throw new RuntimeException('Betano detection failed');
@@ -112,7 +152,13 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'drawPremiumCard')
    ||!str_contains($rendererSource,'Rule: date only. Never append or infer a match time here')
    ||!str_contains($rendererSource,'Bet Builder is one single wager with several conditions')
-   ||!str_contains($rendererSource,'REGRA SEMÂNTICA DE BET BUILDER')){
+   ||!str_contains($rendererSource,'REGRA SEMÂNTICA DE BET BUILDER')
+   ||!str_contains($rendererSource,'private static function drawSportIcon')
+   ||!str_contains($rendererSource,'private static function footballIconPremium')
+   ||!str_contains($rendererSource,'private static function basketballIcon')
+   ||!str_contains($rendererSource,'private static function tennisIcon')
+   ||!str_contains($rendererSource,'private static function volleyballIcon')
+   ||!str_contains($rendererSource,'private static function sportKey')){
     throw new RuntimeException('Global premium visual template hooks missing');
 }
 
