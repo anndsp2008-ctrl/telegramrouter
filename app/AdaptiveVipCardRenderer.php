@@ -459,19 +459,29 @@ final class AdaptiveVipCardRenderer
                 if($sides!==null){
                     [$left,$right]=$sides;
 
-                    // All-or-none rule: only show identities when BOTH sides
-                    // have a real flag/official badge. Otherwise show names only.
-                    if($pairIdentity!==null){
-                        self::drawResolvedIdentity($im,168,$eventIconY,$pairIdentity['left'],$green,$white,$bg,$bold,48);
-                        self::textFit($im,205,$top+72,$left,29,$white,$bold,260);
-                        self::text($im,446,$top+72,'x',24,$muted,$bold);
-                        self::drawResolvedIdentity($im,508,$eventIconY,$pairIdentity['right'],$green,$white,$bg,$bold,48);
-                        self::textFit($im,548,$top+72,$right,29,$white,$bold,430);
-                    }else{
-                        self::textFit($im,150,$top+72,$left,29,$white,$bold,330);
-                        self::text($im,500,$top+72,'x',24,$muted,$bold);
-                        self::textFit($im,545,$top+72,$right,29,$white,$bold,450);
-                    }
+                    // Proportional global matchup layout: the whole
+                    // "identity + name + x + identity + name" group is measured
+                    // and centered as one block, so short names never drift apart.
+                    self::drawProportionalMatchup(
+                        $im,
+                        $contentX+(int)floor($contentW/2),
+                        $top+72,
+                        $eventIconY,
+                        $left,
+                        $right,
+                        $pairIdentity,
+                        29,
+                        18,
+                        $white,
+                        $muted,
+                        $bold,
+                        900,
+                        48,
+                        12,
+                        18,
+                        $green,
+                        $bg
+                    );
                     $cursor=$top+116;
                 }else{
                     foreach($matchLines as $line){
@@ -539,17 +549,26 @@ final class AdaptiveVipCardRenderer
                                 (string)($leg['league']??'')
                             );
 
-                            if($rowPairIdentity!==null){
-                                self::drawResolvedIdentity($im,$textX+16,$ty-8,$rowPairIdentity['left'],$green,$white,$bg,$bold,34);
-                                self::textFit($im,$textX+40,$ty,$leftTeam,20,$white,$bold,240);
-                                self::text($im,$textX+300,$ty,'x',18,$muted,$bold);
-                                self::drawResolvedIdentity($im,$textX+348,$ty-8,$rowPairIdentity['right'],$green,$white,$bg,$bold,34);
-                                self::textFit($im,$textX+374,$ty,$rightTeam,20,$white,$bold,270);
-                            }else{
-                                self::textFit($im,$textX,$ty,$leftTeam,20,$white,$bold,285);
-                                self::text($im,$textX+305,$ty,'x',18,$muted,$bold);
-                                self::textFit($im,$textX+340,$ty,$rightTeam,20,$white,$bold,330);
-                            }
+                            self::drawProportionalMatchup(
+                                $im,
+                                $textX+390,
+                                $ty,
+                                $ty-8,
+                                $leftTeam,
+                                $rightTeam,
+                                $rowPairIdentity,
+                                20,
+                                14,
+                                $white,
+                                $muted,
+                                $bold,
+                                760,
+                                34,
+                                10,
+                                16,
+                                $green,
+                                $bg
+                            );
                             $ty+=36;
                         }else{
                             foreach($matchLines as $line){
@@ -1669,6 +1688,135 @@ final class AdaptiveVipCardRenderer
             $text.='…';
         }
         self::text($im,$x,$y,$text,$size,$color,$font);
+    }
+
+    /**
+     * Draw a matchup with proportional spacing.
+     * Both sides share one font size and the complete group is centered.
+     */
+    private static function drawProportionalMatchup(
+        $im,
+        int $centerX,
+        int $baselineY,
+        int $identityY,
+        string $left,
+        string $right,
+        ?array $pairIdentity,
+        int $preferredSize,
+        int $minSize,
+        int $nameColor,
+        int $xColor,
+        string $font,
+        int $maxWidth,
+        int $iconSize,
+        int $iconGap,
+        int $sideGap,
+        int $accent,
+        int $dark
+    ): void {
+        $left=trim($left);
+        $right=trim($right);
+        if($left===''||$right==='')return;
+
+        $hasIdentity=$pairIdentity!==null
+            &&is_array($pairIdentity['left']??null)
+            &&is_array($pairIdentity['right']??null);
+
+        $size=$preferredSize;
+        $leftText=$left;
+        $rightText=$right;
+
+        while(true){
+            $ratio=$preferredSize>0?$size/$preferredSize:1.0;
+            $drawIconSize=$hasIdentity?max(26,(int)round($iconSize*$ratio)):0;
+            $xSize=max(13,$size-5);
+            $leftW=self::width($leftText,$font,$size);
+            $rightW=self::width($rightText,$font,$size);
+            $xW=self::width('x',$font,$xSize);
+            $total=$leftW+$rightW+$xW+($sideGap*2)
+                +($hasIdentity?(($drawIconSize+$iconGap)*2):0);
+
+            if($total<=$maxWidth||$size<=$minSize)break;
+            $size--;
+        }
+
+        $ratio=$preferredSize>0?$size/$preferredSize:1.0;
+        $drawIconSize=$hasIdentity?max(26,(int)round($iconSize*$ratio)):0;
+        $xSize=max(13,$size-5);
+        $fixed=$xW=self::width('x',$font,$xSize);
+        $fixed+=($sideGap*2)+($hasIdentity?(($drawIconSize+$iconGap)*2):0);
+        $availableNames=max(120,$maxWidth-$fixed);
+
+        $leftW=self::width($leftText,$font,$size);
+        $rightW=self::width($rightText,$font,$size);
+        $namesW=$leftW+$rightW;
+
+        if($namesW>$availableNames){
+            $leftBudget=(int)floor($availableNames*($leftW/max(1,$namesW)));
+            $leftBudget=max(80,min($availableNames-80,$leftBudget));
+            $rightBudget=max(80,$availableNames-$leftBudget);
+
+            $leftText=self::ellipsize($leftText,$font,$size,$leftBudget);
+            $rightText=self::ellipsize($rightText,$font,$size,$rightBudget);
+            $leftW=self::width($leftText,$font,$size);
+            $rightW=self::width($rightText,$font,$size);
+        }
+
+        $xW=self::width('x',$font,$xSize);
+        $total=$leftW+$rightW+$xW+($sideGap*2)
+            +($hasIdentity?(($drawIconSize+$iconGap)*2):0);
+        $cursor=$centerX-(int)floor($total/2);
+
+        if($hasIdentity){
+            self::drawResolvedIdentity(
+                $im,
+                $cursor+(int)floor($drawIconSize/2),
+                $identityY,
+                $pairIdentity['left'],
+                $accent,
+                $nameColor,
+                $dark,
+                $font,
+                $drawIconSize
+            );
+            $cursor+=$drawIconSize+$iconGap;
+        }
+
+        self::text($im,$cursor,$baselineY,$leftText,$size,$nameColor,$font);
+        $cursor+=$leftW+$sideGap;
+
+        self::text($im,$cursor,$baselineY,'x',$xSize,$xColor,$font);
+        $cursor+=$xW+$sideGap;
+
+        if($hasIdentity){
+            self::drawResolvedIdentity(
+                $im,
+                $cursor+(int)floor($drawIconSize/2),
+                $identityY,
+                $pairIdentity['right'],
+                $accent,
+                $nameColor,
+                $dark,
+                $font,
+                $drawIconSize
+            );
+            $cursor+=$drawIconSize+$iconGap;
+        }
+
+        self::text($im,$cursor,$baselineY,$rightText,$size,$nameColor,$font);
+    }
+
+    private static function ellipsize(string $text,string $font,int $size,int $maxWidth): string
+    {
+        $text=trim($text);
+        if($text===''||self::width($text,$font,$size)<=$maxWidth)return $text;
+
+        $suffix='…';
+        while(mb_strlen($text,'UTF-8')>1
+            &&self::width($text.$suffix,$font,$size)>$maxWidth){
+            $text=mb_substr($text,0,-1,'UTF-8');
+        }
+        return rtrim($text).$suffix;
     }
 
     private static function width(string $text,string $font,int $size): int
