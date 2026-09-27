@@ -4,6 +4,7 @@ namespace App;
 final class AdaptiveVipCardRenderer
 {
     private const FIXED_STAKE='10';
+    private const SPORTSDB_FREE_KEY='123';
     private static bool $identityAssetsDisabled=false;
 
     public static function extractionInstruction(): string
@@ -453,7 +454,8 @@ final class AdaptiveVipCardRenderer
                 $cursor=$top+65;
                 $pairIdentity=self::resolvePairIdentity(
                     (string)$leg['match'],
-                    (string)($leg['league']??'')
+                    (string)($leg['league']??''),
+                    self::sportKey($bet,$leg)
                 );
                 $sides=self::matchSides((string)$leg['match']);
                 if($sides!==null){
@@ -546,7 +548,8 @@ final class AdaptiveVipCardRenderer
                             [$leftTeam,$rightTeam]=$rowSides;
                             $rowPairIdentity=self::resolvePairIdentity(
                                 (string)$leg['match'],
-                                (string)($leg['league']??'')
+                                (string)($leg['league']??''),
+                                self::sportKey($bet,$leg)
                             );
 
                             self::drawProportionalMatchup(
@@ -606,7 +609,8 @@ final class AdaptiveVipCardRenderer
                     if($participant!==null){
                         $selectionPair=self::resolvePairIdentity(
                             (string)($leg['match']??''),
-                            (string)($leg['league']??'')
+                            (string)($leg['league']??''),
+                            self::sportKey($bet,$leg)
                         );
                         if($selectionPair!==null){
                             $sides=self::matchSides((string)($leg['match']??''));
@@ -840,17 +844,17 @@ final class AdaptiveVipCardRenderer
 
     /**
      * Resolve both participants as one atomic identity set.
-     * If either side has no real flag/official badge, return null so the card
-     * still renders with names only for BOTH sides.
+     * Artwork comes from TheSportsDB. If either side cannot be resolved, return
+     * null so the premium card still renders with names only for BOTH sides.
      *
      * @return array{left:array,right:array}|null
      */
-    private static function resolvePairIdentity(string $match,string $league=''): ?array
+    private static function resolvePairIdentity(string $match,string $league='',string $sport='football'): ?array
     {
         if(self::$identityAssetsDisabled)return null;
         static $memory=[];
 
-        $key=sha1(mb_strtolower(trim($match).'|'.trim($league),'UTF-8'));
+        $key=sha1(mb_strtolower(trim($match).'|'.trim($league).'|'.$sport,'UTF-8'));
         if(array_key_exists($key,$memory))return $memory[$key];
 
         $sides=self::matchSides($match);
@@ -861,8 +865,8 @@ final class AdaptiveVipCardRenderer
 
         [$left,$right]=$sides;
         try{
-            $leftIdentity=self::resolveParticipantIdentity($left,$league);
-            $rightIdentity=self::resolveParticipantIdentity($right,$league);
+            $leftIdentity=self::resolveParticipantIdentity($left,$league,$sport);
+            $rightIdentity=self::resolveParticipantIdentity($right,$league,$sport);
         }catch(\Throwable $e){
             error_log('TMR_TEAM_IDENTITY_LOOKUP_SKIPPED '.get_class($e));
             $memory[$key]=null;
@@ -880,27 +884,21 @@ final class AdaptiveVipCardRenderer
         ];
     }
 
-    /** @return array{kind:string,spec?:array,path?:string}|null */
-    private static function resolveParticipantIdentity(string $participant,string $league=''): ?array
+    /** @return array{kind:string,path:string}|null */
+    private static function resolveParticipantIdentity(string $participant,string $league='',string $sport='football'): ?array
     {
         static $memory=[];
 
         $participant=trim($participant);
         if($participant==='')return null;
 
-        $cacheKey=sha1(mb_strtolower($participant.'|'.$league,'UTF-8'));
+        $cacheKey=sha1(mb_strtolower($participant.'|'.$league.'|'.$sport,'UTF-8'));
         if(array_key_exists($cacheKey,$memory))return $memory[$cacheKey];
 
-        // National teams: use an actual flag. Prefer the local flag renderer
-        // when supported; otherwise retrieve the corresponding flag image.
-        $flag=self::flagSpec($participant);
-        if($flag!==null){
-            return $memory[$cacheKey]=['kind'=>'flag','spec'=>$flag];
-        }
-
-        $countryCode=self::countryCode($participant);
-        if($countryCode!==null){
-            $flagPath=self::remoteFlagPath($countryCode);
+        // National selections: TheSportsDB country flag artwork.
+        $country=self::theSportsDbCountryName($participant);
+        if($country!==null){
+            $flagPath=self::sportsDbFlagPath($country);
             if($flagPath!==null){
                 return $memory[$cacheKey]=['kind'=>'image','path'=>$flagPath];
             }
@@ -908,8 +906,8 @@ final class AdaptiveVipCardRenderer
             return null;
         }
 
-        // Clubs/teams: use only a real badge resolved from the sports database.
-        $badgePath=self::officialTeamBadgePath($participant,$league);
+        // Clubs/teams: TheSportsDB team badge/logo artwork from free v1 list endpoints.
+        $badgePath=self::officialTeamBadgePath($participant,$league,$sport);
         if($badgePath!==null){
             return $memory[$cacheKey]=['kind'=>'image','path'=>$badgePath];
         }
@@ -921,17 +919,17 @@ final class AdaptiveVipCardRenderer
     private static function drawResolvedIdentity(
         $im,int $cx,int $cy,array $identity,int $accent,int $white,int $dark,string $bold,int $size=44
     ): void {
-        if(($identity['kind']??'')==='flag' && is_array($identity['spec']??null)){
-            self::drawFlagSized($im,$cx,$cy,$identity['spec'],$size);
-            return;
-        }
-
         if(($identity['kind']??'')==='image' && is_string($identity['path']??null)){
             self::drawImageContain($im,$cx,$cy,$identity['path'],$size,$size);
         }
     }
 
-    private static function officialTeamBadgePath(string $team,string $league=''): ?string
+    /**
+     * Free TheSportsDB v1 does not provide unrestricted team-name search.
+     * Resolve through the free list endpoints (league/country), cache the JSON,
+     * then select the best matching team and use strBadge (or strLogo fallback).
+     */
+    private static function officialTeamBadgePath(string $team,string $league='',string $sport='football'): ?string
     {
         static $memory=[];
 
@@ -939,75 +937,124 @@ final class AdaptiveVipCardRenderer
         $league=trim($league);
         if($team==='')return null;
 
-        $cacheKey=sha1(mb_strtolower($team.'|'.$league,'UTF-8'));
+        $cacheKey=sha1(mb_strtolower($team.'|'.$league.'|'.$sport,'UTF-8'));
         if(array_key_exists($cacheKey,$memory))return $memory[$cacheKey];
 
-        $query=self::teamSearchAlias($team,$league);
-        $url='https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t='.rawurlencode($query);
-        $json=self::httpGet($url,3,350000);
-        if($json===null){
-            $memory[$cacheKey]=null;
-            return null;
+        $urls=[];
+        $leagueName=self::sportsDbLeagueName($league);
+        if($leagueName!==null){
+            $urls[]='https://www.thesportsdb.com/api/v1/json/'.self::SPORTSDB_FREE_KEY
+                .'/search_all_teams.php?l='.rawurlencode(str_replace(' ','_',$leagueName));
+        }elseif($league!==''){
+            $urls[]='https://www.thesportsdb.com/api/v1/json/'.self::SPORTSDB_FREE_KEY
+                .'/search_all_teams.php?l='.rawurlencode(str_replace(' ','_',$league));
         }
 
-        $decoded=json_decode($json,true,16);
-        $teams=is_array($decoded)&&is_array($decoded['teams']??null)?$decoded['teams']:[];
-        if($teams===[]){
-            $memory[$cacheKey]=null;
-            return null;
+        $country=self::leagueCountryHint($league);
+        $sportName=self::sportsDbSportName($sport);
+        if($country!==null&&$sportName!==null){
+            $urls[]='https://www.thesportsdb.com/api/v1/json/'.self::SPORTSDB_FREE_KEY
+                .'/search_all_teams.php?s='.rawurlencode($sportName)
+                .'&c='.rawurlencode(self::sportsDbCountryEnglish($country));
         }
 
-        $wanted=self::teamCompareKey($team);
+        $wanted=self::teamCompareKey(self::teamSearchAlias($team,$league));
         $best=null;
         $bestScore=-1;
 
-        foreach($teams as $candidate){
-            if(!is_array($candidate))continue;
+        foreach(array_values(array_unique($urls)) as $url){
+            $json=self::sportsDbCachedJson($url,12*3600);
+            if($json===null)continue;
 
-            $candidateName=trim((string)($candidate['strTeam']??''));
-            $badge=trim((string)($candidate['strBadge']??''));
-            if($candidateName===''||$badge==='')continue;
+            $decoded=json_decode($json,true,32);
+            $teams=is_array($decoded)&&is_array($decoded['teams']??null)?$decoded['teams']:[];
+            foreach($teams as $candidate){
+                if(!is_array($candidate))continue;
 
-            $candidateKey=self::teamCompareKey($candidateName);
-            $score=0;
+                $candidateName=trim((string)($candidate['strTeam']??''));
+                $badge=trim((string)($candidate['strBadge']??''));
+                $logo=trim((string)($candidate['strLogo']??''));
+                $artwork=$badge!==''?$badge:$logo;
+                if($candidateName===''||$artwork==='')continue;
 
-            if($wanted!==''&&$candidateKey===$wanted){
-                $score+=100;
-            }elseif(
-                $wanted!==''&&$candidateKey!==''
-                && (str_contains($candidateKey,$wanted)||str_contains($wanted,$candidateKey))
-            ){
-                $score+=55;
-            }
+                $candidateKey=self::teamCompareKey($candidateName);
+                $score=0;
 
-            $candidateLeague=mb_strtolower(trim((string)($candidate['strLeague']??'')),'UTF-8');
-            $leagueKey=mb_strtolower($league,'UTF-8');
-            if($leagueKey!==''&&$candidateLeague!==''){
-                foreach(preg_split('~[^\p{L}\p{N}]+~u',$leagueKey)?:[] as $token){
-                    if(mb_strlen($token,'UTF-8')>=3 && str_contains($candidateLeague,$token))$score+=5;
+                if($wanted!==''&&$candidateKey===$wanted){
+                    $score+=120;
+                }elseif(
+                    $wanted!==''&&$candidateKey!==''
+                    && (str_contains($candidateKey,$wanted)||str_contains($wanted,$candidateKey))
+                ){
+                    $score+=65;
+                }
+
+                $candidateLeague=mb_strtolower(trim((string)($candidate['strLeague']??'')),'UTF-8');
+                $leagueKey=mb_strtolower($league,'UTF-8');
+                if($leagueKey!==''&&$candidateLeague!==''){
+                    foreach(preg_split('~[^\p{L}\p{N}]+~u',$leagueKey)?:[] as $token){
+                        if(mb_strlen($token,'UTF-8')>=3&&str_contains($candidateLeague,$token))$score+=5;
+                    }
+                }
+
+                $candidateCountry=mb_strtolower(trim((string)($candidate['strCountry']??'')),'UTF-8');
+                if($country!==null&&$candidateCountry!==''
+                    &&str_contains($candidateCountry,self::sportsDbCountryEnglish($country))){
+                    $score+=20;
+                }
+
+                if($score>$bestScore){
+                    $bestScore=$score;
+                    $best=$artwork;
                 }
             }
 
-            $countryHint=self::leagueCountryHint($league);
-            $candidateCountry=mb_strtolower(trim((string)($candidate['strCountry']??'')),'UTF-8');
-            if($countryHint!==null&&$candidateCountry!==''&&str_contains($candidateCountry,$countryHint)){
-                $score+=20;
-            }
-
-            if($score>$bestScore){
-                $bestScore=$score;
-                $best=$badge;
-            }
+            if($bestScore>=120)break;
         }
 
-        if(!is_string($best)||$best===''||$bestScore<50){
+        if(!is_string($best)||$best===''||$bestScore<60){
             $memory[$cacheKey]=null;
             return null;
         }
 
-        $asset=self::fetchImageAsset($best,'team-'.$cacheKey,7*86400);
+        // Tiny/preview artwork is enough for a 34-48px card badge and saves bandwidth.
+        $preview=self::sportsDbPreviewUrl($best,'tiny');
+        $asset=self::fetchImageAsset($preview,'sportsdb-team-'.$cacheKey,30*86400);
         $memory[$cacheKey]=$asset;
         return $asset;
+    }
+
+    private static function sportsDbCachedJson(string $url,int $ttl): ?string
+    {
+        if(!self::allowedAssetUrl($url))return null;
+
+        try{
+            $dir=self::assetCacheDir().'/json';
+            if(!is_dir($dir))@mkdir($dir,0700,true);
+            if(!is_dir($dir)||!is_writable($dir))return self::httpGet($url,4,1000000);
+
+            $path=$dir.'/'.sha1($url).'.json';
+            if(is_file($path)&&filesize($path)>20&&(time()-filemtime($path))<$ttl){
+                $cached=@file_get_contents($path);
+                if(is_string($cached)&&$cached!=='')return $cached;
+            }
+
+            $json=self::httpGet($url,4,1000000);
+            if($json===null)return null;
+            @file_put_contents($path,$json,LOCK_EX);
+            @chmod($path,0600);
+            return $json;
+        }catch(\Throwable $e){
+            return null;
+        }
+    }
+
+    private static function sportsDbPreviewUrl(string $url,string $size='tiny'): string
+    {
+        $url=trim($url);
+        if($url===''||!self::allowedAssetUrl($url))return $url;
+        if(preg_match('~/(?:tiny|small|medium)$~',$url))return $url;
+        return rtrim($url,'/').'/'.$size;
     }
 
     private static function teamSearchAlias(string $team,string $league): string
@@ -1016,10 +1063,10 @@ final class AdaptiveVipCardRenderer
         $key=self::teamCompareKey($teamTrim);
         $leagueKey=mb_strtolower($league,'UTF-8');
 
-        if($key==='america' && preg_match('~liga\s*mx|mexic~u',$leagueKey))return 'Club América';
-        if($key==='leon' && preg_match('~liga\s*mx|mexic~u',$leagueKey))return 'Club León';
-        if($key==='inter' && preg_match('~serie\s*a|ital~u',$leagueKey))return 'Inter Milan';
-        if($key==='sporting' && preg_match('~portugal|primeira~u',$leagueKey))return 'Sporting CP';
+        if($key==='america'&&preg_match('~liga\s*mx|mexic~u',$leagueKey))return 'América';
+        if($key==='club leon'||$key==='leon')return 'León';
+        if($key==='inter'&&preg_match('~serie\s*a|ital~u',$leagueKey))return 'Inter Milan';
+        if($key==='sporting'&&preg_match('~portugal|primeira~u',$leagueKey))return 'Sporting CP';
 
         return $teamTrim;
     }
@@ -1040,6 +1087,22 @@ final class AdaptiveVipCardRenderer
         return trim(preg_replace('~\s+~u',' ',$value)??$value);
     }
 
+    private static function sportsDbLeagueName(string $league): ?string
+    {
+        $l=mb_strtolower(trim($league),'UTF-8');
+        return match(true){
+            preg_match('~\bliga\s*mx\b|mexican primera~u',$l)===1=>'Mexican Primera League',
+            preg_match('~english premier|premier league~u',$l)===1=>'English Premier League',
+            preg_match('~\bla\s*liga\b|spanish la liga~u',$l)===1=>'Spanish La Liga',
+            preg_match('~bundesliga~u',$l)===1=>'German Bundesliga',
+            preg_match('~ligue\s*1~u',$l)===1=>'French Ligue 1',
+            preg_match('~primeira liga|liga portugal~u',$l)===1=>'Portuguese Primeira Liga',
+            preg_match('~brasileir[aã]o|brazilian serie a|s[eé]rie a.*brasil~u',$l)===1=>'Brazilian Serie A',
+            preg_match('~\bmls\b|major league soccer~u',$l)===1=>'American Major League Soccer',
+            default=>null
+        };
+    }
+
     private static function leagueCountryHint(string $league): ?string
     {
         $l=mb_strtolower($league,'UTF-8');
@@ -1056,40 +1119,76 @@ final class AdaptiveVipCardRenderer
         };
     }
 
-    private static function countryCode(string $participant): ?string
+    private static function sportsDbSportName(string $sport): ?string
+    {
+        return match($sport){
+            'football'=>'Soccer',
+            'basketball'=>'Basketball',
+            'tennis'=>'Tennis',
+            'volleyball'=>'Volleyball',
+            'table_tennis'=>'Table Tennis',
+            'baseball'=>'Baseball',
+            'american_football'=>'American Football',
+            'hockey'=>'Ice Hockey',
+            'esports'=>'ESports',
+            'combat'=>'Fighting',
+            'motorsport'=>'Motorsport',
+            'snooker'=>'Snooker',
+            'darts'=>'Darts',
+            'handball'=>'Handball',
+            default=>null
+        };
+    }
+
+    private static function sportsDbCountryEnglish(string $country): string
+    {
+        return match($country){
+            'england'=>'England','spain'=>'Spain','germany'=>'Germany','france'=>'France',
+            'portugal'=>'Portugal','brazil'=>'Brazil','united states'=>'United States',
+            'mexico'=>'Mexico',default=>ucwords($country)
+        };
+    }
+
+    private static function theSportsDbCountryName(string $participant): ?string
     {
         $k=self::teamCompareKey($participant);
         $map=[
-            'argentina'=>'ar','australia'=>'au','austria'=>'at','belgica'=>'be','belgium'=>'be',
-            'bolivia'=>'bo','brasil'=>'br','brazil'=>'br','bulgaria'=>'bg','camaroes'=>'cm','cameroon'=>'cm',
-            'canada'=>'ca','chile'=>'cl','china'=>'cn','colombia'=>'co',
-            'coreia do sul'=>'kr','south korea'=>'kr','costa rica'=>'cr',
-            'croacia'=>'hr','croatia'=>'hr','dinamarca'=>'dk','denmark'=>'dk',
-            'equador'=>'ec','ecuador'=>'ec','egito'=>'eg','egypt'=>'eg',
-            'espanha'=>'es','spain'=>'es','estados unidos'=>'us','united states'=>'us','usa'=>'us',
-            'finlandia'=>'fi','finland'=>'fi','franca'=>'fr','france'=>'fr',
-            'alemanha'=>'de','germany'=>'de','ghana'=>'gh','grecia'=>'gr','greece'=>'gr',
-            'holanda'=>'nl','netherlands'=>'nl','hungria'=>'hu','hungary'=>'hu',
-            'inglaterra'=>'gb-eng','england'=>'gb-eng','irlanda'=>'ie','ireland'=>'ie',
-            'islandia'=>'is','iceland'=>'is','italia'=>'it','italy'=>'it',
-            'japao'=>'jp','japan'=>'jp','marrocos'=>'ma','morocco'=>'ma',
-            'mexico'=>'mx','nigeria'=>'ng','noruega'=>'no','norway'=>'no',
-            'nova zelandia'=>'nz','new zealand'=>'nz','paraguai'=>'py','paraguay'=>'py',
-            'peru'=>'pe','polonia'=>'pl','poland'=>'pl','portugal'=>'pt',
-            'republica tcheca'=>'cz','czech republic'=>'cz','romenia'=>'ro','romania'=>'ro',
-            'senegal'=>'sn','servia'=>'rs','serbia'=>'rs','suecia'=>'se','sweden'=>'se',
-            'suica'=>'ch','switzerland'=>'ch','tunisia'=>'tn',
-            'turquia'=>'tr','turkey'=>'tr','ucrania'=>'ua','ukraine'=>'ua',
-            'uruguai'=>'uy','uruguay'=>'uy','venezuela'=>'ve'
+            'albania'=>'Albania','alemanha'=>'Germany','germany'=>'Germany',
+            'argentina'=>'Argentina','armenia'=>'Armenia','australia'=>'Australia','austria'=>'Austria',
+            'belgica'=>'Belgium','belgium'=>'Belgium','bolivia'=>'Bolivia','brasil'=>'Brazil','brazil'=>'Brazil',
+            'bulgaria'=>'Bulgaria','camaroes'=>'Cameroon','cameroon'=>'Cameroon','canada'=>'Canada',
+            'chile'=>'Chile','china'=>'China','colombia'=>'Colombia','coreia do sul'=>'South Korea','south korea'=>'South Korea',
+            'costa rica'=>'Costa Rica','croacia'=>'Croatia','croatia'=>'Croatia','dinamarca'=>'Denmark','denmark'=>'Denmark',
+            'equador'=>'Ecuador','ecuador'=>'Ecuador','egito'=>'Egypt','egypt'=>'Egypt',
+            'escocia'=>'Scotland','scotland'=>'Scotland','eslovaquia'=>'Slovakia','slovakia'=>'Slovakia',
+            'eslovenia'=>'Slovenia','slovenia'=>'Slovenia','espanha'=>'Spain','spain'=>'Spain',
+            'estados unidos'=>'United States','united states'=>'United States','usa'=>'United States',
+            'finlandia'=>'Finland','finland'=>'Finland','franca'=>'France','france'=>'France',
+            'gales'=>'Wales','wales'=>'Wales','ghana'=>'Ghana','grecia'=>'Greece','greece'=>'Greece',
+            'holanda'=>'Netherlands','netherlands'=>'Netherlands','hungria'=>'Hungary','hungary'=>'Hungary',
+            'inglaterra'=>'England','england'=>'England','irlanda'=>'Ireland','ireland'=>'Ireland',
+            'irlanda do norte'=>'Northern Ireland','northern ireland'=>'Northern Ireland',
+            'islandia'=>'Iceland','iceland'=>'Iceland','italia'=>'Italy','italy'=>'Italy',
+            'japao'=>'Japan','japan'=>'Japan','liechtenstein'=>'Liechtenstein','malta'=>'Malta',
+            'marrocos'=>'Morocco','morocco'=>'Morocco','mexico'=>'Mexico','nigeria'=>'Nigeria',
+            'noruega'=>'Norway','norway'=>'Norway','nova zelandia'=>'New Zealand','new zealand'=>'New Zealand',
+            'paraguai'=>'Paraguay','paraguay'=>'Paraguay','peru'=>'Peru','polonia'=>'Poland','poland'=>'Poland',
+            'portugal'=>'Portugal','republica tcheca'=>'Czech Republic','czech republic'=>'Czech Republic',
+            'romenia'=>'Romania','romania'=>'Romania','senegal'=>'Senegal','servia'=>'Serbia','serbia'=>'Serbia',
+            'suecia'=>'Sweden','sweden'=>'Sweden','suica'=>'Switzerland','switzerland'=>'Switzerland',
+            'tunisia'=>'Tunisia','turquia'=>'Turkey','turkey'=>'Turkey','ucrania'=>'Ukraine','ukraine'=>'Ukraine',
+            'uruguai'=>'Uruguay','uruguay'=>'Uruguay','venezuela'=>'Venezuela'
         ];
         return $map[$k]??null;
     }
 
-    private static function remoteFlagPath(string $code): ?string
+    private static function sportsDbFlagPath(string $country): ?string
     {
-        $code=strtolower(trim($code));
-        if(!preg_match('~^[a-z]{2}(?:-[a-z]{3})?$~D',$code))return null;
-        return self::fetchImageAsset('https://flagcdn.com/w80/'.$code.'.png','flag-'.$code,30*86400);
+        $slug=str_replace(' ','-',trim($country));
+        if($slug==='')return null;
+
+        $url='https://www.thesportsdb.com/images/icons/flags/shiny/64/'.rawurlencode($slug).'.png';
+        return self::fetchImageAsset($url,'sportsdb-flag-'.sha1($country),30*86400);
     }
 
     private static function fetchImageAsset(string $url,string $key,int $ttl): ?string
@@ -1181,9 +1280,7 @@ final class AdaptiveVipCardRenderer
         $host=strtolower((string)($parts['host']??''));
         return $host==='www.thesportsdb.com'
             ||$host==='thesportsdb.com'
-            ||str_ends_with($host,'.thesportsdb.com')
-            ||$host==='flagcdn.com'
-            ||$host==='www.flagcdn.com';
+            ||str_ends_with($host,'.thesportsdb.com');
     }
 
     private static function httpGet(string $url,int $timeout,int $maxBytes): ?string
