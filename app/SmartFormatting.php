@@ -855,6 +855,15 @@ final class SmartFormatting
         return is_string($normalized)?$normalized:$text;
     }
 
+    /** Decimal odds are always published with a dot, independent of pt-BR locale. */
+    public static function normalizeOddDecimal(string $odd): string
+    {
+        $odd=trim($odd);
+        if($odd==='')return '';
+        if(!preg_match('/^\d{1,5}(?:[.,]\d{1,3})?$/D',$odd))return $odd;
+        return str_replace(',','.',$odd);
+    }
+
     /** Money/stake cues are checked only inside analysis, not in the bet fields. */
     private static function hasFinancialAnalysis(string $text): bool
     {
@@ -1430,6 +1439,7 @@ final class SmartFormatting
         // Every AI-formatted mode shows exactly one Stake 10 field, regardless
         // of the value returned by either provider.
         $bet['stake']=self::FIXED_STAKE;
+        if(isset($bet['odd']))$bet['odd']=self::normalizeOddDecimal((string)$bet['odd']);
         $label=static fn(string $pt,string $en): string=>$translated?$pt:$en;
         $lines=['⚽ '.($bet['match']??'')];
         if(!empty($bet['league']))$lines[]='🏆 '.$bet['league'];
