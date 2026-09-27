@@ -17,6 +17,7 @@ final class AdaptiveVipCardRenderer
             .'REGRA OBRIGATÓRIA DE BET BUILDER: cada objeto de card_legs deve ter odd vazia. Bet Builder possui somente a odd total no campo odd principal; nunca copie a odd total para cada seleção e nunca invente odd individual. '
             .'Não invente jogos, mercados, seleções, datas ou odds. odd no nível principal é a odd total exibida no bilhete; não recalcule. '
             .'Em analysis, preserve a análise do autor quando existir; quando não existir, siga a política global e gere a análise profissional também para simples, dupla, múltipla e Bet Builder. '
+            .'REGRA SEMÂNTICA DE BET BUILDER: Bet Builder é UMA ÚNICA APOSTA composta por duas ou mais condições/seleções do MESMO JOGO. Na análise, nunca descreva essas condições como duas apostas, duas entradas, apostas separadas ou apostas independentes. Use termos como "uma única aposta", "duas condições da mesma aposta" ou "seleções combinadas no mesmo Bet Builder". '
             .'O card nunca deve exibir horário do jogo. ';
     }
 
@@ -204,18 +205,40 @@ final class AdaptiveVipCardRenderer
 
     public static function caption(array $bet): string
     {
-        $kind=self::kindLabel((string)($bet['kind']??'simple'));
+        $kindKey=(string)($bet['kind']??'simple');
+        $kind=self::kindLabel($kindKey);
         $bookmaker=trim((string)($bet['bookmaker']??''))?:'Casa desconhecida';
+        $legs=is_array($bet['legs']??null)?$bet['legs']:[];
         $lines=['🎟️ '.$kind.' • '.$bookmaker,''];
-        foreach(($bet['legs']??[]) as $index=>$leg){
-            $lines[]='⚽ '.($index+1).'. '.($leg['match']??'');
-            if(!empty($leg['league']))$lines[]='🏆 '.$leg['league'];
-            if(!empty($leg['date']))$lines[]='📅 '.$leg['date'];
-            $lines[]='🎯 Mercado: '.($leg['market']??'');
-            $lines[]='✅ Seleção: '.($leg['selection']??'');
-            if(($bet['kind']??'')!=='bet_builder' && !empty($leg['odd']))$lines[]='📈 Odd: '.$leg['odd'];
+
+        if($kindKey==='bet_builder' && $legs!==[]){
+            // A Bet Builder is one single wager with several conditions in the
+            // same match. Show the event once so Telegram text cannot look like
+            // two independent bets.
+            $first=$legs[0];
+            $lines[]='⚽ '.($first['match']??'');
+            if(!empty($first['league']))$lines[]='🏆 '.$first['league'];
+            if(!empty($first['date']))$lines[]='📅 '.$first['date'];
             $lines[]='';
+            $lines[]='🧩 Seleções ('.count($legs).') da mesma aposta:';
+
+            foreach($legs as $leg){
+                $lines[]='🎯 Mercado: '.($leg['market']??'');
+                $lines[]='✅ Seleção: '.($leg['selection']??'');
+                $lines[]='';
+            }
+        }else{
+            foreach($legs as $index=>$leg){
+                $lines[]='⚽ '.($index+1).'. '.($leg['match']??'');
+                if(!empty($leg['league']))$lines[]='🏆 '.$leg['league'];
+                if(!empty($leg['date']))$lines[]='📅 '.$leg['date'];
+                $lines[]='🎯 Mercado: '.($leg['market']??'');
+                $lines[]='✅ Seleção: '.($leg['selection']??'');
+                if(!empty($leg['odd']))$lines[]='📈 Odd: '.$leg['odd'];
+                $lines[]='';
+            }
         }
+
         if(!empty($bet['odd']))$lines[]='📊 Odd total: '.$bet['odd'];
         $lines[]='📍 Stake: '.self::FIXED_STAKE;
         $analysis=self::stripEmojis(trim((string)($bet['analysis']??'')));
