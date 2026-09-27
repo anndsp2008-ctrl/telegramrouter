@@ -998,8 +998,11 @@ final class AdaptiveVipCardRenderer
                 }
 
                 $candidateCountry=mb_strtolower(trim((string)($candidate['strCountry']??'')),'UTF-8');
-                if($country!==null&&$candidateCountry!==''
-                    &&str_contains($candidateCountry,self::sportsDbCountryEnglish($country))){
+                $countryEnglish=$country!==null
+                    ?mb_strtolower(self::sportsDbCountryEnglish($country),'UTF-8')
+                    :'';
+                if($countryEnglish!==''&&$candidateCountry!==''
+                    &&str_contains($candidateCountry,$countryEnglish)){
                     $score+=20;
                 }
 
