@@ -273,7 +273,18 @@ final class PurePngVipCardRenderer
         $words=preg_split('/\s+/',$clean)?:[];
         $lines=[];$line='';
         foreach($words as $word){
-            if(strlen($word)>$maxChars)return null;
+            if(strlen($word)>$maxChars){
+                if($line!==''){$lines[]=$line;$line='';}
+                // Preserve the full analysis: split unbreakable tokens instead
+                // of returning null and forcing a contingency card.
+                while(strlen($word)>$maxChars){
+                    $lines[]=substr($word,0,$maxChars);
+                    $word=substr($word,$maxChars);
+                    if(count($lines)>=$maxLines)return null;
+                }
+                $line=$word;
+                continue;
+            }
             $candidate=$line===''?$word:$line.' '.$word;
             if(strlen($candidate)>$maxChars && $line!==''){
                 $lines[]=$line;$line=$word;
