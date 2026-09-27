@@ -254,7 +254,7 @@ $moneyFixture=array_merge($bet,['stake'=>'3','stake_amount'=>'R$ 200,00',
 $moneyText=SmartFormatting::asText($moneyFixture,true);
 if(!str_contains($moneyText,'Stake: 10') ||
    !str_contains($moneyText,'Valor apostado: R$ 200,00') ||
-   !str_contains($moneyText,'Odd: 2,00'))
+   !str_contains($moneyText,'Odd: 2.00'))
     throw new RuntimeException('Fixed stake overwrote receipt money or odds');
 echo "SMART_FORMAT_FIXED_STAKE_10_TESTS_PASSED\\n";
 // Source-channel stake labels in free text must never survive any formatted path.
