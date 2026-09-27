@@ -136,6 +136,7 @@ final class TelegramRouter extends SimpleEventHandler
             $totalMs=self::elapsedMs($started);
             $details=self::joinDetails((string)($translation['details']??''),$this->deliveryDetails(),'Envio Telegram: '.$sendMs.' ms','Processamento total: '.$totalMs.' ms');
             $this->finish($source,$id,'forwarded',$details);
+            try { \App\Results\TrackingBridge::afterForward($rule,$source,$id,(string)($message->message??'')); } catch(\Throwable $trackingError) { error_log('TMR_RESULT_TRACKING_HOOK_NON_FATAL '.get_class($trackingError)); }
         } catch(\Throwable $e) {
             if($claimedMediaId!==null) $this->releaseMediaClaim($source,$claimedMediaId,$id);
             $details=ErrorTranslator::message($e,'o encaminhamento da mensagem').' | Erro técnico: '.TranslationService::sanitizeError($e->getMessage()).' | Processamento total: '.self::elapsedMs($started).' ms';
