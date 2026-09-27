@@ -25,4 +25,20 @@ if [ "${TMR_RUN_WORKER:-1}" = "1" ]; then
   ) &
 fi
 
+if [ "${TMR_RUN_RESULT_TRACKING:-1}" = "1" ]; then
+  (
+    while :; do
+      php scripts/result-settlement.php >> storage/result-tracking.log 2>&1 || true
+      sleep 900
+    done
+  ) &
+  (
+    while :; do
+      now="$(date +%H:%M)"
+      if [ "$now" = "00:00" ]; then php scripts/result-daily-report.php >> storage/result-tracking.log 2>&1 || true; sleep 70; fi
+      sleep 20
+    done
+  ) &
+fi
+
 exec frankenphp run --config /app/Caddyfile
