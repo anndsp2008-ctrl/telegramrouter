@@ -461,12 +461,11 @@ final class AdaptiveVipCardRenderer
                 if($sides!==null){
                     [$left,$right]=$sides;
 
-                    // Proportional global matchup layout: the whole
-                    // "identity + name + x + identity + name" group is measured
-                    // and centered as one block, so short names never drift apart.
-                    self::drawProportionalMatchup(
+                    // Global matchup layout: measure spacing proportionally,
+                    // but always anchor the whole confrontation to the left.
+                    self::drawLeftAlignedMatchup(
                         $im,
-                        $contentX+(int)floor($contentW/2),
+                        145,
                         $top+72,
                         $eventIconY,
                         $left,
@@ -552,9 +551,9 @@ final class AdaptiveVipCardRenderer
                                 self::sportKey($bet,$leg)
                             );
 
-                            self::drawProportionalMatchup(
+                            self::drawLeftAlignedMatchup(
                                 $im,
-                                $textX+390,
+                                $textX,
                                 $ty,
                                 $ty-8,
                                 $leftTeam,
@@ -1791,12 +1790,12 @@ final class AdaptiveVipCardRenderer
     }
 
     /**
-     * Draw a matchup with proportional spacing.
-     * Both sides share one font size and the complete group is centered.
+     * Draw a matchup with proportional internal spacing, always left-aligned.
+     * Both sides share one font size and the complete group starts at startX.
      */
-    private static function drawProportionalMatchup(
+    private static function drawLeftAlignedMatchup(
         $im,
-        int $centerX,
+        int $startX,
         int $baselineY,
         int $identityY,
         string $left,
@@ -1863,9 +1862,7 @@ final class AdaptiveVipCardRenderer
         }
 
         $xW=self::width('x',$font,$xSize);
-        $total=$leftW+$rightW+$xW+($sideGap*2)
-            +($hasIdentity?(($drawIconSize+$iconGap)*2):0);
-        $cursor=$centerX-(int)floor($total/2);
+        $cursor=$startX;
 
         if($hasIdentity){
             self::drawResolvedIdentity(
