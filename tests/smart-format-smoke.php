@@ -25,6 +25,21 @@ foreach([
 }
 echo "SMART_FORMAT_PROFESSIONAL_GROUNDED_ANALYSIS_POLICY_TESTS_PASSED\n";
 
+// Global rule: generated tipster analysis must never narrate the source/evidence.
+foreach([
+    'Fale DIRETAMENTE sobre a aposta',
+    'É proibido mencionar ou escrever expressões como "origem"',
+    'não reclame da falta de dados',
+    'como alguém que está avaliando e justificando a própria entrada',
+    'nunca mencione origem, comprovante, bilhete, mensagem ou falta de dados'
+] as $globalTipsterToken){
+    if(!str_contains($smartFormattingSource,$globalTipsterToken))
+        throw new RuntimeException('Global direct-tipster analysis policy missing: '.$globalTipsterToken);
+}
+if(str_contains($smartFormattingSource,'reconheça de forma natural que a origem não fornece elementos adicionais'))
+    throw new RuntimeException('Legacy source-commentary analysis instruction is still active');
+echo "SMART_FORMAT_GLOBAL_DIRECT_TIPSTER_ANALYSIS_POLICY_TESTS_PASSED\n";
+
 // PR #77 regression: MadelineProto promotes PHP warnings to exceptions.
 // A missing /tmp backoff marker must be a normal first-run state.
 $backoffFile='/tmp/tmr-smart-gemini-backoff-until';
