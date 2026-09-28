@@ -22,7 +22,7 @@ final class Schema
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS reporting_settings (
                 id TINYINT UNSIGNED PRIMARY KEY,
-                enabled TINYINT(1) NOT NULL DEFAULT 1,
+                enabled TINYINT(1) NOT NULL DEFAULT 0,
                 scope VARCHAR(16) NOT NULL DEFAULT 'all',
                 check_results TINYINT(1) NOT NULL DEFAULT 1,
                 daily_report TINYINT(1) NOT NULL DEFAULT 1,
