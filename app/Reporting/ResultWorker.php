@@ -26,6 +26,7 @@ final class ResultWorker
         // Garante que tickets já existentes também aguardem a janela pós-jogo,
         // sem consumir a API antes do horário esperado de término.
         Repository::deferPendingFixtureChecksToPostMatchWindow();
+        Repository::restorePrematureLookupReviews();
 
         foreach (Repository::unmatchedLegs() as $leg) {
             try {
@@ -39,21 +40,62 @@ final class ResultWorker
                     continue;
                 }
 
-                $match = $matcher->match($leg);
-                if ($match !== null) {
-                    Repository::attachFixture((int)$leg['id'], $match);
-                } else {
+                $lookup = $matcher->matchDetailed($leg);
+                $lookupStatus = (string)($lookup['status'] ?? 'not_found');
+
+                if ($lookupStatus === 'matched' && is_array($lookup['match'] ?? null)) {
+                    Repository::attachFixture((int)$leg['id'], $lookup['match']);
+                    continue;
+                }
+
+                if ($lookupStatus === 'ambiguous') {
                     Repository::settleLeg((int)$leg['id'], [
                         'status'=>SettlementEngine::REVIEW,
                         'return_factor'=>null,
                         'observed'=>null,
-                        'reason'=>'Partida/horário oficial não identificado com confiança na consulta inicial.',
+                        'reason'=>'Mais de uma partida compatível encontrada; identificação ambígua.',
                     ], [
                         'phase'=>'kickoff_lookup',
+                        'best_confidence'=>$lookup['best_confidence'] ?? null,
+                        'second_confidence'=>$lookup['second_confidence'] ?? null,
+                    ]);
+                    continue;
+                }
+
+                if ($lookupStatus === 'invalid_match_name') {
+                    Repository::settleLeg((int)$leg['id'], [
+                        'status'=>SettlementEngine::REVIEW,
+                        'return_factor'=>null,
+                        'observed'=>null,
+                        'reason'=>'Nome da partida insuficiente para identificar o evento com segurança.',
+                    ], [
+                        'phase'=>'kickoff_lookup',
+                    ]);
+                    continue;
+                }
+
+                $attempts = Repository::recordLookupFailure(
+                    (int)$leg['id'],
+                    $lookupStatus,
+                    360
+                );
+
+                if ($attempts >= 2) {
+                    Repository::settleLeg((int)$leg['id'], [
+                        'status'=>SettlementEngine::REVIEW,
+                        'return_factor'=>null,
+                        'observed'=>null,
+                        'reason'=>'Partida/horário oficial não identificado após duas consultas espaçadas.',
+                    ], [
+                        'phase'=>'kickoff_lookup',
+                        'lookup_status'=>$lookupStatus,
+                        'attempts'=>$attempts,
+                        'best_confidence'=>$lookup['best_confidence'] ?? null,
                     ]);
                 }
             } catch (\Throwable $e) {
                 error_log('TMR_REPORTING_FIXTURE_MATCH_NON_FATAL ' . get_class($e));
+                Repository::rescheduleUnmatchedLeg((int)($leg['id'] ?? 0), 60);
             }
         }
 
