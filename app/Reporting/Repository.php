@@ -216,7 +216,10 @@ final class Repository
         $next = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         if ($kickoff !== '') {
             try {
-                $candidate = (new \DateTimeImmutable($kickoff, new \DateTimeZone('UTC')))->modify('+110 minutes');
+                // Primeira consulta de resultado somente após a janela normal da partida:
+                // 90 min de jogo + intervalo + acréscimos/margem operacional.
+                // Até esse instante o worker não consulta novamente a API para este fixture.
+                $candidate = (new \DateTimeImmutable($kickoff, new \DateTimeZone('UTC')))->modify('+125 minutes');
                 if ($candidate > $next) {
                     $next = $candidate;
                 }
