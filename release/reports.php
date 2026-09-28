@@ -489,7 +489,7 @@ function rdate(mixed $value): string
                                     'HALF_GREEN'=>'Half Green',
                                     'HALF_RED'=>'Half Red',
                                 ] as $manualValue=>$manualLabel): ?>
-                                <form method="post" class="reporting-review-form">
+                                <form method="post" class="reporting-review-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
                                     <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
                                     <input type="hidden" name="action" value="review_resolve">
                                     <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
