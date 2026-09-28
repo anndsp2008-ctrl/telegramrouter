@@ -278,3 +278,84 @@
   .reporting-status .overview-status-meta b{font-size:15px}
 }
 
+
+
+/* Revisão manual */
+.reporting-review-card{margin-bottom:18px}
+.reporting-review-list{display:grid;gap:12px}
+.reporting-review-item{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:18px;
+  padding:16px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;
+  background:rgba(255,255,255,.025);
+}
+.reporting-review-main{min-width:0}
+.reporting-review-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.reporting-review-title strong{font-size:14px;color:#f2f7fb}
+.reporting-review-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.reporting-review-meta span{
+  font-size:11px;
+  color:#8fa0b3;
+  padding:5px 8px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.025);
+}
+.reporting-review-reason{
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(255,184,77,.14);
+  background:rgba(255,184,77,.045);
+}
+.reporting-review-reason span{
+  display:block;
+  margin-bottom:4px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#cfa25f;
+}
+.reporting-review-reason p{margin:0;font-size:12px;line-height:1.5;color:#b9c4d0}
+.reporting-review-actions{
+  display:flex;
+  align-content:flex-start;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:7px;
+  max-width:390px;
+}
+.reporting-review-form{margin:0}
+.reporting-action-btn{
+  min-height:34px;
+  padding:7px 10px;
+  border-radius:9px;
+  border:1px solid rgba(255,255,255,.10);
+  background:#111a26;
+  color:#dce6ef;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.reporting-action-btn:hover{filter:brightness(1.12)}
+.reporting-action-btn.secondary{border-color:rgba(97,223,203,.20);color:#75dfcf;background:rgba(97,223,203,.06)}
+.reporting-action-btn.green{border-color:rgba(75,210,145,.22);color:#79dfac;background:rgba(75,210,145,.06)}
+.reporting-action-btn.red{border-color:rgba(255,104,117,.22);color:#ff8a95;background:rgba(255,104,117,.06)}
+.reporting-action-btn.void{border-color:rgba(166,178,192,.18);color:#b9c4d0;background:rgba(166,178,192,.05)}
+.reporting-action-btn.half-green{border-color:rgba(111,214,170,.20);color:#8adfba;background:rgba(111,214,170,.05)}
+.reporting-action-btn.half-red{border-color:rgba(244,141,115,.20);color:#f0a18d;background:rgba(244,141,115,.05)}
+
+@media(max-width:900px){
+  .reporting-review-item{grid-template-columns:1fr}
+  .reporting-review-actions{justify-content:flex-start;max-width:none}
+}
+@media(max-width:520px){
+  .reporting-review-item{padding:13px}
+  .reporting-review-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .reporting-review-form,.reporting-action-btn{width:100%}
+}
+
