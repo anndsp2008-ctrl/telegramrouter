@@ -25,6 +25,15 @@ final class SettlementEngine
             return self::result(self::REVIEW, null, null, 'Mercado não suportado automaticamente.');
         }
 
+        if (in_array($market, ['cards_total','team_cards_total'], true)) {
+            return self::result(
+                self::REVIEW,
+                null,
+                null,
+                'Mercado de cartões genérico depende da regra de contagem da casa.'
+            );
+        }
+
         if ($market === 'match_result') {
             $home = self::num($stats['goals_home'] ?? null);
             $away = self::num($stats['goals_away'] ?? null);
