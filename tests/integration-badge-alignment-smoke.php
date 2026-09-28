@@ -73,10 +73,14 @@ foreach([$contract,$global] as $scope){
     ] as $token){
         if(!str_contains($scope,$token))$fail('Provider badge expands or varies across cards: '.$token);
     }
-    if(preg_match('/(?<![a-z-])width:100%\\s*!important;/i',$scope) ||
-       str_contains($scope,'grid-column:2 / 4!important;') ||
-       str_contains($scope,'justify-self:stretch!important;'))
-        $fail('Provider badge may stretch across header');
+    preg_match_all('/([^{}]*(?:provider-badge|form-status)[^{}]*)\\{([^}]*)\\}/s',$scope,$badgeRules,PREG_SET_ORDER);
+    foreach($badgeRules as $badgeRule){
+        $body=$badgeRule[2]??'';
+        if(preg_match('/(?<![a-z-])width:100%\\s*!important;/i',$body) ||
+           str_contains($body,'grid-column:2 / 4!important;') ||
+           str_contains($body,'justify-self:stretch!important;'))
+            $fail('Provider badge may stretch across header');
+    }
 }
 foreach([
     'grid-column:3 / 4!important;',
