@@ -991,6 +991,8 @@ final class AdaptiveVipCardRenderer
         }
 
         if(($identity['kind']??'')==='image' && is_string($identity['path']??null)){
+            // Team/club artwork is rendered as-is: transparent background,
+            // no circular badge, stroke or synthetic border.
             self::drawImageContain($im,$cx,$cy,$identity['path'],$size,$size);
         }
     }
@@ -1615,114 +1617,150 @@ final class AdaptiveVipCardRenderer
 
     private static function drawFlagSized($im,int $cx,int $cy,array $spec,int $size): void
     {
+        // National identities use a real flag silhouette: rectangular, borderless
+        // and visually distinct from club crests/logos.
         $size=max(30,min(58,$size));
-        $outline=self::color($im,'#d7e0e8');
-        imagefilledellipse($im,$cx,$cy,$size+4,$size+4,$outline);
-        $type=$spec['type'];
-        $colors=$spec['colors'];
-        imagefilledellipse($im,$cx,$cy,$size,$size,self::color($im,$colors[0]));
+        $flagW=$size;
+        $flagH=max(20,(int)round($size*.66));
+        $x1=$cx-(int)floor($flagW/2);
+        $y1=$cy-(int)floor($flagH/2);
+        $x2=$x1+$flagW-1;
+        $y2=$y1+$flagH-1;
 
-        $r=(int)floor($size*.40);
+        $type=(string)($spec['type']??'');
+        $colors=is_array($spec['colors']??null)?$spec['colors']:['#ffffff'];
+        $base=self::color($im,(string)($colors[0]??'#ffffff'));
+        imagefilledrectangle($im,$x1,$y1,$x2,$y2,$base);
+
         if($type==='england'){
-            $red=self::color($im,$colors[1]);
-            $bar=max(3,(int)round($size*.10));
-            imagefilledrectangle($im,$cx-$bar,$cy-$r,$cx+$bar,$cy+$r,$red);
-            imagefilledrectangle($im,$cx-$r,$cy-$bar,$cx+$r,$cy+$bar,$red);
+            $red=self::color($im,(string)($colors[1]??'#d71e28'));
+            $bar=max(2,(int)round($flagH*.12));
+            imagefilledrectangle($im,$cx-$bar,$y1,$cx+$bar,$y2,$red);
+            imagefilledrectangle($im,$x1,$cy-$bar,$x2,$cy+$bar,$red);
         }elseif($type==='h3'){
-            $band=max(5,(int)ceil(($r*2)/3));
+            $band=(int)ceil($flagH/3);
             for($i=0;$i<3;$i++){
-                $color=self::color($im,$colors[$i]);
-                imagefilledrectangle($im,$cx-$r,$cy-$r+$i*$band,$cx+$r,$cy-$r+($i+1)*$band,$color);
+                $color=self::color($im,(string)($colors[$i]??$colors[0]??'#ffffff'));
+                $top=$y1+$i*$band;
+                $bottom=min($y2,$y1+($i+1)*$band-1);
+                imagefilledrectangle($im,$x1,$top,$x2,$bottom,$color);
             }
         }elseif($type==='v3'){
-            $band=max(5,(int)ceil(($r*2)/3));
+            $band=(int)ceil($flagW/3);
             for($i=0;$i<3;$i++){
-                $color=self::color($im,$colors[$i]);
-                imagefilledrectangle($im,$cx-$r+$i*$band,$cy-$r,$cx-$r+($i+1)*$band,$cy+$r,$color);
+                $color=self::color($im,(string)($colors[$i]??$colors[0]??'#ffffff'));
+                $left=$x1+$i*$band;
+                $right=min($x2,$x1+($i+1)*$band-1);
+                imagefilledrectangle($im,$left,$y1,$right,$y2,$color);
             }
         }elseif($type==='brazil'){
-            $yellow=self::color($im,$colors[1]);
-            $blue=self::color($im,$colors[2]);
-            imagefilledpolygon($im,[$cx,$cy-$r+3,$cx+$r-2,$cy,$cx,$cy+$r-3,$cx-$r+2,$cy],$yellow);
-            imagefilledellipse($im,$cx,$cy,max(9,(int)($size*.32)),max(9,(int)($size*.32)),$blue);
+            $yellow=self::color($im,(string)($colors[1]??'#ffdf00'));
+            $blue=self::color($im,(string)($colors[2]??'#002776'));
+            $padX=max(3,(int)round($flagW*.10));
+            $padY=max(2,(int)round($flagH*.10));
+            imagefilledpolygon($im,[
+                $cx,$y1+$padY,
+                $x2-$padX,$cy,
+                $cx,$y2-$padY,
+                $x1+$padX,$cy
+            ],$yellow);
+            $disc=max(8,(int)round($flagH*.42));
+            imagefilledellipse($im,$cx,$cy,$disc,$disc,$blue);
         }elseif($type==='japan'){
-            imagefilledellipse($im,$cx,$cy,max(10,(int)($size*.38)),max(10,(int)($size*.38)),self::color($im,'#bc002d'));
+            $red=self::color($im,'#bc002d');
+            $disc=max(9,(int)round($flagH*.52));
+            imagefilledellipse($im,$cx,$cy,$disc,$disc,$red);
         }elseif($type==='turkey'){
-            $white=self::color($im,$colors[1]);
-            $red=self::color($im,$colors[0]);
-            $moonR=max(8,(int)round($size*.20));
-            $moonX=$cx-(int)round($size*.08);
+            $white=self::color($im,(string)($colors[1]??'#ffffff'));
+            $red=self::color($im,(string)($colors[0]??'#e30a17'));
+            $moonR=max(5,(int)round($flagH*.24));
+            $moonX=$cx-(int)round($flagW*.10);
             imagefilledellipse($im,$moonX,$cy,$moonR*2,$moonR*2,$white);
             imagefilledellipse(
                 $im,
-                $moonX+max(3,(int)round($size*.07)),
+                $moonX+max(2,(int)round($flagW*.06)),
                 $cy,
-                max(5,(int)round($moonR*1.55)),
-                max(5,(int)round($moonR*1.55)),
+                max(4,(int)round($moonR*1.55)),
+                max(4,(int)round($moonR*1.55)),
                 $red
             );
             self::drawStar(
                 $im,
-                $cx+(int)round($size*.16),
+                $cx+(int)round($flagW*.16),
                 $cy,
-                max(7,(int)round($size*.17)),
+                max(6,(int)round($flagH*.25)),
                 $white
             );
         }elseif($type==='swiss'){
             $flagWhite=self::color($im,'#ffffff');
-            $bar=max(3,(int)($size*.10));
-            imagefilledrectangle($im,$cx-$bar,$cy-$r+6,$cx+$bar,$cy+$r-6,$flagWhite);
-            imagefilledrectangle($im,$cx-$r+6,$cy-$bar,$cx+$r-6,$cy+$bar,$flagWhite);
+            $bar=max(2,(int)round($flagH*.13));
+            $halfH=max(5,(int)round($flagH*.30));
+            $halfW=max(6,(int)round($flagW*.20));
+            imagefilledrectangle($im,$cx-$bar,$cy-$halfH,$cx+$bar,$cy+$halfH,$flagWhite);
+            imagefilledrectangle($im,$cx-$halfW,$cy-$bar,$cx+$halfW,$cy+$bar,$flagWhite);
         }elseif($type==='nordic'){
-            $cross=self::color($im,$colors[1]);
-            $bar=max(3,(int)round($size*.10));
-            $vx=$cx-(int)round($size*.10);
-            imagefilledrectangle($im,$vx-$bar,$cy-$r,$vx+$bar,$cy+$r,$cross);
-            imagefilledrectangle($im,$cx-$r,$cy-$bar,$cx+$r,$cy+$bar,$cross);
+            $cross=self::color($im,(string)($colors[1]??'#ffffff'));
+            $bar=max(2,(int)round($flagH*.12));
+            $vx=$x1+(int)round($flagW*.36);
+            imagefilledrectangle($im,$vx-$bar,$y1,$vx+$bar,$y2,$cross);
+            imagefilledrectangle($im,$x1,$cy-$bar,$x2,$cy+$bar,$cross);
             if(isset($colors[2])){
-                $inner=self::color($im,$colors[2]);
-                $innerBar=max(2,(int)round($bar*.45));
-                imagefilledrectangle($im,$vx-$innerBar,$cy-$r,$vx+$innerBar,$cy+$r,$inner);
-                imagefilledrectangle($im,$cx-$r,$cy-$innerBar,$cx+$r,$cy+$innerBar,$inner);
+                $inner=self::color($im,(string)$colors[2]);
+                $innerBar=max(1,(int)round($bar*.45));
+                imagefilledrectangle($im,$vx-$innerBar,$y1,$vx+$innerBar,$y2,$inner);
+                imagefilledrectangle($im,$x1,$cy-$innerBar,$x2,$cy+$innerBar,$inner);
             }
         }elseif($type==='malta'){
-            $red=self::color($im,$colors[1]);
-            imagefilledrectangle($im,$cx,$cy-$r,$cx+$r,$cy+$r,$red);
-            $silver=self::color($im,$colors[2]);
-            $cross=max(2,(int)round($size*.06));
-            $gx=$cx-(int)round($r*.55);$gy=$cy-(int)round($r*.55);
+            $red=self::color($im,(string)($colors[1]??'#cf142b'));
+            imagefilledrectangle($im,$cx,$y1,$x2,$y2,$red);
+            $silver=self::color($im,(string)($colors[2]??'#b8b8b8'));
+            $cross=max(1,(int)round($flagH*.055));
+            $gx=$x1+(int)round($flagW*.14);
+            $gy=$y1+(int)round($flagH*.22);
             imagefilledrectangle($im,$gx-$cross,$gy-(int)($cross*2.2),$gx+$cross,$gy+(int)($cross*2.2),$silver);
             imagefilledrectangle($im,$gx-(int)($cross*2.2),$gy-$cross,$gx+(int)($cross*2.2),$gy+$cross,$silver);
         }elseif($type==='wales'){
-            $greenFlag=self::color($im,$colors[1]);
-            $red=self::color($im,$colors[2]);
-            imagefilledrectangle($im,$cx-$r,$cy,$cx+$r,$cy+$r,$greenFlag);
+            $greenFlag=self::color($im,(string)($colors[1]??'#00ab39'));
+            $red=self::color($im,(string)($colors[2]??'#d30731'));
+            imagefilledrectangle($im,$x1,$cy,$x2,$y2,$greenFlag);
             imagefilledpolygon($im,[
-                $cx-(int)($r*.55),$cy+(int)($r*.20),
-                $cx-(int)($r*.12),$cy-(int)($r*.25),
-                $cx+(int)($r*.15),$cy-(int)($r*.08),
-                $cx+(int)($r*.48),$cy-(int)($r*.28),
-                $cx+(int)($r*.30),$cy+(int)($r*.14),
-                $cx+(int)($r*.55),$cy+(int)($r*.30),
-                $cx+(int)($r*.02),$cy+(int)($r*.38)
+                $cx-(int)($flagW*.22),$cy+(int)($flagH*.09),
+                $cx-(int)($flagW*.05),$cy-(int)($flagH*.20),
+                $cx+(int)($flagW*.06),$cy-(int)($flagH*.06),
+                $cx+(int)($flagW*.20),$cy-(int)($flagH*.22),
+                $cx+(int)($flagW*.13),$cy+(int)($flagH*.08),
+                $cx+(int)($flagW*.24),$cy+(int)($flagH*.18),
+                $cx,$cy+(int)($flagH*.24)
             ],$red);
         }elseif($type==='greece'){
-            $blue=self::color($im,$colors[0]);
-            $flagWhite=self::color($im,$colors[1]);
-            $stripe=max(2,(int)floor(($r*2)/9));
-            for($i=0;$i<9;$i+=2){
-                imagefilledrectangle($im,$cx-$r,$cy-$r+$i*$stripe,$cx+$r,$cy-$r+($i+1)*$stripe,$blue);
+            $blue=self::color($im,(string)($colors[0]??'#0d5eaf'));
+            $flagWhite=self::color($im,(string)($colors[1]??'#ffffff'));
+            $stripe=max(1,(int)ceil($flagH/9));
+            for($i=1;$i<9;$i+=2){
+                $top=$y1+$i*$stripe;
+                $bottom=min($y2,$top+$stripe-1);
+                imagefilledrectangle($im,$x1,$top,$x2,$bottom,$flagWhite);
             }
-            imagefilledrectangle($im,$cx-$r,$cy-$r,$cx-(int)($r*.10),$cy-(int)($r*.10),$blue);
-            $bar=max(2,(int)round($size*.055));
-            $gx=$cx-(int)($r*.55);$gy=$cy-(int)($r*.55);
-            imagefilledrectangle($im,$gx-$bar,$cy-$r,$gx+$bar,$cy-(int)($r*.10),$flagWhite);
-            imagefilledrectangle($im,$cx-$r,$gy-$bar,$cx-(int)($r*.10),$gy+$bar,$flagWhite);
+            $cantonW=(int)round($flagW*.40);
+            $cantonH=min($flagH,(int)round($stripe*5));
+            imagefilledrectangle($im,$x1,$y1,$x1+$cantonW,$y1+$cantonH,$blue);
+            $bar=max(1,(int)round($stripe*.65));
+            $gx=$x1+(int)round($cantonW*.50);
+            $gy=$y1+(int)round($cantonH*.50);
+            imagefilledrectangle($im,$gx-$bar,$y1,$gx+$bar,$y1+$cantonH,$flagWhite);
+            imagefilledrectangle($im,$x1,$gy-$bar,$x1+$cantonW,$gy+$bar,$flagWhite);
         }elseif($type==='liechtenstein'){
-            $red=self::color($im,$colors[1]);
-            $gold=self::color($im,$colors[2]);
-            imagefilledrectangle($im,$cx-$r,$cy,$cx+$r,$cy+$r,$red);
-            imagefilledellipse($im,$cx-(int)($r*.48),$cy-(int)($r*.48),max(4,(int)($size*.12)),max(4,(int)($size*.08)),$gold);
+            $red=self::color($im,(string)($colors[1]??'#ce1126'));
+            $gold=self::color($im,(string)($colors[2]??'#ffd83d'));
+            imagefilledrectangle($im,$x1,$cy,$x2,$y2,$red);
+            imagefilledellipse(
+                $im,
+                $x1+(int)round($flagW*.19),
+                $y1+(int)round($flagH*.27),
+                max(4,(int)round($flagH*.15)),
+                max(3,(int)round($flagH*.10)),
+                $gold
+            );
         }
     }
 
