@@ -296,7 +296,7 @@ final class FixtureMatcher
             '/\s+[x×]\s+/iu',
             '/\s+vs\.?\s+/iu',
             '/\s+v\s+/iu',
-            '/\s+-\s+/u',
+            '/\s+[-\x{2013}\x{2014}\x{2212}]\s+/u',
         ] as $pattern) {
             $parts = preg_split($pattern, trim($match), 2);
             if (is_array($parts) && count($parts) === 2) {

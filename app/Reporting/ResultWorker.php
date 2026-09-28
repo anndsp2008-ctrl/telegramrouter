@@ -31,6 +31,7 @@ final class ResultWorker
         Repository::restoreImmediateUnsupportedReviews();
         Repository::reopenLegacyConfidenceReviewsOnce();
         Repository::restorePrematureLookupReviews();
+        Repository::restoreUnicodeDashLookupFailures();
 
         foreach (Repository::unmatchedLegs() as $leg) {
             try {
