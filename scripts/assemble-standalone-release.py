@@ -36,8 +36,13 @@ def safe_name(name: str) -> Path:
 def run(*args: str, env: dict[str, str] | None = None) -> None:
     proc = subprocess.run(args, cwd=TARGET, env=env, capture_output=True, text=True)
     if proc.returncode:
-        # Do not expose source, runtime messages, environment values or logs in CI.
         print(f"RELEASE_STEP_FAILED: {Path(args[1]).name if len(args)>1 else args[0]}")
+        diagnostic = "\n".join(
+            line for line in (proc.stdout + "\n" + proc.stderr).splitlines()
+            if line and len(line) < 240
+        )
+        if diagnostic:
+            print(diagnostic[-1800:])
         raise SystemExit(1)
     print(f"RELEASE_STEP_OK: {Path(args[1]).name if len(args)>1 else args[0]}")
 
