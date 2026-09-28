@@ -166,7 +166,14 @@ jobs:
           hash_before="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
           php /tmp/tmr-ai-prewired/runtime-ai-learning.php | grep -Fq 'AI_LEARNING_RUNTIME_READY_ALREADY_WIRED'
           test "$hash_before" = "$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
-          printf '\\n' >> /tmp/tmr-ai-prewired/app/SmartFormatting.php
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('/tmp/tmr-ai-prewired/app/SmartFormatting.php')
+          source=path.read_text()
+          old='AiLearningMemory::contextFor($sourceText,(int)($rule[\'id\']??0))'
+          assert old in source
+          path.write_text(source.replace(old,'AiLearningMemory::contextForBROKEN($sourceText,(int)($rule[\'id\']??0))',1))
+          PY
           hash_unknown="$(sha256sum /tmp/tmr-ai-prewired/app/SmartFormatting.php)"
           php /tmp/tmr-ai-prewired/runtime-ai-learning.php > /tmp/tmr-ai-unknown.out 2>&1
           grep -Fq 'AI_LEARNING_BASE_HASH_MISMATCH' /tmp/tmr-ai-unknown.out
