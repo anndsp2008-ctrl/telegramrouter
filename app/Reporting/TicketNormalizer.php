@@ -104,6 +104,17 @@ final class TicketNormalizer
 
         $targetTeam = self::selectedTeam($selection, $left, $right);
 
+        if ($targetTeam !== null && in_array($side, ['over','under'], true)) {
+            $marketKey = match ($marketKey) {
+                'goals_total' => 'team_goals_total',
+                'corners_total' => 'team_corners_total',
+                'fouls_total' => 'team_fouls_total',
+                'yellow_cards_total' => 'team_yellow_cards_total',
+                'cards_total' => 'team_cards_total',
+                default => $marketKey,
+            };
+        }
+
         if ($marketKey === 'btts') {
             $selectionKey = self::key($selection);
             if (preg_match('/\b(sim|yes|si|sí)\b/u', $selectionKey)) {
