@@ -167,7 +167,16 @@ function rdate(mixed $value): string
     <link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation.css?v=2">
     <link rel="stylesheet" href="/assets/brand/mobile-app-header.css?v=2">
     <link rel="stylesheet" href="/assets/brand/logout-icon.css?v=1">
-    <link rel="stylesheet" href="/assets/reporting.css?v=1">
+    <link rel="stylesheet" href="/assets/translation-v2.css?v=2">
+<link rel="stylesheet" href="/assets/brand/workers-ai-provider.css?v=5">
+<link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8&workers-dot=5&openai-form=2">
+<link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=4">
+<link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1">
+<link rel="stylesheet" href="/assets/brand/service-status-responsive.css?v=1">
+<link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
+<link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
+<link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
+<link rel="stylesheet" href="/assets/reporting.css?v=1">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
