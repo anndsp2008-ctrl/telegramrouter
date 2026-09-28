@@ -2,6 +2,20 @@
 require __DIR__.'/bootstrap.php';
 require_once __DIR__.'/app/AiLearningZipImporter.php';
 \App\Auth::requireLogin();
+
+if($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??null)==='logout'){
+    \App\Auth::verifyCsrf($_POST['csrf']??null);
+    \App\Auth::logout();
+    header('Location:/login.php');
+    exit;
+}
+
+$credentials=\App\Repository::credentials();
+$connectedPhone=(string)($credentials['telegram_phone']??'');
+if($connectedPhone!=='' && $connectedPhone[0]!=='+')$connectedPhone='+'.$connectedPhone;
+$hour=(int)(new DateTimeImmutable('now',new DateTimeZone('America/Sao_Paulo')))->format('G');
+$greeting=($hour<12?'Bom dia':($hour<18?'Boa tarde':'Boa noite')).', Anderson';
+
 $memory=new \App\AiLearningMemory(\App\Database::pdo());
 $memory->migrate(); // Idempotent: this isolated admin page is the sole installer.
 $directory=__DIR__.'/storage/ai-learning';
