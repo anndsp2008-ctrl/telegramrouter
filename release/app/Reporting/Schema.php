@@ -151,6 +151,20 @@ final class Schema
         ");
 
         $pdo->exec("
+            CREATE TABLE IF NOT EXISTS reporting_team_aliases (
+                alias_key VARCHAR(190) PRIMARY KEY,
+                alias_text VARCHAR(190) NOT NULL,
+                team_id BIGINT UNSIGNED NOT NULL,
+                api_name VARCHAR(190) NOT NULL,
+                country VARCHAR(120) NOT NULL DEFAULT '',
+                confidence DECIMAL(6,4) NOT NULL DEFAULT 1.0000,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                KEY idx_reporting_team_alias_team (team_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $pdo->exec("
             CREATE TABLE IF NOT EXISTS reporting_runtime_state (
                 state_key VARCHAR(64) PRIMARY KEY,
                 state_value TEXT NULL,
