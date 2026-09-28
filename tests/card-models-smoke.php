@@ -101,6 +101,59 @@ foreach($fixtures as $fixture){
     @unlink($image);
 }
 
+$apiFootballSelector=new ReflectionMethod(AdaptiveVipCardRenderer::class,'selectApiFootballTeamLogo');
+$apiFootballSelector->setAccessible(true);
+
+$nationalPayload=[
+    'response'=>[
+        ['team'=>[
+            'id'=>777,'name'=>'Turkey','country'=>'Turkey','national'=>true,
+            'logo'=>'https://media.api-sports.io/football/teams/777.png'
+        ]],
+        ['team'=>[
+            'id'=>778,'name'=>'Turkey Club','country'=>'Turkey','national'=>false,
+            'logo'=>'https://media.api-sports.io/football/teams/778.png'
+        ]],
+    ],
+];
+$nationalLogo=$apiFootballSelector->invoke(null,$nationalPayload,'Turquia','UEFA');
+if($nationalLogo!=='https://media.api-sports.io/football/teams/777.png'){
+    throw new RuntimeException('API-Football national identity selection failed');
+}
+
+$clubPayload=[
+    'response'=>[
+        ['team'=>[
+            'id'=>100,'name'=>'León','country'=>'Mexico','national'=>false,
+            'logo'=>'https://media.api-sports.io/football/teams/100.png'
+        ]],
+        ['team'=>[
+            'id'=>101,'name'=>'León','country'=>'Nicaragua','national'=>false,
+            'logo'=>'https://media.api-sports.io/football/teams/101.png'
+        ]],
+    ],
+];
+$clubLogo=$apiFootballSelector->invoke(null,$clubPayload,'Club León','Liga MX');
+if($clubLogo!=='https://media.api-sports.io/football/teams/100.png'){
+    throw new RuntimeException('API-Football league/country disambiguation failed');
+}
+
+$ambiguousPayload=[
+    'response'=>[
+        ['team'=>[
+            'id'=>200,'name'=>'United','country'=>'England','national'=>false,
+            'logo'=>'https://media.api-sports.io/football/teams/200.png'
+        ]],
+        ['team'=>[
+            'id'=>201,'name'=>'United','country'=>'England','national'=>false,
+            'logo'=>'https://media.api-sports.io/football/teams/201.png'
+        ]],
+    ],
+];
+if($apiFootballSelector->invoke(null,$ambiguousPayload,'United','Premier League')!==null){
+    throw new RuntimeException('Ambiguous API-Football identity must fall back');
+}
+
 $sportCases=[
     ['Futebol','⚽','Brasil x Argentina'],
     ['Basquete','🏀','Boston x Miami'],
@@ -225,6 +278,12 @@ if(!is_string($rendererSource)
                                 $textX,')
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
+   ||!str_contains($rendererSource,'private static function apiFootballTeamAssetPath')
+   ||!str_contains($rendererSource,'private static function selectApiFootballTeamLogo')
+   ||!str_contains($rendererSource,'SportsApiIntegration::apiFootballKey()')
+   ||!str_contains($rendererSource,'https://v3.football.api-sports.io/teams?search=')
+   ||!str_contains($rendererSource,"'x-apisports-key: '.\$apiKey")
+   ||!str_contains($rendererSource,"'media.api-sports.io'")
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
    ||!str_contains($rendererSource,'private const MULTI_DATE_BLOCK_ADVANCE=46')
    ||!str_contains($rendererSource,'private const MULTI_METADATA_MARKET_GAP=8')
