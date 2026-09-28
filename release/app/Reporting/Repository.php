@@ -229,6 +229,59 @@ final class Repository
         return (int)$read->fetchColumn();
     }
 
+    public static function restoreUnicodeDashLookupFailures(): int
+    {
+        Schema::migrate();
+        $pdo = Database::pdo();
+        $rows = $pdo->query(
+            'SELECT id,ticket_id
+             FROM reporting_legs
+             WHERE fixture_id IS NULL
+               AND (
+                    match_name LIKE "%–%"
+                    OR match_name LIKE "%—%"
+                    OR match_name LIKE "%−%"
+               )
+               AND (
+                    (status="PENDING" AND lookup_last_reason="invalid_match_name")
+                    OR (
+                        status="REVIEW"
+                        AND JSON_UNQUOTE(JSON_EXTRACT(settlement_details,"$.reason"))=
+                            "Nome da partida insuficiente para identificar o evento após duas tentativas."
+                    )
+               )'
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if ($rows === []) {
+            return 0;
+        }
+
+        $ids = array_map(static fn(array $row): int => (int)$row['id'], $rows);
+        $ticketIds = array_values(array_unique(array_map(
+            static fn(array $row): int => (int)$row['ticket_id'],
+            $rows
+        )));
+
+        $pdo->exec(
+            'UPDATE reporting_legs
+             SET status="PENDING",
+                 settlement_details=NULL,
+                 settled_at=NULL,
+                 next_check_at=UTC_TIMESTAMP(),
+                 lookup_attempts=0,
+                 lookup_last_reason="unicode_separator_reopen"
+             WHERE id IN (' . implode(',', $ids) . ')'
+        );
+
+        foreach ($ticketIds as $ticketId) {
+            if ($ticketId > 0) {
+                self::recomputeTicket($ticketId);
+            }
+        }
+
+        return count($ids);
+    }
+
     public static function restoreImmediateUnsupportedReviews(): int
     {
         Schema::migrate();
