@@ -50,12 +50,19 @@ final class ResultWorker
             try {
                 $fixture = $api->fixture($fixtureId);
                 if ($fixture === []) {
-                    Repository::rescheduleFixture($fixtureId, 30);
+                    Repository::rescheduleFixture($fixtureId, 60);
                     continue;
                 }
 
                 $short = strtoupper(trim((string)($fixture['fixture']['status']['short'] ?? '')));
-                if (in_array($short, ['PST','TBD','NS','1H','HT','2H','ET','BT','INT','SUSP'], true)) {
+
+                // Depois da primeira janela pós-jogo, só consultas pontuais:
+                // não iniciado/adiado = espera longa; em andamento = espera curta.
+                if (in_array($short, ['PST','TBD','NS'], true)) {
+                    Repository::rescheduleFixture($fixtureId, 60);
+                    continue;
+                }
+                if (in_array($short, ['1H','HT','2H','ET','BT','INT','SUSP'], true)) {
                     Repository::rescheduleFixture($fixtureId, 15);
                     continue;
                 }
@@ -64,7 +71,7 @@ final class ResultWorker
                     continue;
                 }
                 if (!in_array($short, ['FT','AET','PEN'], true)) {
-                    Repository::rescheduleFixture($fixtureId, 20);
+                    Repository::rescheduleFixture($fixtureId, 60);
                     continue;
                 }
 
