@@ -33,9 +33,7 @@ final class DailyReportService
 
         if ($forcedChat !== '') {
             $stats = Repository::reportStats($date, $timezoneName, null);
-            if ((int)($stats['total'] ?? 0) > 0) {
-                Repository::enqueueDailyReport($date, $forcedChat, self::format($date, $stats));
-            }
+            Repository::enqueueDailyReport($date, $forcedChat, self::format($date, $stats));
             Repository::setState('daily_report_last_check_at', gmdate('Y-m-d H:i:s'));
             return;
         }
