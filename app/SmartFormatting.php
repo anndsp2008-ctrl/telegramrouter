@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace App;
+require_once __DIR__.'/MatchNameFormatter.php';
 require_once __DIR__.'/DoubleVipCardRenderer.php';
 require_once __DIR__.'/StakeOddsProvider.php';
 
@@ -779,6 +780,9 @@ final class SmartFormatting
 
     private static function enforcePortugueseOutput(array $bet,array $rule,bool $translate): ?array
     {
+        if(isset($bet['match']) && is_string($bet['match'])){
+            $bet['match']=MatchNameFormatter::normalize($bet['match']);
+        }
         if(!$translate)return $bet;
         $target=mb_strtolower(trim((string)($rule['translation_target_language']??'pt-BR')),'UTF-8');
         if(!in_array($target,['pt','pt-br','pt_br','portuguese','português'],true))return $bet;
@@ -894,6 +898,7 @@ final class SmartFormatting
             if(isset($bet[$field])&&is_string($bet[$field])){
                 $value=$field==='analysis'?self::sanitizeAnalysis($bet[$field]):$bet[$field];
                 $bet[$field]=self::capitalizeSentences($value);
+                if($field==='match')$bet[$field]=MatchNameFormatter::normalize($bet[$field]);
             }
         }
         return $bet;
