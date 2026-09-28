@@ -974,12 +974,44 @@ final class Repository
     {
         Schema::migrate();
         $limit = max(1, min(200, $limit));
-        return Database::pdo()->query(
+
+        $pdo = Database::pdo();
+        $tickets = $pdo->query(
             "SELECT id,destination_chat,bet_kind,total_odds,status,profit_units,placed_at,settled_at
              FROM reporting_tickets
              ORDER BY id DESC
              LIMIT {$limit}"
         )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if ($tickets === []) {
+            return [];
+        }
+
+        $ticketIds = array_map(
+            static fn(array $ticket): int => (int)$ticket['id'],
+            $tickets
+        );
+        $placeholders = implode(',', array_fill(0, count($ticketIds), '?'));
+
+        $stmt = $pdo->prepare(
+            "SELECT ticket_id,position_no,match_name,market_text,selection_text,odds,status
+             FROM reporting_legs
+             WHERE ticket_id IN ({$placeholders})
+             ORDER BY ticket_id DESC, position_no ASC"
+        );
+        $stmt->execute($ticketIds);
+
+        $legsByTicket = [];
+        foreach (($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) as $leg) {
+            $legsByTicket[(int)$leg['ticket_id']][] = $leg;
+        }
+
+        foreach ($tickets as &$ticket) {
+            $ticket['legs'] = $legsByTicket[(int)$ticket['id']] ?? [];
+        }
+        unset($ticket);
+
+        return $tickets;
     }
 
     public static function setState(string $key, ?string $value): void
