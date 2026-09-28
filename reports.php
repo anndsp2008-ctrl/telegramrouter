@@ -176,7 +176,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=4">
+<link rel="stylesheet" href="/assets/reporting.css?v=6">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -560,7 +560,7 @@ function rdate(mixed $value): string
                                 <?php $ticketProfit=(float)$ticket['profit_units']; ?>
                                 <?php $historyLegs=is_array($ticket['legs']??null)?$ticket['legs']:[]; ?>
                                 <?php $betKind=strtolower(trim((string)($ticket['bet_kind']??''))); ?>
-                                <?php $expandable=in_array($betKind,['double','multiple'],true)&&count($historyLegs)>1; ?>
+                                <?php $expandable=in_array($betKind,['double','triple','multiple'],true)&&count($historyLegs)>1; ?>
                                 <?php $firstLeg=$historyLegs[0]??null; ?>
                                 <?php $accordionId='reporting-ticket-'.(int)$ticket['id']; ?>
                                 <tr class="<?=$expandable?'reporting-history-parent':''?>" data-ticket-id="<?=rh($ticket['id'])?>">
