@@ -90,6 +90,8 @@ final class Schema
                 odds DECIMAL(10,3) NULL,
                 status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
                 match_confidence DECIMAL(6,4) NULL,
+                lookup_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+                lookup_last_reason VARCHAR(64) NULL,
                 settlement_details JSON NULL,
                 settled_at DATETIME NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -102,6 +104,9 @@ final class Schema
                     ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+
+        self::ensureColumn($pdo, 'reporting_legs', 'lookup_attempts', "SMALLINT UNSIGNED NOT NULL DEFAULT 0");
+        self::ensureColumn($pdo, 'reporting_legs', 'lookup_last_reason', "VARCHAR(64) NULL");
 
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS reporting_daily_reports (
