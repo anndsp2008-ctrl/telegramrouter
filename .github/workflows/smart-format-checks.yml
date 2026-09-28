@@ -184,7 +184,7 @@ jobs:
           grep -Fq "TRANSLATION_V2_MIGRATION_SKIPPED_NEW_PROVIDER_ACTIVE" scripts/translation-v2-safe-start.php
           grep -Fq "translation-migrate.php" scripts/translation-v2-safe-start.php
           ! grep -F "UPDATE router_rules SET translation_provider" scripts/translation-v2-safe-start.php
-          grep -Fq 'GOOGLE_CLOUD_WORKERS_ENUM_PRESERVED' scripts/google-cloud-safe-start.php
+          grep -Fq 'GOOGLE_CLOUD_PROVIDER_ENUMS_PRESERVED' scripts/google-cloud-safe-start.php
           grep -Fq "'google_cloud','workers_ai'" scripts/google-cloud-safe-start.php
           grep -Fq 'GOOGLE_CLOUD_INSTALLER_SCHEMA_ANCHOR_CHANGED' scripts/google-cloud-safe-start.php
       - name: Assert PR39 routing with PR75 hardening
