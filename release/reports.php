@@ -218,14 +218,21 @@ function rdate(mixed $value): string
                 <div>
                     <span class="saas-kicker">RELATÓRIOS E PERFORMANCE</span>
                     <h1>Resultados automáticos</h1>
-                    <p>Acompanhe liquidações, escolha quais canais entram no cálculo e controle o relatório diário.</p>
+                    <p>Centralize acompanhamento, liquidação, revisão manual e fechamento diário em um único módulo.</p>
                 </div>
                 <div class="saas-heading-actions">
                     <a class="saas-secondary" href="/?page=dashboard">← Visão geral</a>
                 </div>
             </div>
 
-            <section class="overview-status <?=$systemEnabled?'is-good':'is-alert'?>">
+            <nav class="reporting-subnav" aria-label="Seções do módulo de relatórios">
+                <a href="#reporting-overview" class="is-active">Visão geral</a>
+                <a href="#reporting-config">Configuração</a>
+                <a href="#reporting-review">Revisões <span><?=rh(count($reviewLegs))?></span></a>
+                <a href="#reporting-history">Histórico</a>
+            </nav>
+
+            <section id="reporting-overview" class="overview-status <?=$systemEnabled?'is-good':'is-alert'?>">
                 <div class="overview-status-icon"><i></i></div>
                 <div>
                     <span class="saas-kicker">ESTADO DO MÓDULO</span>
@@ -265,135 +272,144 @@ function rdate(mixed $value): string
                 </div>
             </section>
 
-            <div class="reporting-layout">
-                <section class="saas-card reporting-config-card">
-                    <div class="saas-card-head">
+            <section class="reporting-ops-strip">
+                <div class="reporting-op-item">
+                    <span class="reporting-op-dot <?=in_array($workerStatus,['ok','running'],true)?'is-good':($workerStatus==='error'?'is-bad':'')?>"></span>
+                    <div><small>WORKER</small><b><?=rh(rstateLabel($workerStatus))?></b></div>
+                </div>
+                <div class="reporting-op-item">
+                    <span class="reporting-op-dot <?=in_array($schedulerStatus,['ok','running'],true)?'is-good':($schedulerStatus==='error'?'is-bad':'')?>"></span>
+                    <div><small>SCHEDULER</small><b><?=rh(rstateLabel($schedulerStatus))?></b></div>
+                </div>
+                <div class="reporting-op-item">
+                    <div><small>ESCOPO</small><b><?=$scopeSelected?rh($selectedCount).' regras':'Todos os canais'?></b></div>
+                </div>
+                <div class="reporting-op-item">
+                    <div><small>RELATÓRIO DIÁRIO</small><b><?=!empty($settings['daily_report'])?'Ativo · '.rh(substr((string)$settings['report_time'],0,5)):'Desativado'?></b></div>
+                </div>
+            </section>
+
+            <section id="reporting-config" class="reporting-section-heading">
+                <div>
+                    <span class="saas-kicker">CONFIGURAÇÃO</span>
+                    <h2>Automação dos relatórios</h2>
+                    <p>Configure apenas o necessário. Cada bloco controla uma parte independente do módulo.</p>
+                </div>
+                <span class="form-status <?=$systemEnabled?'is-configured':'is-empty'?>"><i></i><?=$systemEnabled?'Ativo':'Desativado'?></span>
+            </section>
+
+            <form method="post" id="reporting-settings-form" class="reporting-settings-grid">
+                <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+
+                <section class="saas-card reporting-setting-card">
+                    <div class="reporting-setting-card-head">
+                        <span class="reporting-setting-index">01</span>
                         <div>
-                            <span class="saas-kicker">CONFIGURAÇÃO</span>
-                            <h2>Automação dos relatórios</h2>
-                            <p>Defina o escopo, a apuração e o destino do resumo diário.</p>
+                            <h3>Estado do módulo</h3>
+                            <p>Controle geral do acompanhamento e dos cálculos.</p>
                         </div>
-                        <span class="form-status <?=$systemEnabled?'is-configured':'is-empty'?>"><i></i><?=$systemEnabled?'Ativo':'Desativado'?></span>
                     </div>
-
-                    <form method="post" id="reporting-settings-form">
-                        <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
-
-                        <div class="reporting-section">
-                            <div class="reporting-section-title">
-                                <span class="reporting-section-number">01</span>
-                                <div><b>Estado do módulo</b><small>Controle geral do acompanhamento e dos cálculos.</small></div>
-                            </div>
-                            <label class="reporting-switch-row">
-                                <input type="checkbox" name="enabled" <?=$systemEnabled?'checked':''?>>
-                                <span><b>Ativar sistema de relatórios</b><small>Não altera o fluxo de encaminhamento dos cards.</small></span>
-                            </label>
-                        </div>
-
-                        <div class="reporting-section">
-                            <div class="reporting-section-title">
-                                <span class="reporting-section-number">02</span>
-                                <div><b>Escopo do acompanhamento</b><small>Escolha se todas as regras ou apenas algumas entram nos resultados.</small></div>
-                            </div>
-
-                            <div class="reporting-scope-options">
-                                <label class="reporting-choice">
-                                    <input type="radio" name="scope" value="all" <?=!$scopeSelected?'checked':''?>>
-                                    <span><b>Todos os canais</b><small>Toda regra ativa poderá entrar no acompanhamento.</small></span>
-                                </label>
-                                <label class="reporting-choice">
-                                    <input type="radio" name="scope" value="selected" <?=$scopeSelected?'checked':''?>>
-                                    <span><b>Somente selecionados</b><small>Apenas as regras marcadas abaixo serão consideradas.</small></span>
-                                </label>
-                            </div>
-
-                            <div class="reporting-rules-box" id="reporting-rules-box">
-                                <div class="reporting-rules-head">
-                                    <div><b>Regras disponíveis</b><small><?=rh(count($rules))?> cadastradas</small></div>
-                                    <span id="reporting-selected-count"><?=rh($selectedCount)?> selecionadas</span>
-                                </div>
-                                <div class="reporting-rules-list">
-                                    <?php foreach ($rules as $rule): ?>
-                                        <?php $checked=!$scopeSelected || in_array((int)$rule['id'],$selectedRules,true); ?>
-                                        <label class="reporting-rule-option">
-                                            <input type="checkbox" name="rules[]" value="<?=rh($rule['id'])?>" <?=$checked?'checked':''?>>
-                                            <span class="reporting-rule-main">
-                                                <span class="reporting-rule-id">REGRA #<?=rh($rule['id'])?></span>
-                                                <b><?=rh($rule['source_chat'])?> <i>→</i> <?=rh($rule['destination_chat'])?></b>
-                                                <small><?=trim((string)$rule['trigger_text'])!==''?'Gatilho: '.rh($rule['trigger_text']):'Sem gatilho informado'?></small>
-                                            </span>
-                                            <span class="reporting-rule-check">✓</span>
-                                        </label>
-                                    <?php endforeach; ?>
-                                    <?php if ($rules === []): ?>
-                                        <div class="saas-empty">Nenhuma regra de roteamento cadastrada.</div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="reporting-section">
-                            <div class="reporting-section-title">
-                                <span class="reporting-section-number">03</span>
-                                <div><b>Apuração e envio</b><small>Configure a liquidação automática e o horário do resumo.</small></div>
-                            </div>
-
-                            <div class="reporting-toggle-grid">
-                                <label class="reporting-switch-row">
-                                    <input type="checkbox" name="check_results" <?=!empty($settings['check_results'])?'checked':''?>>
-                                    <span><b>Verificar resultados automaticamente</b><small>Consulta as partidas pendentes e liquida quando houver dados confiáveis.</small></span>
-                                </label>
-                                <label class="reporting-switch-row">
-                                    <input type="checkbox" name="daily_report" <?=!empty($settings['daily_report'])?'checked':''?>>
-                                    <span><b>Gerar relatório diário</b><small>Cria o resumo consolidado no horário configurado.</small></span>
-                                </label>
-                            </div>
-
-                            <div class="saas-form-grid reporting-fields">
-                                <label>Horário do relatório
-                                    <span class="field-help">Fuso fixo: America/Sao_Paulo.</span>
-                                    <input type="time" name="report_time" value="<?=rh(substr((string)$settings['report_time'],0,5))?>">
-                                </label>
-                                <label class="field-wide">Canal específico do relatório
-                                    <span class="field-help">Deixe vazio para cada destino receber apenas o próprio resumo.</span>
-                                    <input type="text" name="report_chat" value="<?=rh($settings['report_chat'])?>" placeholder="-100… ou @canal">
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="saas-actions reporting-actions">
-                            <span class="form-note">As alterações passam a valer imediatamente após salvar.</span>
-                            <button class="saas-primary" type="submit">Salvar configurações →</button>
-                        </div>
-                    </form>
+                    <label class="reporting-switch-row">
+                        <input type="checkbox" name="enabled" <?=$systemEnabled?'checked':''?>>
+                        <span><b>Ativar sistema de relatórios</b><small>O encaminhamento normal dos cards continua isolado deste módulo.</small></span>
+                    </label>
                 </section>
 
-                <section class="saas-card reporting-worker-card">
-                    <div class="saas-card-head">
+                <section class="saas-card reporting-setting-card reporting-setting-card-wide">
+                    <div class="reporting-setting-card-head">
+                        <span class="reporting-setting-index">02</span>
                         <div>
-                            <span class="saas-kicker">MONITORAMENTO</span>
-                            <h2>Estado do processamento</h2>
-                            <p>Saúde do scheduler e das rotinas automáticas do módulo.</p>
+                            <h3>Escopo do acompanhamento</h3>
+                            <p>Defina quais regras entram nas estatísticas e liquidações.</p>
                         </div>
                     </div>
 
-                    <div class="reporting-worker-overview">
-                        <div class="reporting-worker-status <?=in_array($workerStatus,['ok','running'],true)?'is-good':($workerStatus==='error'?'is-bad':'')?>">
-                            <i></i>
-                            <div><span>WORKER</span><b><?=rh(rstateLabel($workerStatus))?></b></div>
-                        </div>
-                        <div class="reporting-worker-status <?=in_array($schedulerStatus,['ok','running'],true)?'is-good':($schedulerStatus==='error'?'is-bad':'')?>">
-                            <i></i>
-                            <div><span>SCHEDULER</span><b><?=rh(rstateLabel($schedulerStatus))?></b></div>
-                        </div>
+                    <div class="reporting-scope-options">
+                        <label class="reporting-choice">
+                            <input type="radio" name="scope" value="all" <?=!$scopeSelected?'checked':''?>>
+                            <span><b>Todos os canais</b><small>Todas as regras elegíveis entram no acompanhamento.</small></span>
+                        </label>
+                        <label class="reporting-choice">
+                            <input type="radio" name="scope" value="selected" <?=$scopeSelected?'checked':''?>>
+                            <span><b>Somente selecionados</b><small>Use uma lista controlada de regras.</small></span>
+                        </label>
                     </div>
 
+                    <div class="reporting-rules-box" id="reporting-rules-box">
+                        <div class="reporting-rules-head">
+                            <div><b>Regras disponíveis</b><small><?=rh(count($rules))?> cadastradas</small></div>
+                            <span id="reporting-selected-count"><?=rh($selectedCount)?> selecionadas</span>
+                        </div>
+                        <div class="reporting-rules-list">
+                            <?php foreach ($rules as $rule): ?>
+                                <?php $checked=!$scopeSelected || in_array((int)$rule['id'],$selectedRules,true); ?>
+                                <label class="reporting-rule-option">
+                                    <input type="checkbox" name="rules[]" value="<?=rh($rule['id'])?>" <?=$checked?'checked':''?>>
+                                    <span class="reporting-rule-main">
+                                        <span class="reporting-rule-id">REGRA #<?=rh($rule['id'])?></span>
+                                        <b><?=rh($rule['source_chat'])?> <i>→</i> <?=rh($rule['destination_chat'])?></b>
+                                        <small><?=trim((string)$rule['trigger_text'])!==''?'Gatilho: '.rh($rule['trigger_text']):'Sem gatilho informado'?></small>
+                                    </span>
+                                    <span class="reporting-rule-check">✓</span>
+                                </label>
+                            <?php endforeach; ?>
+                            <?php if ($rules === []): ?>
+                                <div class="saas-empty">Nenhuma regra de roteamento cadastrada.</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="saas-card reporting-setting-card">
+                    <div class="reporting-setting-card-head">
+                        <span class="reporting-setting-index">03</span>
+                        <div>
+                            <h3>Apuração automática</h3>
+                            <p>Controle a consulta e a liquidação das apostas.</p>
+                        </div>
+                    </div>
+                    <label class="reporting-switch-row">
+                        <input type="checkbox" name="check_results" <?=!empty($settings['check_results'])?'checked':''?>>
+                        <span><b>Verificar resultados automaticamente</b><small>Consulta somente quando necessário e liquida com dados confiáveis.</small></span>
+                    </label>
+                </section>
+
+                <section class="saas-card reporting-setting-card">
+                    <div class="reporting-setting-card-head">
+                        <span class="reporting-setting-index">04</span>
+                        <div>
+                            <h3>Relatório diário</h3>
+                            <p>Defina horário e destino do resumo consolidado.</p>
+                        </div>
+                    </div>
+                    <label class="reporting-switch-row">
+                        <input type="checkbox" name="daily_report" <?=!empty($settings['daily_report'])?'checked':''?>>
+                        <span><b>Gerar relatório diário</b><small>O resumo usa o fuso America/Sao_Paulo.</small></span>
+                    </label>
+                    <div class="reporting-daily-fields">
+                        <label>Horário
+                            <input type="time" name="report_time" value="<?=rh(substr((string)$settings['report_time'],0,5))?>">
+                        </label>
+                        <label>Canal específico
+                            <input type="text" name="report_chat" value="<?=rh($settings['report_chat'])?>" placeholder="-100… ou @canal">
+                        </label>
+                    </div>
+                </section>
+
+                <section class="saas-card reporting-setting-card reporting-monitor-card">
+                    <div class="reporting-setting-card-head">
+                        <span class="reporting-setting-index">05</span>
+                        <div>
+                            <h3>Saúde operacional</h3>
+                            <p>Últimos sinais do processamento automático.</p>
+                        </div>
+                    </div>
                     <div class="reporting-state-list">
                         <?php
                         $stateLabels=[
                             'scheduler_heartbeat_at'=>'Último heartbeat',
-                            'worker_last_run_at'=>'Última verificação de resultados',
-                            'daily_report_last_check_at'=>'Última checagem do relatório diário',
+                            'worker_last_run_at'=>'Última verificação',
+                            'daily_report_last_check_at'=>'Última checagem diária',
                             'worker_last_error'=>'Último erro do worker',
                             'daily_report_last_error'=>'Último erro do relatório',
                         ];
@@ -407,113 +423,106 @@ function rdate(mixed $value): string
                             </div>
                         <?php endforeach; ?>
                     </div>
+                </section>
 
-                    <div class="reporting-worker-note">
-                        <span>Proteção operacional</span>
-                        <p>Falhas neste módulo são isoladas e não interrompem o encaminhamento normal das mensagens.</p>
+                <div class="reporting-savebar reporting-setting-card-wide">
+                    <div>
+                        <b>Salvar configurações</b>
+                        <span>As alterações passam a valer imediatamente.</span>
+                    </div>
+                    <button class="saas-primary" type="submit">Salvar alterações</button>
+                </div>
+            </form>
+
+            <section id="reporting-review" class="reporting-section-heading reporting-section-heading-spaced">
+                <div>
+                    <span class="saas-kicker">PENDÊNCIAS</span>
+                    <h2>Revisão manual</h2>
+                    <p>Intervenha somente nas seleções que não puderam ser concluídas automaticamente.</p>
+                </div>
+                <span class="reporting-review-summary"><span><?=rh(count($reviewLegs))?></span><small><?=count($reviewLegs)===1?'pendência':'pendências'?></small></span>
+            </section>
+
+            <?php if ($reviewLegs === []): ?>
+                <section class="saas-card reporting-review-empty">
+                    <div class="reporting-empty">
+                        <span>✓</span>
+                        <h3>Nenhuma aposta em revisão</h3>
+                        <p>As seleções que exigirem intervenção manual aparecerão aqui.</p>
                     </div>
                 </section>
-            </div>
+            <?php else: ?>
+                <section class="saas-card reporting-review-card">
+                    <div class="reporting-review-list">
+                        <?php foreach ($reviewLegs as $review): ?>
+                            <article class="reporting-review-item">
+                                <div class="reporting-review-overview">
+                                    <div class="reporting-review-item-head">
+                                        <div class="reporting-review-item-id">
+                                            <span class="reporting-status-badge review">Revisão</span>
+                                            <strong>Ticket #<?=rh($review['ticket_id'])?></strong>
+                                            <span>Seleção #<?=rh($review['position_no'])?></span>
+                                        </div>
+                                        <time><?=rh(rdate($review['placed_at']))?></time>
+                                    </div>
 
-            <?php if ($reviewLegs !== []): ?>
-            <section class="saas-card reporting-review-card">
-                <div class="saas-card-head reporting-review-card-head">
-                    <div>
-                        <span class="saas-kicker">REVISÃO MANUAL</span>
-                        <h2>Apostas em revisão</h2>
-                        <p>Revise as informações, escolha o resultado e conclua a pendência em um único fluxo.</p>
+                                    <div class="reporting-review-event">
+                                        <span>Evento</span>
+                                        <strong><?=rh($review['match_name'])?></strong>
+                                    </div>
+
+                                    <div class="reporting-review-meta-grid">
+                                        <div><span>Liga</span><b><?=rh($review['league'] ?: '—')?></b></div>
+                                        <div><span>Mercado</span><b><?=rh($review['market_text'] ?: '—')?></b></div>
+                                        <div><span>Seleção</span><b><?=rh($review['selection_text'] ?: '—')?></b></div>
+                                        <div><span>Odd</span><b><?=rh($review['odds'] ?: '—')?></b></div>
+                                    </div>
+
+                                    <div class="reporting-review-reason">
+                                        <b>Motivo da revisão</b>
+                                        <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
+                                    </div>
+                                </div>
+
+                                <aside class="reporting-review-decision-panel">
+                                    <div class="reporting-review-decision-head">
+                                        <span>DECISÃO MANUAL</span>
+                                        <p>Escolha uma ação para esta seleção.</p>
+                                    </div>
+
+                                    <form method="post" class="reporting-review-resolve-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
+                                        <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+                                        <input type="hidden" name="action" value="review_resolve">
+                                        <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
+                                        <label>Resultado
+                                            <select name="manual_status" required>
+                                                <option value="">Selecione</option>
+                                                <option value="GREEN">Green</option>
+                                                <option value="RED">Red</option>
+                                                <option value="VOID">Void</option>
+                                                <option value="HALF_GREEN">Half Green</option>
+                                                <option value="HALF_RED">Half Red</option>
+                                            </select>
+                                        </label>
+                                        <button type="submit" class="saas-primary reporting-review-apply-btn">Aplicar resultado</button>
+                                    </form>
+
+                                    <div class="reporting-review-separator"><span>ou</span></div>
+
+                                    <form method="post" class="reporting-review-reprocess-form">
+                                        <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+                                        <input type="hidden" name="action" value="review_reprocess">
+                                        <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
+                                        <button type="submit" class="saas-secondary reporting-review-reprocess-btn">Reprocessar automaticamente</button>
+                                    </form>
+                                </aside>
+                            </article>
+                        <?php endforeach; ?>
                     </div>
-                    <div class="reporting-review-summary">
-                        <span><?=rh(count($reviewLegs))?></span>
-                        <small><?=count($reviewLegs)===1?'pendência':'pendências'?></small>
-                    </div>
-                </div>
-
-                <div class="reporting-review-list">
-                    <?php foreach ($reviewLegs as $review): ?>
-                        <article class="reporting-review-item">
-                            <div class="reporting-review-overview">
-                                <div class="reporting-review-item-head">
-                                    <div class="reporting-review-item-id">
-                                        <span class="reporting-status-badge review">Revisão</span>
-                                        <strong>Ticket #<?=rh($review['ticket_id'])?></strong>
-                                        <span>Seleção #<?=rh($review['position_no'])?></span>
-                                    </div>
-                                    <time><?=rh(rdate($review['placed_at']))?></time>
-                                </div>
-
-                                <div class="reporting-review-event">
-                                    <span>Evento</span>
-                                    <strong><?=rh($review['match_name'])?></strong>
-                                </div>
-
-                                <div class="reporting-review-meta-grid">
-                                    <div>
-                                        <span>Liga</span>
-                                        <b><?=rh($review['league'] ?: '—')?></b>
-                                    </div>
-                                    <div>
-                                        <span>Mercado</span>
-                                        <b><?=rh($review['market_text'] ?: '—')?></b>
-                                    </div>
-                                    <div>
-                                        <span>Seleção</span>
-                                        <b><?=rh($review['selection_text'] ?: '—')?></b>
-                                    </div>
-                                    <div>
-                                        <span>Odd</span>
-                                        <b><?=rh($review['odds'] ?: '—')?></b>
-                                    </div>
-                                </div>
-
-                                <div class="reporting-review-reason">
-                                    <b>Motivo da revisão</b>
-                                    <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
-                                </div>
-                            </div>
-
-                            <aside class="reporting-review-decision-panel">
-                                <div class="reporting-review-decision-head">
-                                    <span>DECISÃO MANUAL</span>
-                                    <p>Escolha uma ação para esta seleção.</p>
-                                </div>
-
-                                <form method="post" class="reporting-review-resolve-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
-                                    <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
-                                    <input type="hidden" name="action" value="review_resolve">
-                                    <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
-
-                                    <label>
-                                        Resultado
-                                        <select name="manual_status" required>
-                                            <option value="">Selecione</option>
-                                            <option value="GREEN">Green</option>
-                                            <option value="RED">Red</option>
-                                            <option value="VOID">Void</option>
-                                            <option value="HALF_GREEN">Half Green</option>
-                                            <option value="HALF_RED">Half Red</option>
-                                        </select>
-                                    </label>
-
-                                    <button type="submit" class="saas-primary reporting-review-apply-btn">Aplicar resultado</button>
-                                </form>
-
-                                <div class="reporting-review-separator"><span>ou</span></div>
-
-                                <form method="post" class="reporting-review-reprocess-form">
-                                    <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
-                                    <input type="hidden" name="action" value="review_reprocess">
-                                    <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
-                                    <button type="submit" class="saas-secondary reporting-review-reprocess-btn">Reprocessar automaticamente</button>
-                                </form>
-                            </aside>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
-            </section>
+                </section>
             <?php endif; ?>
 
-            <section class="saas-card reporting-history-card">
+            <section id="reporting-history" class="saas-card reporting-history-card">
                 <div class="saas-card-head">
                     <div>
                         <span class="saas-kicker">HISTÓRICO</span>
