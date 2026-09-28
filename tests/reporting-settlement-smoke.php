@@ -127,6 +127,33 @@ $teamTotal = TicketNormalizer::fromModel([
 assertTrue(($teamTotal['legs'][0]['market_key'] ?? '') === 'team_goals_total', 'detecta total de gols por equipe');
 assertTrue(($teamTotal['legs'][0]['target_team'] ?? '') === 'Barcelona', 'detecta equipe alvo');
 
+$abbreviatedTeam = TicketNormalizer::fromModel([
+    'kind'=>'simple',
+    'odd'=>'1.85',
+    'legs'=>[[
+        'sport'=>'Futebol',
+        'match'=>'Manchester City x Arsenal',
+        'market'=>'Gols',
+        'selection'=>'Man City mais de 1,5 gols',
+        'odd'=>'1.85',
+    ]],
+]);
+assertTrue(($abbreviatedTeam['legs'][0]['market_key'] ?? '') === 'team_goals_total', 'resolve abreviacao de equipe');
+assertTrue(($abbreviatedTeam['legs'][0]['target_team'] ?? '') === 'Manchester City', 'mapeia abreviacao para lado correto');
+
+$unknownTeam = TicketNormalizer::fromModel([
+    'kind'=>'simple',
+    'odd'=>'1.85',
+    'legs'=>[[
+        'sport'=>'Futebol',
+        'match'=>'Manchester City x Arsenal',
+        'market'=>'Gols',
+        'selection'=>'United mais de 1,5 gols',
+        'odd'=>'1.85',
+    ]],
+]);
+assertTrue(($unknownTeam['legs'][0]['market_key'] ?? '') === 'unsupported', 'equipe ambigua nao vira total da partida');
+
 settle(
     ['market_key'=>'unsupported','side'=>'','odds'=>1.50],
     [],
