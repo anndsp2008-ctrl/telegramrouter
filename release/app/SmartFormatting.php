@@ -2,6 +2,7 @@
 namespace App;
 require_once __DIR__.'/DoubleVipCardRenderer.php';
 require_once __DIR__.'/AdaptiveVipCardRenderer.php';
+require_once __DIR__.'/StakeOddsProvider.php';
 
 /**
  * Isolated, opt-in AI formatting. Existing forwarding is the only fallback.
@@ -483,6 +484,22 @@ final class SmartFormatting
                             }
 
                             if($analysisHolder!==null && trim((string)($adaptive['analysis']??''))!==''){
+                                if(($adaptive['kind']??'')==='simple' && count($adaptive['legs'])===1){
+                                    $leg=$adaptive['legs'][0];
+                                    $validated=StakeOddsProvider::applyToSingle([
+                                        'sport'=>(string)($leg['sport']??$adaptive['sport']??''),
+                                        'match'=>(string)($leg['match']??''),
+                                        'league'=>(string)($leg['league']??''),
+                                        'date'=>(string)($leg['date']??''),
+                                        'market'=>(string)($leg['market']??''),
+                                        'selection'=>(string)($leg['selection']??''),
+                                        'odd'=>(string)($adaptive['odd']??$leg['odd']??'')
+                                    ]);
+                                    if(trim((string)($validated['odd']??''))!==''){
+                                        $adaptive['odd']=(string)$validated['odd'];
+                                        $adaptive['legs'][0]['odd']=(string)$validated['odd'];
+                                    }
+                                }
                                 $caption=AdaptiveVipCardRenderer::caption($adaptive);
                                 $captionUnits=(int)(strlen(mb_convert_encoding($caption,'UTF-16LE','UTF-8'))/2);
                                 $renderStarted=microtime(true);
@@ -637,7 +654,7 @@ final class SmartFormatting
                     }
                     continue;
                 }
-                $candidate=$localized;
+                $candidate=StakeOddsProvider::applyToSingle($localized);
                 self::recordProviderAttempt(
                     $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
                 $bet=self::sentenceCaseBet($candidate);
