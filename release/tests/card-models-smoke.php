@@ -165,6 +165,23 @@ if(($italyIdentity['kind']??'')!=='flag'||(($italyIdentity['spec']['type']??'')!
     throw new RuntimeException('Italy national flag resolution failed');
 }
 
+$flagGeometryDraw=new ReflectionMethod(AdaptiveVipCardRenderer::class,'drawFlagSized');
+$flagGeometryDraw->setAccessible(true);
+$italyProbe=imagecreatetruecolor(80,80);
+if($italyProbe===false)throw new RuntimeException('Italy flag geometry canvas failed');
+$flagGeometryDraw->invoke(null,$italyProbe,40,40,$italyIdentity['spec'],44);
+// For a 44px identity the rectangular flag begins around x=18/y=26.
+// Its upper-left pixel must be green, proving there is no circular mask
+// and no white/gray synthetic border around the flag.
+$italyCorner=imagecolorsforindex($italyProbe,imagecolorat($italyProbe,19,27));
+unset($italyProbe);
+if(!is_array($italyCorner)
+   ||($italyCorner['green']??0)<70
+   ||($italyCorner['red']??255)>80
+   ||($italyCorner['blue']??255)>140){
+    throw new RuntimeException('National flag must be rectangular and borderless');
+}
+
 $turkeyFlagDraw=new ReflectionMethod(AdaptiveVipCardRenderer::class,'drawFlagSized');
 $turkeyFlagDraw->setAccessible(true);
 $turkeyProbe=imagecreatetruecolor(80,80);
@@ -320,6 +337,9 @@ if(!is_string($rendererSource)
                                 $im,
                                 $textX,')
    ||!str_contains($rendererSource,'private static function drawFlagSized')
+   ||!str_contains($rendererSource,'National identities use a real flag silhouette: rectangular, borderless')
+   ||!str_contains($rendererSource,'$flagW=$size')
+   ||!str_contains($rendererSource,'Team/club artwork is rendered as-is: transparent background')
    ||!str_contains($rendererSource,'private static function drawStar')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'private static function apiFootballTeamAssetPath')
@@ -339,8 +359,9 @@ if(!is_string($rendererSource)
     throw new RuntimeException('Global premium renderer hooks missing');
 }
 if(str_contains($rendererSource,'private static function drawClubCrest')
-   ||str_contains($rendererSource,'Premium shield fallback')){
-    throw new RuntimeException('Synthetic crest fallback must stay disabled');
+   ||str_contains($rendererSource,'Premium shield fallback')
+   ||str_contains($rendererSource,"imagefilledellipse(\$im,\$cx,\$cy,\$size+4,\$size+4")){
+    throw new RuntimeException('Synthetic/circular identity border must stay disabled');
 }
 if(str_contains($rendererSource,'flagcdn.com')
    ||str_contains($rendererSource,'searchteams.php?t=')){
