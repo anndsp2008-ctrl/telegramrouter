@@ -593,11 +593,12 @@
   font-size:9px;
   white-space:nowrap;
 }
-.reporting-table{min-width:1280px}
+.reporting-table{min-width:980px}
+.reporting-table th,.reporting-table td{padding-left:8px;padding-right:8px}
 .reporting-table td{vertical-align:middle}
 .reporting-table td:first-child{color:#73dccc}
-.reporting-history-games{min-width:230px;max-width:320px}
-.reporting-history-markets{min-width:250px;max-width:360px}
+.reporting-history-games{min-width:180px;max-width:260px}
+.reporting-history-markets{min-width:210px;max-width:300px}
 .reporting-history-leg{
   display:flex;align-items:flex-start;gap:7px;
   padding:5px 0;
