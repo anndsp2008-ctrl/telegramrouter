@@ -13,7 +13,7 @@ final class Repository
         Schema::migrate();
         $row = Database::pdo()->query('SELECT * FROM reporting_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? $row : [
-            'enabled'=>1,
+            'enabled'=>0,
             'scope'=>'all',
             'check_results'=>1,
             'daily_report'=>1,
