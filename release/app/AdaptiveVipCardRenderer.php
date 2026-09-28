@@ -492,15 +492,16 @@ final class AdaptiveVipCardRenderer
                     $cursor+=3;
                 }
 
+                // Keep the event metadata on the same visual axis as the matchup.
                 foreach($leagueLines as $line){
-                    self::text($im,224,$cursor,$line,20,$muted,$font);
+                    self::text($im,145,$cursor,$line,20,$muted,$font);
                     $cursor+=30;
                 }
 
                 if(!empty($leg['date'])){
-                    self::calendarIcon($im,178,$cursor+10,$muted);
+                    self::calendarIcon($im,145,$cursor+10,$muted);
                     // Rule: date only. Never append or infer a match time here.
-                    self::text($im,224,$cursor+22,(string)$leg['date'],20,$muted,$font);
+                    self::text($im,186,$cursor+22,(string)$leg['date'],20,$muted,$font);
                 }
             }elseif($section[0]==='selections'){
                 [, $top,$h,$selectionRows]=$section;
