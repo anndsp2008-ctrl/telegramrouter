@@ -143,7 +143,7 @@ final class PurePngVipCardRenderer
         $c->roundedRect(547,407,480,98,15,'#1b3230');
         $c->text(71,429,'ODD',2,'#a8bdcd');
         $c->text(565,429,'STAKE',2,'#a8bdcd');
-        $c->textFit(71,456,trim((string)($bet['odd']??''))?:'-',5,'#87efc9',14);
+        $c->textFit(71,456,SmartFormatting::normalizeOddDecimal(trim((string)($bet['odd']??'')))?:'-',5,'#87efc9',14);
         $c->textFit(565,456,trim((string)($bet['stake']??''))?:'-',5,'#87efc9',14);
 
         $c->roundedRect(53,$analysisY,974,$analysisHeight,17,'#1d2935');

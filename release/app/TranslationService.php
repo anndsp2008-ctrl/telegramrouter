@@ -79,7 +79,7 @@ final class TranslationService
     {
         $globalPrimary=Repository::translationPrimaryProvider();
         $globalFallback=Repository::translationFallbackProvider();
-        $primary=in_array($ruleProvider,['azure','gemini','google_cloud','workers_ai'],true)?$ruleProvider:$globalPrimary;
+        $primary=in_array($ruleProvider,['openai','gemini','google_cloud','workers_ai'],true)?$ruleProvider:$globalPrimary;
         $fallback=null;
         if($globalFallback!=='none') {
             if($globalFallback!==$primary) $fallback=$globalFallback;
@@ -106,7 +106,7 @@ final class TranslationService
     /** @param array<string,string> $overrides @return array{ok:bool,provider:string,latency_ms:int,http_code:?int,message:string,source_language:?string,target_language:string} */
     public static function testProvider(string $provider,array $overrides=[]): array
     {
-        if(!in_array($provider,['azure','gemini','google_cloud','workers_ai'],true)) throw new \InvalidArgumentException('Provedor de tradução inválido.');
+        if(!in_array($provider,['openai','gemini','google_cloud','workers_ai'],true)) throw new \InvalidArgumentException('Provedor de tradução inválido.');
         try {
             $attempt=self::attempt($provider,'Hello','auto','pt-BR',false,['context'=>'test','overrides'=>$overrides]);
             Repository::saveProviderTest($provider,true,(int)$attempt['latency_ms'],$attempt['http_code']??null,null);
@@ -132,7 +132,7 @@ final class TranslationService
     private static function attempt(string $provider,string $text,string $source,string $target,bool $fallback,array $context): array
     {
         return match($provider) {
-            'azure'=>self::azure($text,$source,$target,$fallback,$context),
+            'openai'=>self::openAI($text,$target,$fallback,$context),
             'gemini'=>self::gemini($text,$source,$target,$fallback,$context),
             'google_cloud'=>self::googleCloud($text,$target,$fallback,$context),
             'workers_ai'=>WorkersAITranslation::attempt($text,$target,$fallback,$context),
@@ -140,6 +140,30 @@ final class TranslationService
         };
     }
 
+    private static function openAI(string $text,string $target,bool $fallback,array $context): array
+    {
+        $overrides=(array)($context['overrides']??[]);
+        $key=trim((string)($overrides['openai_api_key']??OpenAIProvider::apiKey()));
+        $modelOverride=array_key_exists('openai_model',$overrides)
+            ?trim((string)$overrides['openai_model'])
+            :null;
+        if($key==='') throw self::failure('openai',0,null,$target,'OpenAI não configurada: informe a API Key no módulo Integrações.',$fallback);
+        if($modelOverride!==null && !OpenAIProvider::validModel($modelOverride)) throw self::failure('openai',0,null,$target,'Modelo OpenAI inválido.',$fallback);
+        if(!OpenAIProvider::enabled() && empty($overrides)) throw self::failure('openai',0,null,$target,'OpenAI está desativada no módulo Integrações.',$fallback);
+
+        $result=OpenAIProvider::translate($text,$target,$key,$modelOverride);
+        $latency=(int)($result['latency_ms']??0);
+        $http=isset($result['http_code'])?(int)$result['http_code']:null;
+        if(empty($result['ok'])){
+            $reason=(string)($result['reason']??'OPENAI_FAILED');
+            throw self::failure('openai',$latency,$http,$target,'OpenAI recusou ou não concluiu a solicitação: '.$reason,$fallback);
+        }
+        return [
+            'provider'=>'openai','success'=>true,'text'=>(string)($result['text']??''),
+            'latency_ms'=>$latency,'http_code'=>$http,'source_language'=>null,
+            'target_language'=>$target,'error_text'=>null,'fallback_used'=>$fallback
+        ];
+    }
     private static function azure(string $text,string $source,string $target,bool $fallback,array $context): array
     {
         $overrides=(array)($context['overrides']??[]);
@@ -330,7 +354,7 @@ final class TranslationService
 
     public static function providerLabel(string $provider): string
     {
-        return match($provider) {'azure'=>'Azure Translator','gemini'=>'Google Gemini','google_cloud'=>'Google Cloud Translation','workers_ai'=>'Cloudflare Workers AI',default=>$provider};
+        return match($provider) {'openai'=>'OpenAI GPT-5.6','gemini'=>'Google Gemini','google_cloud'=>'Google Cloud Translation','workers_ai'=>'Cloudflare Workers AI',default=>$provider};
     }
 
     public static function sanitizeError(string $message): string

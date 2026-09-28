@@ -45,7 +45,7 @@ $workersAIStats=Repository::translationProviderStats('workers_ai');
     <p class="field-help">O teste verifica o modelo de texto e o modelo Vision utilizado nos cards com imagens. Para usar o Llama 3.2 Vision, é necessário aceitar separadamente os termos da Meta na Cloudflare. <a href="https://developers.cloudflare.com/workers-ai/models/llama-3.2-11b-vision-instruct/" target="_blank" rel="noopener noreferrer">Ver instruções do modelo</a>.</p>
   </form>
   <div class="provider-test <?=$workersAITest?((int)$workersAITest['last_test_ok']?'ok':'bad'):'neutral'?>">
-    <b>Último teste</b><span><?=$workersAITest?((int)$workersAITest['last_test_ok']?'Conexão válida':'Falha'):'Ainda não testado'?></span>
+    <b>Último teste</b><span><?=$workersAITest?((int)$workersAITest['last_test_ok']?'Conexão válida':'Falha'.(!empty($workersAITest['last_test_error'])?' — '.sh((string)$workersAITest['last_test_error']):(!empty($workersAITest['last_test_http_code'])?' — HTTP '.(int)$workersAITest['last_test_http_code']:''))):'Ainda não testado'?></span>
     <small><?=$workersAITest?sh(dataHoraBrasil($workersAITest['last_test_at'])).' · '.(int)$workersAITest['last_test_latency_ms'].' ms':'—'?></small>
     <?php if($workersAITest&&!$workersAITest['last_test_ok']&&!empty($workersAITest['last_test_error'])):?>
     <em><?=sh($workersAITest['last_test_error'])?></em><?php endif;?>

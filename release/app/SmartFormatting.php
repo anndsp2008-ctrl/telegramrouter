@@ -1,5 +1,7 @@
 <?php declare(strict_types=1);
 namespace App;
+require_once __DIR__.'/DoubleVipCardRenderer.php';
+require_once __DIR__.'/AdaptiveVipCardRenderer.php';
 
 /**
  * Isolated, opt-in AI formatting. Existing forwarding is the only fallback.
@@ -23,6 +25,11 @@ final class SmartFormatting
     private static bool $multipleDetected=false;
     private static string $multipleDetails='';
     private static bool $multipleDetailsTranslated=false;
+    private static ?array $lastReportingTicket=null;
+    /** Telemetry only; never contains source message text or credentials. */
+    private static int $telemetryRuleId=0;
+    private static string $telemetrySourceChat='';
+    private static string $telemetryTargetLanguage='pt-BR';
     /** Hard wall-clock budget for ONE logical Workers AI generation attempt. */
     private const WORKERS_LOGICAL_BUDGET_SECONDS=75.0;
 
@@ -82,6 +89,37 @@ final class SmartFormatting
             'latency_ms'=>$latency,
             'reasons'=>$reasons
         ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+        // The integrations dashboard reads translation_attempts(context=message).
+        // Smart-card AI previously existed only in logs, so real OpenAI/Gemini/Workers
+        // usage was invisible in Traduções/Sucessos/Falhas/Latência/Último uso.
+        // Record only privacy-safe attempt metadata; telemetry can never block routing.
+        if(in_array($provider,['openai','gemini','workers_ai'],true)){
+            try {
+                $fallbackUsed=self::$providerOrder!==[] && $provider!==self::$providerOrder[0];
+                $errorText=$success?null:($reasons!==[]?implode('; ',$reasons):'SMART_PROVIDER_FAILED_'.strtoupper($provider));
+                Repository::recordTranslationAttempt([
+                    'source_chat'=>self::$telemetrySourceChat,
+                    'message_id'=>0,
+                    'rule_id'=>self::$telemetryRuleId>0?self::$telemetryRuleId:null,
+                    'provider'=>$provider,
+                    'success'=>$success,
+                    'fallback_used'=>$fallbackUsed,
+                    'http_code'=>null,
+                    'source_language'=>null,
+                    'target_language'=>self::$telemetryTargetLanguage,
+                    'latency_ms'=>$latency,
+                    'text_chars'=>0,
+                    'text_bytes'=>0,
+                    'error_text'=>$errorText,
+                    'context'=>'message',
+                ]);
+            } catch(\Throwable $telemetryError) {
+                error_log('TMR_SMART_FORMAT_TELEMETRY_FAILED '.json_encode([
+                    'provider'=>$provider,
+                    'exception'=>get_class($telemetryError)
+                ],JSON_UNESCAPED_SLASHES));
+            }
+        }
     }
 
     /** @return array{provider_order:list<string>,attempts:list<array{provider:string,attempt:int,success:bool,latency_ms:int,reasons:list<string>}>,reason:string,ai_ms:int,render_ms:int} */
@@ -161,7 +199,7 @@ final class SmartFormatting
     {
         if(trim($source)==='')return false;
         // Explicit slip headings, never a market such as "Dupla chance".
-        if(preg_match('~(?:^|\\R)\\s*(?:aposta\\s+)?(?:parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|multiple|dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',$source)===1)return true;
+        if(preg_match('~(?:^|\\R)\\s*(?:aposta\\s+)?(?:parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|multiple|dupla(?!\\s+chance)|doble(?!\\s+oportunidad)|double(?!\\s+chance))\\b~iu',$source)===1)return true;
         if(preg_match('~(?:^|\\R)\\s*(?:[2-9]|[1-9][0-9]+)\\s+(?:sele[cç][oõ]es|selections?|legs?|eventos?|events?)\\b~iu',$source)===1)return true;
         if(preg_match_all('~(?:^|\\R)\\s*(?:sele[cç][aã]o|selection|pick)\\s*[:\\-]~iu',$source)>=2)return true;
         // Bet Builder is not sufficient by itself: it may contain only one pick.
@@ -182,12 +220,12 @@ final class SmartFormatting
             $validCount=preg_match('/^[0-9]{1,3}$/D',$count)===1 && (int)$count>=2;
             $validKind=in_array($kind,[
                 'multiple','multi','bet_builder','bet builder','parlay','acca',
-                'dupla','double','múltipla','multipla','múltiple','combinada','acumulada'
+                'dupla','double','doble','múltipla','multipla','múltiple','combinada','acumulada'
             ],true);
             $visualCue=preg_match(
                 '~\\b(?:bet\\s*builder|criar\\s+aposta|crear\\s+apuesta|same[- ]game\\s+parlay|'.
                 'parlay|acca|acumulad[ao]|combinad[ao]|m[uú]ltipla|m[uú]ltiple|multiple|'.
-                'dupla(?!\\s+chance)|double(?!\\s+chance))\\b~iu',
+                'dupla(?!\\s+chance)|doble(?!\\s+oportunidad)|double(?!\\s+chance))\\b~iu',
                 $evidence
             )===1 || preg_match(
                 '~\\b(?:[2-9]|[1-9][0-9]+)\\s*(?:[- ]?sele[cç][oõ]es|selections?|legs?)\\b~iu',
@@ -321,22 +359,26 @@ final class SmartFormatting
         self::$multipleDetected=false;
         self::$multipleDetails='';
         self::$multipleDetailsTranslated=false;
+        self::$lastReportingTicket=null; // TMR_REPORTING_RESET_IN_PREPARE
+        self::$telemetryRuleId=(int)($rule['id']??0);
+        self::$telemetrySourceChat=(string)($rule['source_chat']??'');
+        self::$telemetryTargetLanguage=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $hasImage=$localImage!==null&&is_file($localImage);
-        if($mode==='card' && !$hasImage
-            && self::sourceIndicatesMultiple($sourceText)){
-            self::$multipleDetected=true;
-            self::$aiFinishedAt=microtime(true);
-            self::diag('MULTIPLE_TEXT_DIRECT_CONTINGENCY');
-            return null;
-        }
+        // CARD_MODELS_V1: text-only multiple tips continue through structured AI extraction.
+
         if(trim($sourceText)===''&&!$hasImage){self::diag('SOURCE_EMPTY');return null;}
         $target=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
         $translate=!empty($rule['translation_enabled']);
-        $inputLanguage=$translate?'Produza somente conteúdo no idioma '.$target.' em TODOS os campos de texto, inclusive a análise original traduzida. Não inclua versões no idioma original, não duplique a mensagem e mantenha nomes próprios, mercado, seleção, odds e números fiéis.':'Use o idioma da mensagem original. Não traduza.';
+        $sourceAnalysis=self::extractSourceAnalysis($sourceText);
+        $analysisPolicy=$sourceAnalysis!==''
+            ?'A mensagem original JÁ CONTÉM análise do autor. No campo analysis, preserve exclusivamente essa análise: apenas traduza fielmente quando solicitado, sem resumir, expandir, reinterpretar ou criar nova análise. '
+            :'A mensagem original NÃO CONTÉM análise do autor. Gere uma análise esportiva em tom de tipster profissional, como alguém que está avaliando e justificando a própria entrada, em 3 a 5 frases coesas, objetivas e analíticas. Fale DIRETAMENTE sobre a aposta: leitura do confronto, lógica do mercado, exigência da seleção, relação risco/retorno do preço e quais condições esportivas precisam acontecer para a entrada ser vencedora. NÃO faça comentários metalinguísticos sobre de onde vieram as informações. É proibido mencionar ou escrever expressões como "origem", "mensagem original", "comprovante", "bilhete", "ticket", "conteúdo recebido", "dados fornecidos", "a fonte informa", "o comprovante indica", "a origem não fornece" ou equivalentes. Quando houver poucos fatos objetivos, não reclame da falta de dados: faça uma leitura profissional somente da estrutura real da aposta e dos fatos explicitamente disponíveis, explicando o nível de exigência do mercado sem inventar contexto. Cada afirmação factual deve se apoiar SOMENTE em fatos explícitos presentes no TEXTO ORIGINAL ou no comprovante visual; inferências são permitidas apenas quando forem consequências diretas da própria seleção ou do mercado, nunca como fatos sobre desempenho passado. Não invente forma recente, sequência de resultados, lesões, suspensões, escalações, confrontos diretos/H2H, médias, gols, escanteios, cartões, xG, posse, finalizações, desempenho em casa ou fora, estilo tático, clima, motivação, árbitro, notícias, posições, pontos ou qualquer número não presente nos dados disponíveis. Não chame a aposta de "valor" nem afirme favoritismo com base apenas na odd; a odd pode ser analisada como preço da entrada, mas não como prova de desempenho. Evite certezas como "garantido", "seguro" ou equivalentes. Quando aparecer "Posição na classificação: 23 - 1", ambos os números indicam as posições do mandante e do visitante nessa ordem, e NÃO a pontuação de uma equipe. Toda frase factual deve ser rastreável aos dados disponíveis; se não puder, omita apenas essa afirmação. Não reduza a análise a uma simples repetição de mercado e odd. ';
+        $inputLanguage=$translate?'TODOS os campos textuais da resposta, inclusive sport, match, league, market, selection e analysis, DEVEM estar inteiramente no idioma '.$target.'. Traduza também os nomes dos mercados, as seleções e a análise do autor, sem reescrever ou resumir essa análise. Nunca copie frases em espanhol ou inglês na resposta em português. Preserve exatamente somente nomes próprios, odds, números e fatos do comprovante. Não inclua versões no idioma original, nem duplique a mensagem. ':'Use o idioma da mensagem original. Não traduza. ';
+        $inputLanguage.=$analysisPolicy;
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
             'bet_kind','selections_count','multiple_details',
             'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details',
-            'visual_market_evidence','visual_selection_evidence'];
+            'visual_market_evidence','visual_selection_evidence','double_legs','card_legs'];
         // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
         $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
@@ -360,6 +402,8 @@ final class SmartFormatting
                 $json=null;
                 if($provider==='workers_ai'){
                     $json=self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples);
+                } elseif($provider==='openai'){
+                    $json=self::requestOpenAI($sourceText,$localImage,$inputLanguage,$fields,$memoryExamples);
                 } elseif($provider==='gemini'){
                     // Mandatory card generation gets its two configured attempts
                     // even if a previous message activated the short Gemini
@@ -383,6 +427,132 @@ final class SmartFormatting
                         usleep(350000);
                     }
                     continue;
+                }
+                /** CARD_MODELS_V1_ADAPTIVE_RENDER */
+                if($mode==='card'){
+                    $adaptive=AdaptiveVipCardRenderer::extract($json,$sourceText,$hasImage);
+                    if($adaptive!==null){
+                        if(($adaptive['kind']??'simple')!=='simple')self::$multipleDetected=true;
+
+                        $localizedLegs=[];
+                        foreach($adaptive['legs'] as $leg){
+                            $localized=self::enforcePortugueseOutput([
+                                'sport'=>(string)($adaptive['sport']??''),
+                                'league'=>(string)($leg['league']??''),
+                                'market'=>(string)($leg['market']??''),
+                                'selection'=>(string)($leg['selection']??''),
+                                'analysis'=>''
+                            ],$rule,$translate);
+                            if($localized===null){$localizedLegs=[];break;}
+                            $leg['league']=(string)($localized['league']??$leg['league']);
+                            $leg['market']=(string)($localized['market']??$leg['market']);
+                            $leg['selection']=(string)($localized['selection']??$leg['selection']);
+                            if(($adaptive['sport']??'')==='' && ($localized['sport']??'')!==''){
+                                $adaptive['sport']=(string)$localized['sport'];
+                            }
+                            $localizedLegs[]=$leg;
+                        }
+
+                        if(count($localizedLegs)===count($adaptive['legs'])){
+                            $adaptive['legs']=$localizedLegs;
+                            $first=$adaptive['legs'][0];
+                            $analysisHolder=[
+                                'sport'=>(string)($adaptive['sport']??''),
+                                'league'=>(string)($first['league']??''),
+                                'market'=>(string)($first['market']??''),
+                                'selection'=>(string)($first['selection']??''),
+                                'analysis'=>trim((string)($json['analysis']??''))
+                            ];
+                            $analysisHolder=self::enforcePortugueseOutput($analysisHolder,$rule,$translate);
+                            if($analysisHolder!==null){
+                                $analysisHolder=self::preserveSourceAnalysisOutput(
+                                    $analysisHolder,$sourceAnalysis,$rule,$translate
+                                );
+                            }
+                            if($analysisHolder!==null && $sourceAnalysis==='' && trim((string)($analysisHolder['analysis']??''))!==''){
+                                $analysisHolder['analysis']=self::correctGeneratedAnalysis(
+                                    (string)$analysisHolder['analysis'],$sourceText
+                                );
+                            }
+                            if($analysisHolder!==null){
+                                $analysisHolder['analysis']=self::sanitizeAnalysis(
+                                    (string)($analysisHolder['analysis']??'')
+                                );
+                                $adaptive['analysis']=(string)$analysisHolder['analysis'];
+                                if(($adaptive['sport']??'')==='')$adaptive['sport']=(string)($analysisHolder['sport']??'');
+                            }
+
+                            if($analysisHolder!==null && trim((string)($adaptive['analysis']??''))!==''){
+                                $caption=AdaptiveVipCardRenderer::caption($adaptive);
+                                $captionUnits=(int)(strlen(mb_convert_encoding($caption,'UTF-16LE','UTF-8'))/2);
+                                $renderStarted=microtime(true);
+                                $image=$captionUnits<=4700?AdaptiveVipCardRenderer::render($adaptive):null;
+                                self::$renderMs=max(0,(int)round((microtime(true)-$renderStarted)*1000));
+                                if($image!==null){
+                                    self::$aiFinishedAt=microtime(true);
+                                    self::recordProviderAttempt(
+                                        $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt
+                                    );
+                                    self::diag('ADAPTIVE_CARD_READY_'.strtoupper((string)$adaptive['kind']));
+                                    self::$lastReportingTicket=$adaptive; // TMR_REPORTING_MODEL_ADAPTIVE
+                                    error_log('TMR_CARD_MODEL_READY '.json_encode([
+                                        'kind'=>(string)$adaptive['kind'],
+                                        'bookmaker_key'=>(string)($adaptive['bookmaker_key']??'unknown'),
+                                        'legs'=>count($adaptive['legs']),
+                                        'has_date'=>count(array_filter($adaptive['legs'],static fn(array $leg): bool=>trim((string)($leg['date']??''))!==''))
+                                    ],JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE));
+                                    return ['caption'=>$caption,'image'=>$image,'mode'=>'card'];
+                                }
+                                self::diag('ADAPTIVE_CARD_RENDER_FAILED');
+                            }else{
+                                self::diag('ADAPTIVE_CARD_ANALYSIS_MISSING');
+                            }
+                        }else{
+                            self::diag('ADAPTIVE_CARD_LOCALIZATION_FAILED');
+                        }
+                    }
+                }
+                if($mode==='card' && DoubleVipCardRenderer::isDouble($json,$hasImage)){
+                    self::$multipleDetected=true;
+                    $double=DoubleVipCardRenderer::extract($json,$hasImage);
+                    if($double!==null){
+                        $double['analysis']=$sourceAnalysis!==''?trim((string)($json['analysis']??'')):'';
+                        $double=self::preserveSourceAnalysisOutput($double,$sourceAnalysis,$rule,$translate);
+                        if($double!==null){
+                            foreach($double['legs'] as $index=>$leg){
+                                $localized=self::enforcePortugueseOutput($leg,$rule,$translate);
+                                if($localized===null){$double=null;break;}
+                                $double['legs'][$index]=$localized;
+                            }
+                        }
+                        if($double!==null && ($sourceAnalysis==='' || $double['analysis']!=='')){
+                            $caption=DoubleVipCardRenderer::caption($double);
+                            $renderStarted=microtime(true);
+                            $image=strlen(mb_convert_encoding($caption,'UTF-16LE','UTF-8'))/2<=4700?DoubleVipCardRenderer::render($double):null;
+                            self::$renderMs=max(0,(int)round((microtime(true)-$renderStarted)*1000));
+                            if($image!==null){
+                                self::$aiFinishedAt=microtime(true);
+                                self::recordProviderAttempt($provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
+                                self::diag('DOUBLE_CARD_READY');
+                                self::$lastReportingTicket=[
+                                    'kind'=>'double',
+                                    'bookmaker'=>'',
+                                    'odd'=>(string)($double['odd']??''),
+                                    'legs'=>array_map(static fn(array $leg): array=>[
+                                        'sport'=>(string)($double['sport']??''),
+                                        'match'=>(string)($leg['match']??''),
+                                        'league'=>'',
+                                        'date'=>'',
+                                        'market'=>(string)($leg['market']??''),
+                                        'selection'=>(string)($leg['selection']??''),
+                                        'odd'=>(string)($leg['odd']??'')
+                                    ],(array)($double['legs']??[]))
+                                ]; // TMR_REPORTING_MODEL_DOUBLE
+                                return ['caption'=>$caption,'image'=>$image,'mode'=>'card'];
+                            }
+                        }
+                    }
+                    self::diag('DOUBLE_CARD_OR_FIELDS_INCOMPLETE');
                 }
                 if($mode==='card' && self::isMultipleTicket($json,$sourceText,$hasImage)){
                     self::$multipleDetected=true;
@@ -437,8 +607,8 @@ final class SmartFormatting
                     }
                     continue;
                 }
-                if($candidate['analysis']==='' && self::sourceHasAnalysis($sourceText)){
-                    self::diag('ANALYSIS_ABSENT_'.$provider);
+                if($sourceAnalysis!=='' && $candidate['analysis']===''){
+                    self::diag('SOURCE_ANALYSIS_NOT_PRESERVED_'.$provider);
                     self::recordProviderAttempt(
                         $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
                     if($logicalAttempt<$maxLogicalAttempts){
@@ -447,9 +617,44 @@ final class SmartFormatting
                     }
                     continue;
                 }
+                $localized=self::enforcePortugueseOutput($candidate,$rule,$translate);
+                if($localized!==null){
+                    $localized=self::preserveSourceAnalysisOutput(
+                        $localized,$sourceAnalysis,$rule,$translate
+                    );
+                }
+                if($localized!==null && $sourceAnalysis==='' && $localized['analysis']!==''){
+                    $localized['analysis']=self::correctGeneratedAnalysis(
+                        $localized['analysis'],$sourceText
+                    );
+                }
+                if($localized===null){
+                    self::recordProviderAttempt(
+                        $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
+                    if($logicalAttempt<$maxLogicalAttempts){
+                        self::diag('SMART_PROVIDER_RETRY_'.$provider);
+                        usleep(350000);
+                    }
+                    continue;
+                }
+                $candidate=$localized;
                 self::recordProviderAttempt(
                     $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
                 $bet=self::sentenceCaseBet($candidate);
+                self::$lastReportingTicket=[
+                    'kind'=>'simple',
+                    'bookmaker'=>(string)($candidate['bookmaker']??''),
+                    'odd'=>(string)($candidate['odd']??''),
+                    'legs'=>[[
+                        'sport'=>(string)($candidate['sport']??''),
+                        'match'=>(string)($candidate['match']??''),
+                        'league'=>(string)($candidate['league']??''),
+                        'date'=>(string)($candidate['day']??''),
+                        'market'=>(string)($candidate['market']??''),
+                        'selection'=>(string)($candidate['selection']??''),
+                        'odd'=>(string)($candidate['odd']??'')
+                    ]]
+                ]; // TMR_REPORTING_MODEL_LEGACY_SIMPLE
                 error_log('TMR_SMART_FORMAT_PROVIDER '.json_encode([
                     'provider'=>$provider,
                     'attempt'=>$logicalAttempt,
@@ -580,6 +785,151 @@ final class SmartFormatting
     }
 
     /**
+     * Card translation is requested from the model but must also be checked
+     * before publication. This deliberately detects only clear foreign-language
+     * cues: proper names and language-neutral betting words remain unchanged.
+     */
+    public static function hasForeignPortugueseCues(string $text): bool
+    {
+        if(trim($text)==='')return false;
+        return preg_match(
+            '~\\b(?:el\\s+(?:partido|encuentro|equipo)|los\\s+(?:equipos|partidos)|'.
+            'las\\s+(?:equipos|apuestas)|pueden?|plantear|apuestas?|apuesta|'.
+            'encuentro|saque\\s+de\\s+esquina|equipos|'.
+            'the\\s+(?:match|game|team|teams)|both\\s+teams|'.
+            'corners?|goals?|under|over|handicap\\s+asi[aá]tico|'.
+            'match\\s+winner|double\\s+chance)\\b~iu',
+            $text
+        )===1;
+    }
+
+    /**
+     * One field at a time: translation services may alter delimiters in a
+     * concatenated payload, which could swap a market, selection or analysis.
+     * An unverifiable translation rejects this AI attempt, not the bet fields.
+     */
+    /**
+     * Fix only unsupported league-point claims in AI-generated analysis.
+     * A standings pair describes the two teams' ranks, not their points.
+     * Never use this on the author's original analysis or on bet selections.
+     * When points are explicitly provided, leave them for the normal provider
+     * workflow instead of guessing which source value belongs to which team.
+     */
+    public static function correctGeneratedAnalysis(string $analysis,string $sourceText): string
+    {
+        if(trim($analysis)==='' || preg_match(
+            '~\b(?:posi[cç][aã]o|posici[oó]n|position|classifica[cç][aã]o|coloca[cç][aã]o)[^\r\n:]{0,48}[:：]\s*\d{1,2}\s*[-–—]\s*\d{1,2}\b~iu',
+            $sourceText
+        )!==1)return $analysis;
+
+        // A points statistic must be separately identified in the source:
+        // the second number in "23 - 1" is always another position.
+        if(preg_match(
+            '~(?:\b(?:pontos?|pontua[cç][aã]o|points?|pts)\b\s*[:=]\s*\d{1,3}|\b\d{1,3}\s+pontos?\b)~iu',
+            $sourceText
+        )===1)return $analysis;
+
+        $revised=preg_replace(
+            '~\b(?:posi[cç][aã]o|coloca[cç][aã]o|classifica[cç][aã]o|tabela|ranking)\b[^.!?\r\n]{0,150}?\K\s*,?\s+\b(?:com|somando|acumulando|totalizando)\s+(?:apenas\s+|somente\s+|s[oó]\s+)?\d{1,3}\s+pontos?\b~iu',
+            '',
+            $analysis
+        );
+        if(!is_string($revised))return $analysis;
+        if($revised!==$analysis)self::diag('GENERATED_ANALYSIS_UNSUPPORTED_STANDINGS_POINTS_REMOVED');
+        return $revised;
+    }
+
+    /**
+     * Source analysis has priority over generated commentary.
+     * If the model failed to translate it, translate the preserved source prose
+     * directly using the rule's configured provider/fallback.
+     */
+    private static function preserveSourceAnalysisOutput(
+        array $bet,
+        string $sourceAnalysis,
+        array $rule,
+        bool $translate
+    ): ?array {
+        if($sourceAnalysis==='')return $bet;
+        $analysis=trim((string)($bet['analysis']??''));
+
+        if(!$translate){
+            $bet['analysis']=self::sanitizeAnalysis($sourceAnalysis);
+            return $bet;
+        }
+
+        // Accept the model result only when it is clearly localized already.
+        if($analysis!=='' && !self::hasForeignPortugueseCues($analysis)){
+            $bet['analysis']=self::sanitizeAnalysis($analysis);
+            return $bet;
+        }
+
+        try {
+            $result=Transform::translateDetailed($sourceAnalysis,$rule,[
+                'rule_id'=>(int)($rule['id']??0),
+                'context'=>'smart_card_source_analysis_final'
+            ]);
+            $translated=trim((string)($result['text']??''));
+        } catch(\Throwable $error){
+            self::diag('SOURCE_ANALYSIS_TRANSLATION_ERROR');
+            return null;
+        }
+
+        if($translated==='' || self::hasForeignPortugueseCues($translated)){
+            self::diag('SOURCE_ANALYSIS_TRANSLATION_INCOMPLETE');
+            return null;
+        }
+        $bet['analysis']=self::sanitizeAnalysis($translated);
+        return $bet;
+    }
+
+    private static function enforcePortugueseOutput(array $bet,array $rule,bool $translate): ?array
+    {
+        if(!$translate)return $bet;
+        $target=mb_strtolower(trim((string)($rule['translation_target_language']??'pt-BR')),'UTF-8');
+        if(!in_array($target,['pt','pt-br','pt_br','portuguese','português'],true))return $bet;
+
+        foreach(['sport','league','market','selection','analysis'] as $field){
+            $original=trim((string)($bet[$field]??''));
+            if($original==='' || !self::hasForeignPortugueseCues($original))continue;
+
+            // A bare market category needs no generative translation.
+            if($field==='market' && preg_match('/^corners?$/iu',$original)===1){
+                $bet[$field]='Escanteios';
+                continue;
+            }
+            if($field==='market' && preg_match('/^goals?$/iu',$original)===1){
+                $bet[$field]='Gols';
+                continue;
+            }
+
+            try {
+                $result=Transform::translateDetailed($original,$rule,[
+                    'rule_id'=>(int)($rule['id']??0),
+                    'context'=>'smart_card_portuguese_'.$field
+                ]);
+                $value=trim((string)($result['text']??''));
+            } catch(\Throwable $error){
+                self::diag('PORTUGUESE_TRANSLATION_ERROR_'.strtoupper($field));
+                return null;
+            }
+            if($value==='' || self::hasForeignPortugueseCues($value)){
+                self::diag('PORTUGUESE_TRANSLATION_INCOMPLETE_'.strtoupper($field));
+                return null;
+            }
+            $bet[$field]=$value;
+        }
+
+        // Decimal separators in translated market selections follow pt-BR.
+        foreach(['market','selection'] as $field){
+            $value=(string)($bet[$field]??'');
+            $localized=preg_replace('/(?<=\\d)\\.(?=\\d)/u',',',$value);
+            if(is_string($localized))$bet[$field]=$localized;
+        }
+        return $bet;
+    }
+
+    /**
      * Visual card prose never contains emoji, regardless of per-rule message
      * settings. Applies only to analysis/details drawn inside PNG cards.
      */
@@ -612,6 +962,15 @@ final class SmartFormatting
             $text
         );
         return is_string($normalized)?$normalized:$text;
+    }
+
+    /** Decimal odds are always published with a dot, independent of pt-BR locale. */
+    public static function normalizeOddDecimal(string $odd): string
+    {
+        $odd=trim($odd);
+        if($odd==='')return '';
+        if(!preg_match('/^\d{1,5}(?:[.,]\d{1,3})?$/D',$odd))return $odd;
+        return str_replace(',','.',$odd);
     }
 
     /** Money/stake cues are checked only inside analysis, not in the bet fields. */
@@ -808,6 +1167,97 @@ final class SmartFormatting
         $analytical=preg_match('/\b(?:porque|devido|tend[eê]ncia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia)\b/iu',$joined)===1;
         return $words>=20 && ($sentences>=2 || $analytical);
     }
+
+    /**
+     * Extract only author analysis/prose already present in the source message.
+     * This is used to preserve source analysis independently from AI extraction
+     * and from receipt-only contingency cards.
+     */
+    public static function extractSourceAnalysis(string $text): string
+    {
+        $plain=trim(preg_replace('/https?:\/\/\S+/iu',' ',strip_tags($text))??$text);
+        if($plain==='')return '';
+
+        $lines=preg_split('/\R+/u',$plain)?:[$plain];
+        $fieldLine='~^(?:odd|odds|mercado|market|sele[cç][aã]o|selection|pick|stake|aposta|bet|retorno|return|bookmaker|casa\s+de\s+apostas|liga|league|hor[aá]rio|time|jogo|match|partida|evento|event|esporte|sport)\s*[:\-]~iu';
+        $analysisHeading='~^(?:an[aá]lise|analysis|an[aá]lisis|coment[aá]rio|commentary|justificativa|motivo|raz[aã]o|reason|explica[cç][aã]o|explicaci[oó]n)\s*[:\-]?\s*(.*)$~iu';
+
+        $capturing=false;
+        $explicit=[];
+        foreach($lines as $line){
+            $line=trim($line);
+            if($line==='')continue;
+            if(preg_match($analysisHeading,$line,$m)===1){
+                $capturing=true;
+                $tail=trim((string)($m[1]??''));
+                if($tail!=='')$explicit[]=$tail;
+                continue;
+            }
+            if($capturing){
+                if(preg_match($fieldLine,$line)===1)break;
+                $explicit[]=$line;
+            }
+        }
+        if($explicit!==[]){
+            return trim(self::sanitizeAnalysis(implode("\n",$explicit)));
+        }
+
+        if(!self::sourceHasAnalysis($plain))return '';
+
+        $prose=[];
+        foreach($lines as $line){
+            $line=trim($line);
+            if($line===''||preg_match($fieldLine,$line)===1)continue;
+            if(preg_match('/^(?:\p{So}|\p{Sk}|\p{S}|\d|[\-–—:;,.])+$/u',$line))continue;
+            $analytical=preg_match(
+                '/\b(?:porque|devido|tend[eê]ncia|forma|momento|favorit|desempenho|ataque|defesa|estat[ií]stic|confronto|espera|acredita|últim|ultim|sequ[eê]ncia|racha|promedio|media|average|recent|forma|rendimiento|defensa|ataque)\b/iu',
+                $line
+            )===1;
+            if(mb_strlen($line,'UTF-8')>=70 || $analytical)$prose[]=$line;
+        }
+        return trim(self::sanitizeAnalysis(implode("\n",$prose)));
+    }
+    /**
+     * OpenAI card extraction uses the selected GPT-5.6 model and, when enabled,
+     * the configured OpenAI model fallback. The provider remains OpenAI for both
+     * attempts; provider-level fallback is still handled by TranslationService.
+     * @param list<string> $fields
+     */
+    private static function requestOpenAI(string $text,?string $image,string $language,array $fields,string $memoryExamples=''): ?array
+    {
+        if(!OpenAIProvider::enabled()){
+            self::diag('OPENAI_DISABLED');
+            return null;
+        }
+        $hasImage=$image!==null&&is_file($image)&&filesize($image)>0;
+        $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
+            "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
+            "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().AdaptiveVipCardRenderer::extractionInstruction().
+            "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete. Uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
+            "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade como string numérica. ".
+            "Se for multiple, preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção. Não resuma duas ou mais condições em uma única seleção. ".
+            "Para multiple_details transcreva com fidelidade o comprovante visual e traduza as descrições para o idioma solicitado. Preserve nomes próprios, números e odds. Nunca invente pernas, odds ou resultados. ".
+            "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
+            "MERCADO é o tipo/categoria da aposta. SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado. Nunca troque os dois campos. ".
+            "Quando houver imagem, copie em visual_market_evidence exatamente o rótulo de mercado visto no comprovante e em visual_selection_evidence exatamente a seleção vista no comprovante, sem traduzir esses dois campos de evidência. ".
+            "No campo analysis, siga obrigatoriamente a política global de análise informada acima. Preserve análise existente; quando precisar gerar uma nova análise, fale diretamente como tipster sobre a aposta e nunca mencione origem, comprovante, bilhete, mensagem ou falta de dados. Não inclua stake, unidades, valor apostado, banca, retorno financeiro ou lucro na análise. ".
+            "Para status AO VIVO, live_evidence deve conter evidência explícita de que a partida está em andamento. Não deduza ao vivo por horário, data, estado do bilhete ou fuso horário. ".
+            "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
+            "Traduza integralmente sport, league, market, selection e analysis quando solicitado. Não deixe Corners, Under, Over, El partido ou frases no idioma original quando o destino for português. ".
+            $language." ".($memoryExamples!==''?$memoryExamples:'')." TEXTO ORIGINAL:\n".$text;
+
+        $result=OpenAIProvider::structured($prompt,$image);
+        if(empty($result['ok']) || !isset($result['data']) || !is_array($result['data'])){
+            $reason=strtoupper((string)($result['reason']??'OPENAI_FAILED'));
+            $reason=preg_replace('/[^A-Z0-9_]/','_',$reason);
+            self::diag(is_string($reason)&&$reason!==''?$reason:'OPENAI_FAILED');
+            return null;
+        }
+        if(!empty($result['fallback_used']))self::diag('OPENAI_MODEL_FALLBACK_USED');
+        return $result['data'];
+    }
+
     /**
      * Workers AI may use a text model for text-only tips; when a receipt image
      * is attached a separate Cloudflare vision model must inspect its contents.
@@ -836,7 +1286,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            self::multipleScopeInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().AdaptiveVipCardRenderer::extractionInstruction().
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
@@ -848,12 +1298,12 @@ final class SmartFormatting
             "Os campos finais market e selection, porém, DEVEM obedecer ao idioma solicitado. Se o idioma alvo for pt-BR, traduza os rótulos do comprovante para português brasileiro mantendo nomes próprios, números e odds. ".
             "SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). ".
             "Nunca troque Mercado e Seleção. Se o comprovante trouxer rótulos próprios, respeite a relação mostrada; se houver dúvida real, deixe o campo duvidoso vazio em vez de adivinhar. ".
-            "No campo analysis, preserve apenas a análise esportiva; omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores do bilhete na análise. ".
+            "No campo analysis, siga obrigatoriamente a política global de análise informada acima. Preserve análise existente; quando gerar nova análise, fale diretamente como tipster sobre a aposta e nunca mencione origem, comprovante, bilhete, mensagem ou falta de dados. Omita frases sobre stake, unidades, valor apostado, dinheiro, banca, retorno financeiro ou lucro. Não repita valores financeiros na análise. ".
             "Para status AO VIVO, o campo live_evidence deve copiar uma evidência textual/visual explícita de que A PARTIDA está em andamento (ex.: LIVE, IN-PLAY, AO VIVO, EN VIVO, MATCH IN PROGRESS). ".
             "É PROIBIDO usar horário, data, relógio, hora de emissão do bilhete, horário da mensagem do Telegram, fuso horário ou comparação com a hora atual para decidir AO VIVO. ".
             "Também não use status do bilhete como aberto/en curso/pendente como prova de partida ao vivo. Sem evidência explícita de jogo em andamento, status e live_evidence devem ficar vazios ou indicar pré-jogo sem AO VIVO. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
-            "Traduza todos os campos de texto e a análise quando solicitado; jamais repita o original separadamente. ".
+            "Traduza integralmente sport, league, market, selection e analysis quando solicitado. Não deixe Corners, Under, Over, El partido ou quaisquer frases de análise no idioma original quando o idioma alvo for português. Preserve nomes próprios, números e odds. Jamais repita o original separadamente. ".
             $language." ".($memoryExamples!==''?$memoryExamples:'')." TEXTO ORIGINAL:\n".$text;
         $photo=null;
         if($hasImage){
@@ -959,7 +1409,7 @@ final class SmartFormatting
         $prompt="Você interpreta dicas de apostas, SEM CRIAR OU ALTERAR DADOS. ".
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
-            self::multipleScopeInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().AdaptiveVipCardRenderer::extractionInstruction().
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
@@ -979,11 +1429,11 @@ final class SmartFormatting
             "Se identificar moeda, preserve seu símbolo original no valor apostado e retorno. ".
             "Não transforme horário em outro fuso nem complete data ausente. ".
             "Odd é cotação, não probabilidade: não invente porcentagens de acerto nem prometa resultado vencedor. ".
-            "O campo analysis deve conter exclusivamente a análise esportiva relevante do autor, ".
-            "sem resumir fatos esportivos, sem publicidade, links ou dados inventados. ".
+            "O campo analysis deve seguir obrigatoriamente a política de análise informada acima. ".
+            "Se houver análise na origem, preserve o conteúdo do autor e apenas traduza fielmente quando solicitado, sem resumir ou acrescentar argumentos. ".
+            "Se não houver análise do autor, somente então gere a análise profissional conforme a política global acima, sem mencionar origem, comprovante, bilhete, mensagem ou falta de dados. ".
             "Não reproduza stake original, unidades, quantia apostada, banca, retorno financeiro, lucro ou valores monetários no campo analysis. ".
-            "Omitir analysis é permitido SOMENTE quando não há análise de fato. ".
-            "Não mencione o nome do roteador no JSON. ".$language." ".
+            "No idioma alvo português, traduza também mercado, seleção e TODA a análise; não mantenha Corners, Under, Over, El partido ou frases do idioma original. Preserve apenas nomes próprios, odds e números. Não mencione o nome do roteador no JSON. ".$language." ".
             ($memoryExamples!==''?$memoryExamples:'').
             "TEXTO ORIGINAL:\n".$text;
         $parts=[['text'=>$prompt]];
@@ -1092,12 +1542,23 @@ final class SmartFormatting
         if($explicitLive)$bet['status']='AO VIVO';
         return $bet;
     }
+
+    public static function resetReportingTicket(): void
+    {
+        self::$lastReportingTicket=null;
+    }
+
+    public static function lastReportingTicket(): ?array
+    {
+        return self::$lastReportingTicket;
+    }
     public static function asText(array $bet,bool $translated): string
     {
         $bet=self::sentenceCaseBet($bet);
         // Every AI-formatted mode shows exactly one Stake 10 field, regardless
         // of the value returned by either provider.
         $bet['stake']=self::FIXED_STAKE;
+        if(isset($bet['odd']))$bet['odd']=self::normalizeOddDecimal((string)$bet['odd']);
         $label=static fn(string $pt,string $en): string=>$translated?$pt:$en;
         $lines=['⚽ '.($bet['match']??'')];
         if(!empty($bet['league']))$lines[]='🏆 '.$bet['league'];
