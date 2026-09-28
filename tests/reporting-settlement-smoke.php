@@ -2,6 +2,7 @@
 
 require __DIR__ . '/../app/Reporting/TicketNormalizer.php';
 require __DIR__ . '/../app/Reporting/SettlementEngine.php';
+require __DIR__ . '/../app/Reporting/FixtureMatcher.php';
 
 use App\Reporting\SettlementEngine;
 use App\Reporting\TicketNormalizer;
@@ -42,6 +43,24 @@ assertTrue(($ticket['legs'][0]['side'] ?? '') === 'over', 'detecta over');
 assertTrue(abs((float)($ticket['legs'][0]['line'] ?? 0) - 8.5) < 0.0001, 'detecta linha 8.5');
 assertTrue(($ticket['legs'][0]['event_date'] ?? '') === '2026-09-27', 'normaliza data');
 assertTrue(abs((float)($ticket['total_odds'] ?? 0) - 1.60) < 0.0001, 'preserva odd');
+
+$unicodeDashTicket = TicketNormalizer::fromModel([
+    'kind'=>'simple',
+    'odd'=>'1.50',
+    'legs'=>[[
+        'sport'=>'Futebol',
+        'match'=>'Turquia – Itália',
+        'market'=>'Resultado da partida',
+        'selection'=>'Turquia',
+        'odd'=>'1.50',
+    ]],
+]);
+assertTrue(($unicodeDashTicket['legs'][0]['market_key'] ?? '') === 'match_result', 'normaliza resultado com travessao unicode');
+assertTrue(($unicodeDashTicket['legs'][0]['side'] ?? '') === 'home', 'identifica mandante com travessao unicode');
+
+$matchSides = new ReflectionMethod(\App\Reporting\FixtureMatcher::class, 'matchSides');
+$fixtureSides = $matchSides->invoke(null, 'Turquia – Itália');
+assertTrue(($fixtureSides[0] ?? '') === 'Turquia' && ($fixtureSides[1] ?? '') === 'Itália', 'fixture matcher aceita travessao unicode');
 
 settle(
     ['market_key'=>'corners_total','side'=>'over','line_value'=>8.5,'odds'=>1.60],
