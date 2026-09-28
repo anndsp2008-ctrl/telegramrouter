@@ -1067,6 +1067,40 @@ final class Repository
         return $tickets;
     }
 
+    public static function pendingQueueSummary(): array
+    {
+        Schema::migrate();
+        $row = Database::pdo()->query(
+            "SELECT
+                SUM(status='PENDING') AS pending_total,
+                SUM(status='PENDING' AND fixture_id IS NULL) AS pending_without_fixture,
+                SUM(status='PENDING' AND fixture_id IS NOT NULL) AS pending_with_fixture,
+                SUM(status='PENDING' AND fixture_id IS NULL AND (next_check_at IS NULL OR next_check_at<=UTC_TIMESTAMP())) AS due_without_fixture,
+                SUM(status='PENDING' AND fixture_id IS NOT NULL AND (next_check_at IS NULL OR next_check_at<=UTC_TIMESTAMP())) AS due_with_fixture,
+                MIN(CASE WHEN status='PENDING' AND fixture_id IS NULL THEN next_check_at END) AS next_unmatched_check_at,
+                MIN(CASE WHEN status='PENDING' AND fixture_id IS NOT NULL THEN next_check_at END) AS next_fixture_check_at,
+                MIN(CASE WHEN status='PENDING' THEN kickoff_at END) AS oldest_pending_kickoff_at,
+                MAX(CASE WHEN status='PENDING' THEN kickoff_at END) AS latest_pending_kickoff_at
+             FROM reporting_legs"
+        )->fetch(PDO::FETCH_ASSOC);
+
+        if (!is_array($row)) {
+            return [];
+        }
+
+        foreach ([
+            'pending_total',
+            'pending_without_fixture',
+            'pending_with_fixture',
+            'due_without_fixture',
+            'due_with_fixture',
+        ] as $key) {
+            $row[$key] = (int)($row[$key] ?? 0);
+        }
+
+        return $row;
+    }
+
     public static function setState(string $key, ?string $value): void
     {
         Schema::setState($key, $value);
