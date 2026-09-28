@@ -92,11 +92,14 @@ final class ResultWorker
         $homeStats = is_array($statistics[$homeId] ?? null) ? $statistics[$homeId] : [];
         $awayStats = is_array($statistics[$awayId] ?? null) ? $statistics[$awayId] : [];
 
+        $fulltimeHome = self::number($fixture['score']['fulltime']['home'] ?? null);
+        $fulltimeAway = self::number($fixture['score']['fulltime']['away'] ?? null);
+
         return [
             'home_team'=>(string)($fixture['teams']['home']['name'] ?? ''),
             'away_team'=>(string)($fixture['teams']['away']['name'] ?? ''),
-            'goals_home'=>self::number($fixture['goals']['home'] ?? null),
-            'goals_away'=>self::number($fixture['goals']['away'] ?? null),
+            'goals_home'=>$fulltimeHome ?? self::number($fixture['goals']['home'] ?? null),
+            'goals_away'=>$fulltimeAway ?? self::number($fixture['goals']['away'] ?? null),
             'corners_home'=>self::number($homeStats['corners'] ?? null),
             'corners_away'=>self::number($awayStats['corners'] ?? null),
             'fouls_home'=>self::number($homeStats['fouls'] ?? null),
