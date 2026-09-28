@@ -52,6 +52,13 @@ settle(
 
 settle(
     ['market_key'=>'corners_total','side'=>'over','line_value'=>8.5,'odds'=>1.60],
+    ['fixture_status'=>'AET','corners_home'=>5,'corners_away'=>5],
+    SettlementEngine::REVIEW,
+    'escanteios com prorrogacao vao para revisao'
+);
+
+settle(
+    ['market_key'=>'corners_total','side'=>'over','line_value'=>8.5,'odds'=>1.60],
     ['corners_home'=>4,'corners_away'=>4],
     SettlementEngine::RED,
     'over 8.5 com 8 escanteios'
