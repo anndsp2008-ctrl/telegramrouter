@@ -243,6 +243,21 @@ final class Repository
         ]);
     }
 
+    public static function deferPendingFixtureChecksToPostMatchWindow(): void
+    {
+        Database::pdo()->exec(
+            'UPDATE reporting_legs
+             SET next_check_at=DATE_ADD(kickoff_at, INTERVAL 125 MINUTE)
+             WHERE status="PENDING"
+               AND fixture_id IS NOT NULL
+               AND kickoff_at IS NOT NULL
+               AND (
+                    next_check_at IS NULL
+                    OR next_check_at<DATE_ADD(kickoff_at, INTERVAL 125 MINUTE)
+               )'
+        );
+    }
+
     public static function dueFixtureIds(int $limit = 20): array
     {
         Schema::migrate();
