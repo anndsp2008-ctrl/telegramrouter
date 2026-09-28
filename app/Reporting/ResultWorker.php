@@ -7,6 +7,12 @@ final class ResultWorker
     public static function runOnce(): void
     {
         $settings = Repository::settings();
+        error_log('TMR_REPORTING_RUN_STATE ' . json_encode([
+            'enabled' => !empty($settings['enabled']),
+            'check_results' => !empty($settings['check_results']),
+            'queue' => Repository::pendingQueueSummary(),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
         if (empty($settings['enabled']) || empty($settings['check_results'])) {
             Repository::setState('worker_status', 'disabled');
             Repository::setState('worker_last_run_at', gmdate('Y-m-d H:i:s'));
@@ -17,6 +23,7 @@ final class ResultWorker
             ? \App\SportsApiIntegration::apiFootballKey()
             : trim((string)(getenv('API_FOOTBALL_KEY') ?: ''));
         if ($apiKey === '') {
+            error_log('TMR_REPORTING_API_KEY_MISSING');
             Repository::setState('worker_status', 'api_key_missing');
             Repository::setState('worker_last_run_at', gmdate('Y-m-d H:i:s'));
             return;
@@ -33,7 +40,9 @@ final class ResultWorker
         Repository::restorePrematureLookupReviews();
         Repository::restoreUnicodeDashLookupFailures();
 
-        foreach (Repository::unmatchedLegs() as $leg) {
+        $unmatchedLegs = Repository::unmatchedLegs();
+        error_log('TMR_REPORTING_UNMATCHED_DUE ' . count($unmatchedLegs));
+        foreach ($unmatchedLegs as $leg) {
             try {
                 if (!self::isFootball((string)($leg['sport'] ?? ''))) {
                     Repository::settleLeg((int)$leg['id'], [
@@ -88,7 +97,9 @@ final class ResultWorker
             }
         }
 
-        foreach (Repository::dueFixtureIds() as $fixtureId) {
+        $dueFixtureIds = Repository::dueFixtureIds();
+        error_log('TMR_REPORTING_FIXTURES_DUE ' . count($dueFixtureIds));
+        foreach ($dueFixtureIds as $fixtureId) {
             try {
                 $fixture = $api->fixture($fixtureId);
                 if ($fixture === []) {
@@ -135,6 +146,7 @@ final class ResultWorker
 
         Repository::setState('worker_status', 'ok');
         Repository::setState('worker_last_run_at', gmdate('Y-m-d H:i:s'));
+        error_log('TMR_REPORTING_RUN_DONE');
     }
 
     private static function buildStats(array $fixture, array $statistics): array
