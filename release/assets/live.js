@@ -7,7 +7,8 @@
     const reportsDirty = document.querySelector('#reporting-settings-form[data-dirty="1"]');
     return !!reportsDirty || !!(active && main()?.contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName));
   };
-  const replaceMain = (html) => {
+  const replaceMain = (html, force = false) => {
+    if (!force && document.querySelector('#reporting-settings-form[data-dirty="1"]')) return;
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const incoming = doc.querySelector('.saas-content');
     const current = main();
@@ -34,7 +35,7 @@
     if (button) { button.disabled = true; button.dataset.textoOriginal = button.textContent; button.textContent = 'Salvando…'; }
     try {
       const response = await fetch(form.getAttribute("action") || window.location.href, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { 'X-Atualizacao-Assincrona': '1' } });
-      replaceMain(await response.text());
+      replaceMain(await response.text(), true);
     } catch (_) {
       if (button) { button.disabled = false; button.textContent = button.dataset.textoOriginal || 'Tentar novamente'; }
     }
