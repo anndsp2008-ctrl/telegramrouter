@@ -176,7 +176,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=2">
+<link rel="stylesheet" href="/assets/reporting.css?v=3">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -546,6 +546,8 @@ function rdate(mixed $value): string
                                     <th>ID</th>
                                     <th>Destino</th>
                                     <th>Tipo</th>
+                                    <th>Jogo</th>
+                                    <th>Mercado</th>
                                     <th>Odd</th>
                                     <th>Status</th>
                                     <th>Resultado</th>
@@ -556,10 +558,36 @@ function rdate(mixed $value): string
                             <?php foreach ($tickets as $ticket): ?>
                                 <?php [$statusLabel,$statusClass]=rstatus((string)$ticket['status']); ?>
                                 <?php $ticketProfit=(float)$ticket['profit_units']; ?>
+                                <?php $historyLegs=is_array($ticket['legs']??null)?$ticket['legs']:[]; ?>
+                                <?php $multiLeg=count($historyLegs)>1; ?>
                                 <tr>
                                     <td>#<?=rh($ticket['id'])?></td>
                                     <td><?=rh($ticket['destination_chat'])?></td>
                                     <td><span class="reporting-kind"><?=rh(strtoupper((string)$ticket['bet_kind']))?></span></td>
+                                    <td class="reporting-history-games">
+                                        <?php if($historyLegs===[]): ?>
+                                            <span class="reporting-history-empty-value">—</span>
+                                        <?php else: ?>
+                                            <?php foreach($historyLegs as $leg): ?>
+                                                <div class="reporting-history-leg">
+                                                    <?php if($multiLeg): ?><span class="reporting-history-leg-no"><?=rh($leg['position_no'])?></span><?php endif; ?>
+                                                    <b><?=rh($leg['match_name'])?></b>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="reporting-history-markets">
+                                        <?php if($historyLegs===[]): ?>
+                                            <span class="reporting-history-empty-value">—</span>
+                                        <?php else: ?>
+                                            <?php foreach($historyLegs as $leg): ?>
+                                                <div class="reporting-history-leg reporting-history-market">
+                                                    <?php if($multiLeg): ?><span class="reporting-history-leg-no"><?=rh($leg['position_no'])?></span><?php endif; ?>
+                                                    <span><b><?=rh($leg['market_text'])?></b><small><?=rh($leg['selection_text'])?></small></span>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?=rh($ticket['total_odds'] ?? '—')?></td>
                                     <td><span class="reporting-status-badge <?=$statusClass?>"><?=$statusLabel?></span></td>
                                     <td class="<?=$ticketProfit<0?'reporting-negative':'reporting-positive'?>"><?=($ticketProfit>0?'+':'')?><?=rh(number_format($ticketProfit,2,',','.'))?> un.</td>
