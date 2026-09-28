@@ -100,6 +100,27 @@ settle(
 );
 
 settle(
+    ['market_key'=>'cards_total','side'=>'over','line_value'=>4.5,'odds'=>1.80],
+    ['yellow_cards_home'=>2,'yellow_cards_away'=>3,'red_cards_home'=>0,'red_cards_away'=>0],
+    SettlementEngine::REVIEW,
+    'cartoes genericos dependem da regra da casa'
+);
+
+$teamTotal = TicketNormalizer::fromModel([
+    'kind'=>'simple',
+    'odd'=>'1.90',
+    'legs'=>[[
+        'sport'=>'Futebol',
+        'match'=>'Barcelona x Sevilla',
+        'market'=>'Gols',
+        'selection'=>'Barcelona mais de 1,5 gols',
+        'odd'=>'1.90',
+    ]],
+]);
+assertTrue(($teamTotal['legs'][0]['market_key'] ?? '') === 'team_goals_total', 'detecta total de gols por equipe');
+assertTrue(($teamTotal['legs'][0]['target_team'] ?? '') === 'Barcelona', 'detecta equipe alvo');
+
+settle(
     ['market_key'=>'unsupported','side'=>'','odds'=>1.50],
     [],
     SettlementEngine::REVIEW,
