@@ -103,4 +103,109 @@ if($wrongDirection!=='1.85'){
     throw new RuntimeException('Stake validator did not preserve Over/Under direction.');
 }
 
+
+
+$ticketValidator=new ReflectionMethod(StakeOddsProvider::class,'applyToTicket');
+$ticketValidator->setAccessible(true);
+
+$doubleTicket=[
+    'kind'=>'double',
+    'sport'=>'Futebol',
+    'odd'=>'1.82',
+    'legs'=>[
+        [
+            'sport'=>'Futebol','match'=>'Palmeiras x Flamengo','league'=>'Brasileirão','date'=>'',
+            'market'=>'Total de escanteios','selection'=>'Mais de 8,5 escanteios','odd'=>'1.80',
+        ],
+        [
+            'sport'=>'Futebol','match'=>'Corinthians x Santos','league'=>'Brasileirão','date'=>'',
+            'market'=>'Dupla chance','selection'=>'Corinthians ou empate','odd'=>'1.40',
+        ],
+    ],
+];
+
+$legCalls=0;
+$validatedDouble=$ticketValidator->invoke(
+    null,
+    $doubleTicket,
+    static function(array $leg) use (&$legCalls): array {
+        $legCalls++;
+        if($legCalls===1){
+            $leg['odd']='1.95';
+            return ['bet'=>$leg,'status'=>'validated','changed'=>true,'error'=>''];
+        }
+        return ['bet'=>$leg,'status'=>'market_or_line_not_found','changed'=>false,'error'=>''];
+    }
+);
+
+if($legCalls!==2){
+    throw new RuntimeException('Every double leg must be checked by Stake.');
+}
+if(($validatedDouble['legs'][0]['odd']??'')!=='1.95'){
+    throw new RuntimeException('Validated Stake odd was not applied to the matching leg.');
+}
+if(($validatedDouble['legs'][1]['odd']??'')!=='1.40'){
+    throw new RuntimeException('Missing Stake market/line must preserve the source leg odd.');
+}
+if(($validatedDouble['odd']??'')!=='2.73'){
+    throw new RuntimeException('Double total odd must be recalculated from final leg odds.');
+}
+
+$multipleTicket=[
+    'kind'=>'multiple',
+    'sport'=>'Futebol',
+    'odd'=>'9.99',
+    'legs'=>[
+        ['match'=>'A x B','market'=>'Mercado 1','selection'=>'Seleção 1','odd'=>'1.50'],
+        ['match'=>'C x D','market'=>'Mercado 2','selection'=>'Seleção 2','odd'=>'1.60'],
+        ['match'=>'E x F','market'=>'Mercado 3','selection'=>'Seleção 3','odd'=>'1.70'],
+    ],
+];
+$multipleCalls=0;
+$validatedMultiple=$ticketValidator->invoke(
+    null,
+    $multipleTicket,
+    static function(array $leg) use (&$multipleCalls): array {
+        $multipleCalls++;
+        return ['bet'=>$leg,'status'=>'fixture_not_found','changed'=>false,'error'=>''];
+    }
+);
+if($multipleCalls!==3){
+    throw new RuntimeException('Every multiple leg must be checked by Stake.');
+}
+if(($validatedMultiple['odd']??'')!=='4.08'){
+    throw new RuntimeException('Multiple total must use final source fallback odds when Stake has no fixture.');
+}
+
+$builderTicket=[
+    'kind'=>'bet_builder',
+    'sport'=>'Futebol',
+    'odd'=>'2.05',
+    'legs'=>[
+        ['match'=>'Palmeiras x Flamengo','market'=>'Total de gols','selection'=>'Mais de 1,5','odd'=>''],
+        ['match'=>'Palmeiras x Flamengo','market'=>'Total de escanteios','selection'=>'Mais de 7,5','odd'=>''],
+    ],
+];
+$builderCalls=0;
+$validatedBuilder=$ticketValidator->invoke(
+    null,
+    $builderTicket,
+    static function(array $leg) use (&$builderCalls): array {
+        $builderCalls++;
+        $leg['odd']='1.80';
+        return ['bet'=>$leg,'status'=>'validated','changed'=>false,'error'=>''];
+    }
+);
+if($builderCalls!==2){
+    throw new RuntimeException('Every Bet Builder selection must be checked by Stake.');
+}
+if(($validatedBuilder['odd']??'')!=='2.05'){
+    throw new RuntimeException('Bet Builder combined source odd must not be replaced by multiplied correlated legs.');
+}
+foreach($validatedBuilder['legs'] as $leg){
+    if(($leg['odd']??'')!==''){
+        throw new RuntimeException('Bet Builder must keep per-selection odds hidden after Stake check.');
+    }
+}
+
 echo "STAKE_ODDS_PROVIDER_TESTS_PASSED\n";
