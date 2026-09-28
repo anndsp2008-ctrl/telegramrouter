@@ -476,6 +476,23 @@ final class Repository
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public static function cumulativeProfit(string $date, string $timezone, ?string $destinationChat = null): float
+    {
+        [, $end] = self::utcWindow($date, $timezone);
+        $sql = '
+            SELECT COALESCE(SUM(profit_units),0)
+            FROM reporting_tickets
+            WHERE placed_at<?';
+        $params = [$end];
+        if ($destinationChat !== null) {
+            $sql .= ' AND destination_chat=?';
+            $params[] = $destinationChat;
+        }
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        return (float)$stmt->fetchColumn();
+    }
+
     public static function enqueueDailyReport(string $date, string $destinationChat, string $payload): bool
     {
         Schema::migrate();
