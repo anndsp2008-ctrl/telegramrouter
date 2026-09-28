@@ -23,6 +23,10 @@ final class ResultWorker
         $api = new ApiFootballClient($apiKey);
         $matcher = new FixtureMatcher($api);
 
+        // Garante que tickets já existentes também aguardem a janela pós-jogo,
+        // sem consumir a API antes do horário esperado de término.
+        Repository::deferPendingFixtureChecksToPostMatchWindow();
+
         foreach (Repository::unmatchedLegs() as $leg) {
             try {
                 if (!self::isFootball((string)($leg['sport'] ?? ''))) {
