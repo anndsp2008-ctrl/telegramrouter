@@ -15,6 +15,27 @@ final class ApiFootballClient
         return is_array($payload['response'] ?? null) ? $payload['response'] : [];
     }
 
+    public function teamsSearch(string $search): array
+    {
+        $search = trim($search);
+        if ($search === '') {
+            return [];
+        }
+        $payload = $this->get('/teams?search=' . rawurlencode($search));
+        return is_array($payload['response'] ?? null) ? $payload['response'] : [];
+    }
+
+    public function fixturesByTeamDate(int $teamId, string $date): array
+    {
+        if ($teamId <= 0) {
+            throw new \InvalidArgumentException('teamId inválido.');
+        }
+        $payload = $this->get(
+            '/fixtures?team=' . $teamId . '&date=' . rawurlencode($date)
+        );
+        return is_array($payload['response'] ?? null) ? $payload['response'] : [];
+    }
+
     public function fixture(int $fixtureId): array
     {
         if ($fixtureId <= 0) {
