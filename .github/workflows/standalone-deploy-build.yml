@@ -101,7 +101,8 @@ jobs:
           php tests/stake-odds-provider-smoke.php
           test -s app/StakeOddsProvider.php
           grep -Fq 'StakeOddsProvider::applyToSingle' app/SmartFormatting.php
-          grep -Fq 'StakeOddsProvider::applyToSingle' app/AdaptiveVipCardRenderer.php
+          grep -Fq 'StakeOddsProvider::applyToTicket' app/SmartFormatting.php
+          grep -Fq 'TMR_STAKE_TICKET' app/StakeOddsProvider.php
           php tests/reporting-settlement-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php
