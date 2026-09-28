@@ -855,6 +855,66 @@ final class Repository
         }
     }
 
+    public static function findTeamAlias(string $alias): ?array
+    {
+        Schema::migrate();
+        $key = self::teamAliasKey($alias);
+        if ($key === '') {
+            return null;
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'SELECT alias_text,team_id,api_name,country,confidence
+             FROM reporting_team_aliases
+             WHERE alias_key=?
+             LIMIT 1'
+        );
+        $stmt->execute([$key]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    }
+
+    public static function saveTeamAlias(
+        string $alias,
+        int $teamId,
+        string $apiName,
+        string $country = '',
+        float $confidence = 1.0
+    ): void {
+        Schema::migrate();
+        $key = self::teamAliasKey($alias);
+        if ($key === '' || $teamId <= 0 || trim($apiName) === '') {
+            return;
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'INSERT INTO reporting_team_aliases(alias_key,alias_text,team_id,api_name,country,confidence)
+             VALUES(?,?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE
+               alias_text=VALUES(alias_text),
+               team_id=VALUES(team_id),
+               api_name=VALUES(api_name),
+               country=VALUES(country),
+               confidence=GREATEST(confidence,VALUES(confidence))'
+        );
+        $stmt->execute([
+            $key,
+            mb_substr(trim($alias), 0, 190),
+            $teamId,
+            mb_substr(trim($apiName), 0, 190),
+            mb_substr(trim($country), 0, 120),
+            max(0.0, min(1.0, $confidence)),
+        ]);
+    }
+
+    private static function teamAliasKey(string $value): string
+    {
+        $value = mb_strtolower(trim($value), 'UTF-8');
+        $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        $value = is_string($ascii) ? strtolower($ascii) : $value;
+        return mb_substr(preg_replace('/[^a-z0-9]+/', '', $value) ?? '', 0, 190);
+    }
+
     public static function recentTickets(int $limit = 50): array
     {
         Schema::migrate();
