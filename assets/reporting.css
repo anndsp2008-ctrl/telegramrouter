@@ -23,9 +23,7 @@
   border:1px solid #ffffff0d;
   border-radius:10px;
   background:#0b111b;
-  scrollbar-width:none;
 }
-.reporting-subnav::-webkit-scrollbar{display:none}
 .reporting-subnav a{
   display:inline-flex;
   align-items:center;
