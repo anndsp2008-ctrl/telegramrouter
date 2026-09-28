@@ -9,15 +9,16 @@ if (PHP_SAPI === 'cli' && getenv('TMR_NAV_TEST_ONLY') !== '1') {
 }
 
 $script = basename((string)($_SERVER['SCRIPT_FILENAME'] ?? ''));
-if (!in_array($script, ['index.php', 'reset.php'], true)) {
+if (!in_array($script, ['index.php', 'reports.php', 'reset.php'], true)) {
     return;
 }
 
 $resetIcon = '<svg class="tmr-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
 
 ob_start(static function (string $html) use ($script, $resetIcon): string {
-    if ($script === 'index.php') {
-        $html = str_replace(
+    if (in_array($script, ['index.php', 'reports.php'], true)) {
+        if ($script === 'index.php') {
+            $html = str_replace(
             [
                 'protected_media_reupload',
                 'direct_forward',
@@ -67,6 +68,7 @@ ob_start(static function (string $html) use ($script, $resetIcon): string {
             },
             $html
         ) ?? $html;
+        }
 
         // The approved mobile "Mais" menu also links to /reset.php. Check
         // only the desktop sidebar: a whole-document search suppresses its
