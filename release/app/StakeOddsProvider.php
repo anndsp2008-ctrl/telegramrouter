@@ -190,7 +190,8 @@ final class StakeOddsProvider
             $reverse=(self::similarity($wantedA,$actualB)+self::similarity($wantedB,$actualA))/2;
             $score=max($direct,$reverse);
 
-            $actualLeague=trim((string)($fixture['tournament']??''));
+            $tournamentValue=$fixture['tournament']??'';
+            $actualLeague=is_string($tournamentValue)?trim($tournamentValue):'';
             if($league!=='' && $actualLeague!==''){
                 $score=($score*0.94)+(self::similarity($league,$actualLeague)*0.06);
             }
