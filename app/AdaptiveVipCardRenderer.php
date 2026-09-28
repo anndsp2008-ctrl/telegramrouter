@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 namespace App;
 require_once __DIR__.'/StakeOddsProvider.php';
+require_once __DIR__.'/SportsApiIntegration.php';
 
 final class AdaptiveVipCardRenderer
 {
@@ -927,7 +928,17 @@ final class AdaptiveVipCardRenderer
         $cacheKey=sha1(mb_strtolower($participant.'|'.$league.'|'.$sport,'UTF-8'));
         if(array_key_exists($cacheKey,$memory))return $memory[$cacheKey];
 
-        // National selections: TheSportsDB is the primary source.
+        // Football identities: API-Football is the primary source. Its /teams
+        // endpoint provides stable team IDs and PNG logo URLs. Any lookup failure,
+        // quota issue or ambiguous match falls through without blocking the card.
+        if($sport==='football'){
+            $apiFootballPath=self::apiFootballTeamAssetPath($participant,$league);
+            if($apiFootballPath!==null){
+                return $memory[$cacheKey]=['kind'=>'image','path'=>$apiFootballPath];
+            }
+        }
+
+        // National selections: TheSportsDB flag artwork remains the first fallback.
         // If its artwork endpoint is temporarily unavailable, keep the flag
         // visible with the built-in real-flag renderer instead of hiding both sides.
         $country=self::theSportsDbCountryName($participant);
@@ -947,7 +958,7 @@ final class AdaptiveVipCardRenderer
             return null;
         }
 
-        // Clubs/teams: TheSportsDB team badge/logo artwork from free v1 list endpoints.
+        // Clubs/teams and non-football sports: TheSportsDB remains the fallback.
         $badgePath=self::officialTeamBadgePath($participant,$league,$sport);
         if($badgePath!==null){
             return $memory[$cacheKey]=['kind'=>'image','path'=>$badgePath];
@@ -1134,6 +1145,189 @@ final class AdaptiveVipCardRenderer
         $value=preg_replace('~\b(?:fc|cf|ac|sc|club|clube|the|de|da|do|dos|das)\b~u',' ',$value)??$value;
         $value=preg_replace('~[^\p{L}\p{N}]+~u',' ',$value)??$value;
         return trim(preg_replace('~\s+~u',' ',$value)??$value);
+    }
+
+    private static function apiFootballTeamAssetPath(string $team,string $league=''): ?string
+    {
+        static $memory=[];
+
+        $team=trim($team);
+        if($team===''||mb_strlen($team,'UTF-8')<2)return null;
+
+        $cacheKey=sha1(mb_strtolower($team.'|'.$league,'UTF-8'));
+        if(array_key_exists($cacheKey,$memory))return $memory[$cacheKey];
+
+        try{
+            $apiKey=SportsApiIntegration::apiFootballKey();
+        }catch(\Throwable){
+            $apiKey=trim((string)(getenv('API_FOOTBALL_KEY')?:''));
+        }
+        if($apiKey===''){
+            $memory[$cacheKey]=null;
+            return null;
+        }
+
+        $country=self::theSportsDbCountryName($team);
+        $search=$country!==null?$country:self::teamSearchAlias($team,$league);
+        $search=trim($search);
+        if(mb_strlen($search,'UTF-8')<3){
+            $memory[$cacheKey]=null;
+            return null;
+        }
+
+        $url='https://v3.football.api-sports.io/teams?search='.rawurlencode($search);
+        $json=self::apiFootballCachedJson($url,$apiKey,30*86400);
+        if($json===null){
+            $memory[$cacheKey]=null;
+            return null;
+        }
+
+        $decoded=json_decode($json,true,32);
+        if(!is_array($decoded)||!empty($decoded['errors'])||!is_array($decoded['response']??null)){
+            $memory[$cacheKey]=null;
+            return null;
+        }
+
+        $logo=self::selectApiFootballTeamLogo($decoded,$team,$league);
+        if($logo===null){
+            error_log('TMR_API_FOOTBALL_IDENTITY_NOT_FOUND '.self::safeLogName($team));
+            $memory[$cacheKey]=null;
+            return null;
+        }
+
+        $asset=self::fetchImageAsset($logo,'api-football-team-'.$cacheKey,30*86400);
+        if($asset===null){
+            error_log('TMR_API_FOOTBALL_LOGO_FETCH_FAILED '.self::safeLogName($team));
+            $memory[$cacheKey]=null;
+            return null;
+        }
+
+        error_log('TMR_API_FOOTBALL_IDENTITY_RESOLVED '.self::safeLogName($team));
+        return $memory[$cacheKey]=$asset;
+    }
+
+    /** @return string|null */
+    private static function selectApiFootballTeamLogo(array $payload,string $team,string $league=''): ?string
+    {
+        $rows=is_array($payload['response']??null)?$payload['response']:[];
+        if($rows===[])return null;
+
+        $countryName=self::theSportsDbCountryName($team);
+        $searchName=$countryName!==null?$countryName:self::teamSearchAlias($team,$league);
+        $wanted=self::teamCompareKey($searchName);
+        if($wanted==='')return null;
+
+        $leagueCountry=self::leagueCountryHint($league);
+        $leagueCountryName=$leagueCountry!==null
+            ?self::sportsDbCountryEnglish($leagueCountry)
+            :'';
+
+        $bestLogo=null;
+        $bestScore=-1000;
+        $secondScore=-1000;
+
+        foreach($rows as $row){
+            if(!is_array($row)||!is_array($row['team']??null))continue;
+            $candidate=$row['team'];
+
+            $name=trim((string)($candidate['name']??''));
+            $logo=trim((string)($candidate['logo']??''));
+            if($name===''||$logo===''||!self::allowedAssetUrl($logo))continue;
+
+            $candidateKey=self::teamCompareKey($name);
+            if($candidateKey==='')continue;
+
+            $score=-1000;
+            if($candidateKey===$wanted){
+                $score=140;
+            }elseif(str_contains($candidateKey,$wanted)||str_contains($wanted,$candidateKey)){
+                $score=70;
+            }else{
+                continue;
+            }
+
+            $isNational=(bool)($candidate['national']??false);
+            $candidateCountry=trim((string)($candidate['country']??''));
+
+            if($countryName!==null){
+                $score+=$isNational?45:-80;
+                if($candidateCountry!==''&&self::teamCompareKey($candidateCountry)===self::teamCompareKey($countryName)){
+                    $score+=25;
+                }
+            }else{
+                $score+=$isNational?-25:15;
+                if($leagueCountryName!==''&&$candidateCountry!==''
+                    &&self::teamCompareKey($candidateCountry)===self::teamCompareKey($leagueCountryName)){
+                    $score+=25;
+                }
+            }
+
+            if($score>$bestScore){
+                $secondScore=$bestScore;
+                $bestScore=$score;
+                $bestLogo=$logo;
+            }elseif($score>$secondScore){
+                $secondScore=$score;
+            }
+        }
+
+        // Require a strong match and reject near-ties. It is safer to fall back
+        // to TheSportsDB/name-only than to display the wrong crest.
+        if(!is_string($bestLogo)||$bestLogo===''||$bestScore<100)return null;
+        if($secondScore>=($bestScore-10))return null;
+
+        return $bestLogo;
+    }
+
+    private static function apiFootballCachedJson(string $url,string $apiKey,int $ttl): ?string
+    {
+        if(!str_starts_with($url,'https://v3.football.api-sports.io/teams?'))return null;
+        if($apiKey==='')return null;
+
+        try{
+            $dir=self::assetCacheDir().'/api-football-json';
+            if(!is_dir($dir))@mkdir($dir,0700,true);
+            if(!is_dir($dir)||!is_writable($dir))return null;
+
+            $path=$dir.'/'.sha1($url).'.json';
+            if(is_file($path)&&filesize($path)>20&&(time()-filemtime($path))<$ttl){
+                $cached=@file_get_contents($path);
+                if(is_string($cached)&&$cached!=='')return $cached;
+            }
+
+            if(!function_exists('curl_init'))return null;
+
+            $ch=curl_init($url);
+            if($ch===false)return null;
+
+            curl_setopt_array($ch,[
+                CURLOPT_RETURNTRANSFER=>true,
+                CURLOPT_FOLLOWLOCATION=>false,
+                CURLOPT_CONNECTTIMEOUT=>3,
+                CURLOPT_TIMEOUT=>5,
+                CURLOPT_USERAGENT=>'TelegramRouter/1.0',
+                CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,
+                CURLOPT_HTTPHEADER=>[
+                    'Accept: application/json',
+                    'x-apisports-key: '.$apiKey
+                ]
+            ]);
+
+            $body=curl_exec($ch);
+            $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);
+            unset($ch);
+
+            if(!is_string($body)||$status<200||$status>=300||strlen($body)>1000000)return null;
+
+            $decoded=json_decode($body,true,32);
+            if(!is_array($decoded)||!empty($decoded['errors'])||!is_array($decoded['response']??null))return null;
+
+            @file_put_contents($path,$body,LOCK_EX);
+            @chmod($path,0600);
+            return $body;
+        }catch(\Throwable){
+            return null;
+        }
     }
 
     private static function sportsDbLeagueName(string $league): ?string
@@ -1339,7 +1533,9 @@ final class AdaptiveVipCardRenderer
         $host=strtolower((string)($parts['host']??''));
         return $host==='www.thesportsdb.com'
             ||$host==='thesportsdb.com'
-            ||str_ends_with($host,'.thesportsdb.com');
+            ||str_ends_with($host,'.thesportsdb.com')
+            ||$host==='media.api-sports.io'
+            ||preg_match('~^media-[0-9]+\\.api-sports\\.io$~',$host)===1;
     }
 
     private static function httpGet(string $url,int $timeout,int $maxBytes): ?string
