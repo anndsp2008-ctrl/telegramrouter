@@ -152,7 +152,9 @@ final class Repository
 
             foreach ((array)($ticket['legs'] ?? []) as $leg) {
                 $marketKey = (string)($leg['market_key'] ?? 'unsupported');
-                $status = $marketKey === 'unsupported' ? SettlementEngine::REVIEW : SettlementEngine::PENDING;
+                // Toda aposta nasce pendente. Mercados ainda não reconhecidos só entram
+                // em revisão após o fluxo de identificação/validação, nunca na captura.
+                $status = SettlementEngine::PENDING;
                 $legInsert->execute([
                     $ticketId,
                     (int)($leg['position'] ?? 0),
@@ -192,7 +194,6 @@ final class Repository
             JOIN reporting_tickets t ON t.id=l.ticket_id
             WHERE l.status='PENDING'
               AND l.fixture_id IS NULL
-              AND l.market_key<>'unsupported'
               AND (l.next_check_at IS NULL OR l.next_check_at<=UTC_TIMESTAMP())
             ORDER BY l.id
             LIMIT {$limit}
@@ -226,6 +227,45 @@ final class Repository
         $read = Database::pdo()->prepare('SELECT lookup_attempts FROM reporting_legs WHERE id=?');
         $read->execute([$legId]);
         return (int)$read->fetchColumn();
+    }
+
+    public static function restoreImmediateUnsupportedReviews(): int
+    {
+        Schema::migrate();
+        $pdo = Database::pdo();
+        $rows = $pdo->query(
+            'SELECT id,ticket_id
+             FROM reporting_legs
+             WHERE status="REVIEW"
+               AND fixture_id IS NULL
+               AND market_key="unsupported"
+               AND (settlement_details IS NULL OR settlement_details="null")'
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if ($rows === []) {
+            return 0;
+        }
+
+        $ids = array_map(static fn(array $row): int => (int)$row['id'], $rows);
+        $ticketIds = array_values(array_unique(array_map(static fn(array $row): int => (int)$row['ticket_id'], $rows)));
+
+        $pdo->exec(
+            'UPDATE reporting_legs
+             SET status="PENDING",
+                 settled_at=NULL,
+                 next_check_at=UTC_TIMESTAMP(),
+                 lookup_attempts=0,
+                 lookup_last_reason="legacy_immediate_review"
+             WHERE id IN (' . implode(',', $ids) . ')'
+        );
+
+        foreach ($ticketIds as $ticketId) {
+            if ($ticketId > 0) {
+                self::recomputeTicket($ticketId);
+            }
+        }
+
+        return count($ids);
     }
 
     public static function restorePrematureLookupReviews(): int
