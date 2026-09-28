@@ -172,11 +172,18 @@ final class StakeOddsProvider
         $candidates=[];
         foreach($rows as $fixture){
             if(!is_array($fixture))continue;
+            $actualA='';$actualB='';
             $competitors=$fixture['competitors']??[];
-            if(!is_array($competitors) || count($competitors)<2)continue;
-
-            $actualA=self::competitorName($competitors[0]);
-            $actualB=self::competitorName($competitors[1]);
+            if(is_array($competitors) && count($competitors)>=2){
+                $actualA=self::competitorName($competitors[0]);
+                $actualB=self::competitorName($competitors[1]);
+            }
+            if($actualA===''||$actualB===''){
+                $fixtureSides=self::matchSides((string)($fixture['name']??''));
+                if($fixtureSides!==null){
+                    [$actualA,$actualB]=$fixtureSides;
+                }
+            }
             if($actualA===''||$actualB==='')continue;
 
             $direct=(self::similarity($wantedA,$actualA)+self::similarity($wantedB,$actualB))/2;
@@ -189,7 +196,7 @@ final class StakeOddsProvider
             }
 
             $wantedDate=self::dateKey($date);
-            $actualDate=self::dateKey((string)($fixture['startTime']??$fixture['date']??''));
+            $actualDate=self::dateKey((string)($fixture['date']??$fixture['startTime']??''));
             if($wantedDate!==null && $actualDate!==null){
                 $score+=($wantedDate===$actualDate)?0.035:-0.08;
             }
