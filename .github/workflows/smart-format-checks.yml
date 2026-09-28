@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'app/SmartFormatting.php'
+      - 'app/AdaptiveVipCardRenderer.php'
       - 'app/StakeOddsProvider.php'
       - 'tests/stake-odds-provider-smoke.php'
       - 'app/CardLayoutEmojis.php'
@@ -81,6 +82,7 @@ jobs:
           php -l tests/ai-learning-menu-order.php
           php tests/ai-learning-menu-order.php index.php
           php -l app/SmartFormatting.php
+          php -l app/AdaptiveVipCardRenderer.php
           php -l app/StakeOddsProvider.php
           php -l tests/stake-odds-provider-smoke.php
           php tests/stake-odds-provider-smoke.php
