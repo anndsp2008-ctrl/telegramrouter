@@ -425,7 +425,7 @@ function aiUrl(string $status,string $q,int $page=1): string {
   <?php endif;?>
 </section>
 <p class="ai-footer-note">A memória contextual utiliza exemplos revisados com texto semelhante. O envio de um print por si só não executa treinamento dos parâmetros da IA nem faz leitura automática nesta versão.</p>
-</main>
+
 </main>
 </div>
 </div>
