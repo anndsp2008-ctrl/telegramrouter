@@ -576,61 +576,109 @@ function rdate(mixed $value): string
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded',()=>{
-    const radios=[...document.querySelectorAll('input[name="scope"]')];
-    const box=document.getElementById('reporting-rules-box');
-    const count=document.getElementById('reporting-selected-count');
-    const ruleChecks=box?[...box.querySelectorAll('input[name="rules[]"]')]:[];
+(()=>{
+    const getBox=()=>document.getElementById('reporting-rules-box');
+    const getCount=()=>document.getElementById('reporting-selected-count');
+    const getRuleChecks=()=>{
+        const box=getBox();
+        return box ? [...box.querySelectorAll('input[name="rules[]"]')] : [];
+    };
+    const isAllScope=()=>document.querySelector('input[name="scope"]:checked')?.value==='all';
 
     const updateCount=()=>{
-        if(!count)return;
+        const count=getCount();
+        if(!count) return;
+        const ruleChecks=getRuleChecks();
         const total=ruleChecks.filter(input=>input.checked).length;
         count.textContent=total+' selecionada'+(total===1?'':'s');
     };
 
     const selectAllRules=()=>{
-        ruleChecks.forEach(input=>{ input.checked=true; });
+        getRuleChecks().forEach(input=>{
+            input.checked=true;
+            input.setAttribute('checked','checked');
+        });
         updateCount();
     };
 
-    const isAllScope=()=>document.querySelector('input[name="scope"]:checked')?.value==='all';
+    const syncReportingScope=()=>{
+        const box=getBox();
+        if(!box) return;
 
-    const sync=()=>{
-        const selected=!isAllScope();
-        if(isAllScope())selectAllRules();
-        if(box){
-            box.classList.toggle('is-disabled',!selected);
-            box.setAttribute('aria-disabled',selected?'false':'true');
+        const all=isAllScope();
+        if(all) selectAllRules();
+
+        box.classList.toggle('is-disabled',all);
+        box.setAttribute('aria-disabled',all?'true':'false');
+
+        getRuleChecks().forEach(input=>{
+            input.disabled=all;
+        });
+
+        updateCount();
+    };
+
+    document.addEventListener('change',(event)=>{
+        const target=event.target;
+
+        if(target instanceof HTMLInputElement && target.name==='scope'){
+            if(target.value==='all' && target.checked){
+                selectAllRules();
+            }
+            syncReportingScope();
+            return;
         }
-        updateCount();
-    };
 
-    radios.forEach(radio=>{
-        const apply=()=>{
-            if(radio.value==='all' && radio.checked)selectAllRules();
-            sync();
-        };
-        radio.addEventListener('change',apply);
-        radio.addEventListener('click',apply);
+        if(target instanceof HTMLInputElement && target.name==='rules[]'){
+            if(isAllScope() && !target.checked){
+                target.checked=true;
+                target.setAttribute('checked','checked');
+            }
+            updateCount();
+        }
     });
 
-    ruleChecks.forEach(input=>input.addEventListener('change',()=>{
-        if(isAllScope() && !input.checked){
-            input.checked=true;
-        }
-        updateCount();
-    }));
+    document.addEventListener('click',(event)=>{
+        const target=event.target;
+        const choice=target instanceof Element ? target.closest('.reporting-choice') : null;
+        if(!choice) return;
 
-    const form=document.getElementById('reporting-settings-form');
-    if(form){
-        form.addEventListener('submit',()=>{
-            if(isAllScope())selectAllRules();
-        });
+        const radio=choice.querySelector('input[name="scope"]');
+        if(!(radio instanceof HTMLInputElement)) return;
+
+        if(!radio.checked){
+            radio.checked=true;
+            radio.dispatchEvent(new Event('change',{bubbles:true}));
+        }else if(radio.value==='all'){
+            selectAllRules();
+            syncReportingScope();
+        }
+    });
+
+    document.addEventListener('submit',(event)=>{
+        const form=event.target;
+        if(!(form instanceof HTMLFormElement) || form.id!=='reporting-settings-form') return;
+
+        if(isAllScope()){
+            // Inputs disabled are not submitted by FormData. Re-enable only at submit
+            // while keeping every rule selected.
+            getRuleChecks().forEach(input=>{
+                input.checked=true;
+                input.disabled=false;
+            });
+        }
+    },true);
+
+    const init=()=>syncReportingScope();
+
+    if(document.readyState==='loading'){
+        document.addEventListener('DOMContentLoaded',init,{once:true});
+    }else{
+        init();
     }
 
-    if(isAllScope())selectAllRules();
-    sync();
-});
+    window.addEventListener('painel-atualizado',init);
+})();
 </script>
 <script src="/assets/live.js" defer></script>
 <script src="/assets/toast.js" defer></script>
