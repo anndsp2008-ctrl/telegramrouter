@@ -6,6 +6,7 @@ on:
       - 'scripts/audit-standalone-release.py'
       - 'deploy/standalone/**'
       - 'app/SmartFormatting.php'
+      - 'app/AdaptiveVipCardRenderer.php'
       - 'app/StakeOddsProvider.php'
       - 'tests/stake-odds-provider-smoke.php'
       - 'app/CardLayoutEmojis.php'
