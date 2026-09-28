@@ -270,8 +270,9 @@
   background:#080e17;
   transition:.18s ease;
 }
-.reporting-rules-box.is-disabled{opacity:.44;filter:saturate(.6)}
+.reporting-rules-box.is-disabled{opacity:1;filter:none}
 .reporting-rules-box.is-disabled .reporting-rules-list{pointer-events:none}
+.reporting-rules-box.is-disabled .reporting-rule-option:has(input:checked){background:#61dfcb08}
 .reporting-rules-head{
   display:flex;
   align-items:center;
