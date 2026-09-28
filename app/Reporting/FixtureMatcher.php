@@ -5,6 +5,8 @@ namespace App\Reporting;
 final class FixtureMatcher
 {
     private array $dateCache = [];
+    private array $teamDateCache = [];
+    private array $teamResolveCache = [];
 
     public function __construct(private readonly ApiFootballClient $api) {}
 
@@ -26,6 +28,25 @@ final class FixtureMatcher
             isset($leg['placed_at']) ? (string)$leg['placed_at'] : null
         );
 
+        // First choice: resolve both sides to stable API team IDs, then match fixture by IDs.
+        $teamA = $this->resolveTeam($wantedA);
+        $teamB = $this->resolveTeam($wantedB);
+        if (is_array($teamA) && is_array($teamB) && (int)$teamA['team_id'] !== (int)$teamB['team_id']) {
+            foreach ($dates as $date) {
+                $exact = $this->matchByTeamIds(
+                    (int)$teamA['team_id'],
+                    (int)$teamB['team_id'],
+                    $date
+                );
+                if ($exact !== null) {
+                    $exact['confidence'] = 1.0;
+                    $exact['match_method'] = 'team_ids';
+                    return ['status'=>'matched','match'=>$exact];
+                }
+            }
+        }
+
+        // Fallback: one date request + textual similarity.
         $candidates = [];
         foreach ($dates as $date) {
             foreach ($this->fixtures($date) as $fixture) {
@@ -47,7 +68,8 @@ final class FixtureMatcher
                 $leagueActual = trim((string)($fixture['league']['name'] ?? ''));
                 if ($leagueWanted !== '' && $leagueActual !== '') {
                     $leagueScore = self::similarity($leagueWanted, $leagueActual);
-                    $score = ($score * 0.9) + ($leagueScore * 0.1);
+                    // League is confirmation only; do not let localization differences dominate.
+                    $score = ($score * 0.97) + ($leagueScore * 0.03);
                 }
 
                 $candidates[] = [
@@ -56,35 +78,179 @@ final class FixtureMatcher
                     'away_team' => $away,
                     'kickoff_at' => self::utcDate((string)($fixture['fixture']['date'] ?? '')),
                     'confidence' => round($score, 4),
+                    'match_method' => 'text_fallback',
                 ];
             }
         }
 
         if ($candidates === []) {
-            return ['status'=>'not_found','match'=>null];
+            return [
+                'status'=>'not_found',
+                'match'=>null,
+                'team_a_resolved'=>is_array($teamA),
+                'team_b_resolved'=>is_array($teamB),
+            ];
         }
 
         usort($candidates, static fn(array $a, array $b): int => $b['confidence'] <=> $a['confidence']);
         $best = $candidates[0];
         $second = $candidates[1]['confidence'] ?? 0.0;
 
-        if ($best['confidence'] < 0.82) {
+        if ($best['confidence'] < 0.78) {
             return [
                 'status'=>'low_confidence',
                 'match'=>null,
                 'best_confidence'=>$best['confidence'],
+                'team_a_resolved'=>is_array($teamA),
+                'team_b_resolved'=>is_array($teamB),
             ];
         }
-        if ($best['confidence'] < 0.96 && ($best['confidence'] - $second) < 0.04) {
+        if ($best['confidence'] < 0.94 && ($best['confidence'] - $second) < 0.035) {
             return [
                 'status'=>'ambiguous',
                 'match'=>null,
                 'best_confidence'=>$best['confidence'],
                 'second_confidence'=>$second,
+                'team_a_resolved'=>is_array($teamA),
+                'team_b_resolved'=>is_array($teamB),
             ];
         }
 
         return ['status'=>'matched','match'=>$best];
+    }
+
+    private function resolveTeam(string $input): ?array
+    {
+        $cacheKey = self::key($input);
+        if ($cacheKey === '') {
+            return null;
+        }
+        if (array_key_exists($cacheKey, $this->teamResolveCache)) {
+            return $this->teamResolveCache[$cacheKey];
+        }
+
+        $stored = Repository::findTeamAlias($input);
+        if (is_array($stored)) {
+            return $this->teamResolveCache[$cacheKey] = [
+                'team_id'=>(int)$stored['team_id'],
+                'api_name'=>(string)$stored['api_name'],
+                'country'=>(string)($stored['country'] ?? ''),
+                'confidence'=>(float)($stored['confidence'] ?? 1),
+            ];
+        }
+
+        $queries = array_values(array_unique([
+            trim($input),
+            self::canonicalAlias($input),
+        ]));
+
+        $best = null;
+        foreach ($queries as $query) {
+            if ($query === '') {
+                continue;
+            }
+            foreach ($this->api->teamsSearch($query) as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $team = is_array($row['team'] ?? null) ? $row['team'] : [];
+                $teamId = (int)($team['id'] ?? 0);
+                $apiName = trim((string)($team['name'] ?? ''));
+                if ($teamId <= 0 || $apiName === '') {
+                    continue;
+                }
+
+                $score = max(
+                    self::similarity($input, $apiName),
+                    self::similarity(self::canonicalAlias($input), $apiName),
+                    self::similarity($query, $apiName)
+                );
+
+                // National teams are common in translated names such as Turquia/Itália.
+                $national = !empty($team['national']);
+                if ($national && self::looksLikeCountryName($input)) {
+                    $score = min(1.0, $score + 0.08);
+                }
+
+                if ($best === null || $score > $best['confidence']) {
+                    $best = [
+                        'team_id'=>$teamId,
+                        'api_name'=>$apiName,
+                        'country'=>trim((string)($team['country'] ?? '')),
+                        'confidence'=>round($score, 4),
+                    ];
+                }
+            }
+            if (is_array($best) && $best['confidence'] >= 0.94) {
+                break;
+            }
+        }
+
+        if (!is_array($best) || $best['confidence'] < 0.72) {
+            return $this->teamResolveCache[$cacheKey] = null;
+        }
+
+        Repository::saveTeamAlias(
+            $input,
+            (int)$best['team_id'],
+            (string)$best['api_name'],
+            (string)$best['country'],
+            (float)$best['confidence']
+        );
+        Repository::saveTeamAlias(
+            (string)$best['api_name'],
+            (int)$best['team_id'],
+            (string)$best['api_name'],
+            (string)$best['country'],
+            1.0
+        );
+
+        $canonical = self::canonicalAlias($input);
+        if ($canonical !== '' && self::key($canonical) !== self::key($input)) {
+            Repository::saveTeamAlias(
+                $canonical,
+                (int)$best['team_id'],
+                (string)$best['api_name'],
+                (string)$best['country'],
+                (float)$best['confidence']
+            );
+        }
+
+        return $this->teamResolveCache[$cacheKey] = $best;
+    }
+
+    private function matchByTeamIds(int $teamA, int $teamB, string $date): ?array
+    {
+        $key = $teamA . ':' . $date;
+        if (!array_key_exists($key, $this->teamDateCache)) {
+            $this->teamDateCache[$key] = $this->api->fixturesByTeamDate($teamA, $date);
+        }
+
+        foreach ($this->teamDateCache[$key] as $fixture) {
+            if (!is_array($fixture)) {
+                continue;
+            }
+
+            $homeId = (int)($fixture['teams']['home']['id'] ?? 0);
+            $awayId = (int)($fixture['teams']['away']['id'] ?? 0);
+            if (!(($homeId === $teamA && $awayId === $teamB) || ($homeId === $teamB && $awayId === $teamA))) {
+                continue;
+            }
+
+            $fixtureId = (int)($fixture['fixture']['id'] ?? 0);
+            if ($fixtureId <= 0) {
+                continue;
+            }
+
+            return [
+                'fixture_id'=>$fixtureId,
+                'home_team'=>trim((string)($fixture['teams']['home']['name'] ?? '')),
+                'away_team'=>trim((string)($fixture['teams']['away']['name'] ?? '')),
+                'kickoff_at'=>self::utcDate((string)($fixture['fixture']['date'] ?? '')),
+            ];
+        }
+
+        return null;
     }
 
     private function fixtures(string $date): array
@@ -98,9 +264,6 @@ final class FixtureMatcher
     private static function candidateDates(?string $eventDate, ?string $placedAtUtc): array
     {
         $tz = new \DateTimeZone('America/Sao_Paulo');
-
-        // Uma única consulta inicial: usa a data oficial extraída da tip/card.
-        // Se ela não existir, usa a data local em que a aposta foi registrada.
         if ($eventDate !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $eventDate)) {
             return [$eventDate];
         }
@@ -158,13 +321,71 @@ final class FixtureMatcher
         return preg_replace('/[^a-z0-9]+/', '', $value) ?? '';
     }
 
+    private static function canonicalAlias(string $value): string
+    {
+        $key = self::key($value);
+        $map = [
+            'turquia'=>'Turkey',
+            'turkiye'=>'Turkey',
+            'italia'=>'Italy',
+            'alemanha'=>'Germany',
+            'espanha'=>'Spain',
+            'franca'=>'France',
+            'inglaterra'=>'England',
+            'holanda'=>'Netherlands',
+            'paisesbaixos'=>'Netherlands',
+            'belgica'=>'Belgium',
+            'suica'=>'Switzerland',
+            'austria'=>'Austria',
+            'croacia'=>'Croatia',
+            'grecia'=>'Greece',
+            'polonia'=>'Poland',
+            'hungria'=>'Hungary',
+            'romenia'=>'Romania',
+            'servia'=>'Serbia',
+            'ucrania'=>'Ukraine',
+            'tchequia'=>'Czechia',
+            'republicatcheca'=>'Czechia',
+            'portugal'=>'Portugal',
+            'brasil'=>'Brazil',
+            'argentina'=>'Argentina',
+            'uruguai'=>'Uruguay',
+            'paraguai'=>'Paraguay',
+            'colombia'=>'Colombia',
+            'equador'=>'Ecuador',
+            'japao'=>'Japan',
+            'coreiadosul'=>'South Korea',
+            'estadosunidos'=>'USA',
+            'eua'=>'USA',
+            'arabiasaudita'=>'Saudi Arabia',
+        ];
+        return $map[$key] ?? trim($value);
+    }
+
+    private static function looksLikeCountryName(string $value): bool
+    {
+        $canonical = self::canonicalAlias($value);
+        return self::key($canonical) !== '' && (
+            self::key($canonical) !== self::key($value)
+            || in_array(self::key($canonical), [
+                'portugal','brazil','argentina','uruguay','paraguay','colombia',
+                'ecuador','japan','usa','england','france','spain','germany','italy',
+                'turkey','netherlands','belgium','switzerland','austria','croatia',
+                'greece','poland','hungary','romania','serbia','ukraine','czechia',
+                'southkorea','saudiarabia'
+            ], true)
+        );
+    }
+
     private static function utcDate(string $value): ?string
     {
         if ($value === '') {
             return null;
         }
         try {
-            return (new \DateTimeImmutable($value))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            return (new \DateTimeImmutable($value))
+                ->setTimezone(new \DateTimeZone('UTC'))
+                ->format('Y-m-d H:i:s');
         } catch (\Throwable) {
             return null;
         }
