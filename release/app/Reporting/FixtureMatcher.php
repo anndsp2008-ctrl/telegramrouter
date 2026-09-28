@@ -83,14 +83,11 @@ final class FixtureMatcher
     private static function candidateDates(?string $eventDate, ?string $placedAtUtc): array
     {
         $tz = new \DateTimeZone('America/Sao_Paulo');
-        $dates = [];
 
+        // Uma única consulta inicial: usa a data oficial extraída da tip/card.
+        // Se ela não existir, usa a data local em que a aposta foi registrada.
         if ($eventDate !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $eventDate)) {
-            $base = new \DateTimeImmutable($eventDate, $tz);
-            foreach ([0, -1, 1] as $offset) {
-                $dates[] = $base->modify(($offset >= 0 ? '+' : '') . $offset . ' day')->format('Y-m-d');
-            }
-            return array_values(array_unique($dates));
+            return [$eventDate];
         }
 
         try {
@@ -101,10 +98,7 @@ final class FixtureMatcher
             $base = new \DateTimeImmutable('now', $tz);
         }
 
-        foreach ([0, 1, -1, 2] as $offset) {
-            $dates[] = $base->modify(($offset >= 0 ? '+' : '') . $offset . ' day')->format('Y-m-d');
-        }
-        return array_values(array_unique($dates));
+        return [$base->format('Y-m-d')];
     }
 
     private static function matchSides(string $match): array
