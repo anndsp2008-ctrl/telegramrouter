@@ -39,6 +39,10 @@ final class ResultWorker
         Repository::reopenLegacyConfidenceReviewsOnce();
         Repository::restorePrematureLookupReviews();
         Repository::restoreUnicodeDashLookupFailures();
+        $requeued = Repository::requeuePendingUnmatchedForRetryPolicyOnce();
+        if ($requeued > 0) {
+            error_log('TMR_REPORTING_UNMATCHED_REQUEUED ' . $requeued);
+        }
 
         $unmatchedLegs = Repository::unmatchedLegs();
         error_log('TMR_REPORTING_UNMATCHED_DUE ' . count($unmatchedLegs));
@@ -65,7 +69,7 @@ final class ResultWorker
                 $attempts = Repository::recordLookupFailure(
                     (int)$leg['id'],
                     $lookupStatus,
-                    180
+                    15
                 );
 
                 if ($attempts >= 2) {
