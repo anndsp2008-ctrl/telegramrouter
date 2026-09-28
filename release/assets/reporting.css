@@ -147,3 +147,70 @@
   .reporting-config-card .form-status,.reporting-history-count{margin:10px 0 0}
   .reporting-rule-option{grid-template-columns:16px minmax(0,1fr) 20px;padding:11px 10px;gap:8px}
 }
+
+
+/* Status do módulo: estrutura alinhada ao card Estado do Serviço */
+.reporting-status{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  padding:22px 22px 18px;
+  min-height:auto;
+  border-radius:22px;
+  background:
+    radial-gradient(circle at left center,rgba(97,223,203,.16),transparent 38%),
+    linear-gradient(90deg,rgba(10,34,32,.92) 0%,rgba(7,16,28,.96) 72%,rgba(6,12,24,.98) 100%);
+  border:1px solid rgba(97,223,203,.12);
+  overflow:hidden;
+}
+.reporting-status-main{display:flex;align-items:flex-start;gap:18px;padding-bottom:20px}
+.reporting-status .overview-status-icon{
+  flex:0 0 72px;width:72px;height:72px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(97,223,203,.08);
+  box-shadow:inset 0 0 0 1px rgba(97,223,203,.05);
+}
+.reporting-status .overview-status-icon i{
+  width:18px;height:18px;border-radius:50%;
+  background:#67e3c8;box-shadow:0 0 18px rgba(103,227,200,.45);
+}
+.reporting-status-copy{min-width:0;flex:1}
+.reporting-status-copy .saas-kicker{display:block;margin-bottom:10px}
+.reporting-status-copy h2{margin:0 0 8px;font-size:26px;line-height:1.1;color:#f3fbff}
+.reporting-status-copy p{margin:0;font-size:13px;line-height:1.65;color:#93a3b5;max-width:760px}
+.reporting-status-divider{width:100%;height:1px;background:rgba(255,255,255,.08);margin:0 0 18px}
+.reporting-status-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}
+.reporting-status-info{display:flex;flex-direction:column;gap:6px}
+.reporting-status-info span{font-size:12px;color:#7f90a4}
+.reporting-status-info b{font-size:16px;line-height:1.2;color:#f2fbff}
+.reporting-status-actions{display:flex;align-items:center;justify-content:flex-end}
+.reporting-status .reporting-scope-chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:8px 14px;border-radius:999px;
+  border:1px solid rgba(97,223,203,.18);
+  background:rgba(97,223,203,.08);
+  color:#73dfce!important;font-size:11px!important;font-weight:800;white-space:nowrap;
+}
+
+@media(max-width:768px){
+  .reporting-status{padding:18px 16px 16px;border-radius:18px}
+  .reporting-status-main{gap:14px;padding-bottom:16px}
+  .reporting-status .overview-status-icon{flex:0 0 60px;width:60px;height:60px;border-radius:16px}
+  .reporting-status .overview-status-icon i{width:16px;height:16px}
+  .reporting-status-copy h2{font-size:18px;margin-bottom:6px}
+  .reporting-status-copy p{font-size:13px;line-height:1.55}
+  .reporting-status-divider{margin-bottom:14px}
+  .reporting-status-footer{flex-direction:column;align-items:flex-start;gap:12px}
+  .reporting-status-actions{width:100%;justify-content:flex-start}
+  .reporting-status .reporting-scope-chip{font-size:11px!important;padding:7px 12px}
+}
+@media(max-width:480px){
+  .reporting-status{padding:16px 14px 14px}
+  .reporting-status-main{gap:12px}
+  .reporting-status .overview-status-icon{flex:0 0 54px;width:54px;height:54px;border-radius:14px}
+  .reporting-status-copy .saas-kicker{margin-bottom:8px}
+  .reporting-status-copy h2{font-size:16px}
+  .reporting-status-copy p{font-size:12px}
+  .reporting-status-info span{font-size:11px}
+  .reporting-status-info b{font-size:15px}
+}
