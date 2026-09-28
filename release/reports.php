@@ -171,7 +171,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/workers-ai-provider.css?v=5">
 <link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8&workers-dot=5&openai-form=2">
 <link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=4">
-<link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1">
+<link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1"><link rel="stylesheet" href="/assets/brand/project-scrollbar.css?v=1">
 <link rel="stylesheet" href="/assets/brand/service-status-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
