@@ -86,7 +86,7 @@ def main() -> None:
             or name.startswith("runtime-")
             or name in {
                 ".htaccess", ".env.example", "bootstrap.php", "worker.php",
-                "reset.php", "ai-learning.php", "composer.json", "composer.lock",
+                "reset.php", "ai-learning.php", "reports.php", "composer.json", "composer.lock",
             }
         ):
             continue
@@ -105,6 +105,8 @@ def main() -> None:
         "runtime-panel-greeting.php",
         "runtime-caption-footer.php",
         "runtime-smart-format.php",
+        "runtime-card-models.php",
+        "runtime-reporting.php",
         "runtime-ai-learning.php",
     ]:
         if (TARGET / installer).is_file():
