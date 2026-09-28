@@ -40,12 +40,135 @@ final class StakeOddsProvider
     /** @param array<string,mixed> $bet @return array<string,mixed> */
     public static function applyToSingle(array $bet): array
     {
+        $result=self::validateLeg($bet);
+        self::log(
+            (string)$result['status'],
+            (bool)$result['changed'],
+            (string)$result['error'],
+            ['scope'=>'single']
+        );
+        return $result['bet'];
+    }
+
+    /**
+     * Mandatory Stake pass for every structured ticket.
+     * Double/multiple legs are checked independently. A failed lookup never
+     * contaminates other legs: that leg simply keeps its source odd.
+     * Bet Builder selections are checked too, but the combined source price is
+     * preserved because correlated same-game prices must not be multiplied.
+     *
+     * @param array<string,mixed> $ticket
+     * @param null|callable(array<string,mixed>):array{bet:array,status:string,changed:bool,error:string} $validator
+     * @return array<string,mixed>
+     */
+    public static function applyToTicket(array $ticket, ?callable $validator=null): array
+    {
+        $legs=is_array($ticket['legs']??null)?array_values($ticket['legs']):[];
+        if($legs===[]){
+            return self::applyToSingle($ticket);
+        }
+
+        $kind=mb_strtolower(trim((string)($ticket['kind']??(count($legs)===1?'simple':'multiple'))),'UTF-8');
+        if(!in_array($kind,['simple','double','multiple','bet_builder'],true)){
+            $kind=count($legs)===1?'simple':(count($legs)===2?'double':'multiple');
+        }
+
+        $validator??=static fn(array $leg): array=>self::validateLeg($leg);
+        $validatedCount=0;
+        $fallbackCount=0;
+        $changedCount=0;
+
+        foreach($legs as $index=>$leg){
+            if(!is_array($leg))continue;
+
+            $probe=[
+                'sport'=>(string)($leg['sport']??$ticket['sport']??''),
+                'match'=>(string)($leg['match']??''),
+                'league'=>(string)($leg['league']??''),
+                'date'=>(string)($leg['date']??$leg['day']??''),
+                'market'=>(string)($leg['market']??''),
+                'selection'=>(string)($leg['selection']??''),
+                'odd'=>(string)($leg['odd']??''),
+            ];
+
+            $result=$validator($probe);
+            if(!is_array($result)
+                ||!is_array($result['bet']??null)
+                ||!isset($result['status'],$result['changed'],$result['error'])){
+                $result=[
+                    'bet'=>$probe,
+                    'status'=>'validator_invalid',
+                    'changed'=>false,
+                    'error'=>'INVALID_VALIDATOR_RESULT',
+                ];
+            }
+
+            $status=(string)$result['status'];
+            $changed=(bool)$result['changed'];
+            if($status==='validated')$validatedCount++; else $fallbackCount++;
+            if($changed)$changedCount++;
+
+            self::log(
+                $status,
+                $changed,
+                (string)$result['error'],
+                [
+                    'scope'=>'ticket_leg',
+                    'kind'=>$kind,
+                    'leg'=>$index+1,
+                    'legs'=>count($legs),
+                ]
+            );
+
+            // Bet Builder keeps per-selection prices hidden. The mandatory check
+            // still happens, but the source combined odd remains authoritative.
+            if($kind==='bet_builder')continue;
+
+            $finalOdd=self::normalizeOdd((string)($result['bet']['odd']??''));
+            if($finalOdd!=='')$ticket['legs'][$index]['odd']=$finalOdd;
+        }
+
+        if($kind==='simple' && isset($ticket['legs'][0])){
+            $singleOdd=self::normalizeOdd((string)($ticket['legs'][0]['odd']??''));
+            if($singleOdd!=='')$ticket['odd']=$singleOdd;
+        }elseif(in_array($kind,['double','multiple'],true)){
+            $combined=self::combinedOdd((array)$ticket['legs']);
+            if($combined!==null)$ticket['odd']=$combined;
+        }
+
+        error_log('TMR_STAKE_TICKET '.json_encode([
+            'kind'=>$kind,
+            'legs'=>count($legs),
+            'validated'=>$validatedCount,
+            'fallback'=>$fallbackCount,
+            'changed'=>$changedCount,
+            'total_recalculated'=>in_array($kind,['double','multiple'],true)
+                && self::combinedOdd((array)$ticket['legs'])!==null,
+        ],JSON_UNESCAPED_SLASHES));
+
+        return $ticket;
+    }
+
+    /**
+     * @param array<string,mixed> $bet
+     * @return array{bet:array<string,mixed>,status:string,changed:bool,error:string}
+     */
+    private static function validateLeg(array $bet): array
+    {
         $originalOdd=self::normalizeOdd((string)($bet['odd']??''));
-        if($originalOdd==='' || !self::enabled())return $bet;
+
+        if(!self::enabled()){
+            return ['bet'=>$bet,'status'=>'disabled','changed'=>false,'error'=>''];
+        }
 
         if(!self::isFootball((string)($bet['sport']??''),(string)($bet['league']??''))){
-            self::log('not_applicable',false);
-            return $bet;
+            return ['bet'=>$bet,'status'=>'not_applicable','changed'=>false,'error'=>''];
+        }
+
+        if(trim((string)($bet['match']??''))===''
+            ||trim((string)($bet['market']??''))===''
+            ||trim((string)($bet['selection']??''))===''){
+            return ['bet'=>$bet,'status'=>'incomplete_leg','changed'=>false,'error'=>''];
         }
 
         try{
@@ -65,14 +188,12 @@ final class StakeOddsProvider
                 (string)($bet['date']??$bet['day']??'')
             );
             if($fixture===null){
-                self::log('fixture_not_found',false);
-                return $bet;
+                return ['bet'=>$bet,'status'=>'fixture_not_found','changed'=>false,'error'=>''];
             }
 
             $slug=trim((string)($fixture['slug']??''));
             if($slug==='' || !preg_match('/^[A-Za-z0-9._:-]{1,200}$/D',$slug)){
-                self::log('fixture_slug_missing',false);
-                return $bet;
+                return ['bet'=>$bet,'status'=>'fixture_slug_missing','changed'=>false,'error'=>''];
             }
 
             $detail=self::cached(
@@ -87,17 +208,42 @@ final class StakeOddsProvider
                 (string)($bet['selection']??'')
             );
             if($stakeOdd===null){
-                self::log('market_or_line_not_found',false);
-                return $bet;
+                return ['bet'=>$bet,'status'=>'market_or_line_not_found','changed'=>false,'error'=>''];
             }
 
-            $bet['odd']=$stakeOdd;
-            self::log('validated',$stakeOdd!==$originalOdd);
-            return $bet;
+            // Never invent a missing published odd. Exact Stake matching is still
+            // recorded as validated, but replacement happens only when an origin
+            // odd exists for this leg.
+            $changed=false;
+            if($originalOdd!==''){
+                $changed=$stakeOdd!==$originalOdd;
+                $bet['odd']=$stakeOdd;
+            }
+
+            return ['bet'=>$bet,'status'=>'validated','changed'=>$changed,'error'=>''];
         }catch(\Throwable $e){
-            self::log('api_unavailable',false,get_class($e));
-            return $bet;
+            return [
+                'bet'=>$bet,
+                'status'=>'api_unavailable',
+                'changed'=>false,
+                'error'=>get_class($e),
+            ];
         }
+    }
+
+    /** @param list<array<string,mixed>> $legs */
+    private static function combinedOdd(array $legs): ?string
+    {
+        if($legs===[])return null;
+        $product=1.0;
+        foreach($legs as $leg){
+            if(!is_array($leg))return null;
+            $odd=self::normalizeOdd((string)($leg['odd']??''));
+            if($odd==='' || !is_numeric($odd) || (float)$odd<=1.0)return null;
+            $product*=(float)$odd;
+            if(!is_finite($product)||$product>99999)return null;
+        }
+        return number_format($product,2,'.','');
     }
 
     /** @return array<string,mixed> */
@@ -519,9 +665,12 @@ final class StakeOddsProvider
         return rtrim(rtrim(number_format($value,4,'.',''),'0'),'.');
     }
 
-    private static function log(string $status,bool $changed,string $error=''): void
+    private static function log(string $status,bool $changed,string $error='',array $context=[]): void
     {
         $payload=['status'=>$status,'changed'=>$changed];
+        foreach(['scope','kind','leg','legs'] as $key){
+            if(array_key_exists($key,$context))$payload[$key]=$context[$key];
+        }
         if($error!=='')$payload['error']=$error;
         error_log('TMR_STAKE_ODDS '.json_encode($payload,JSON_UNESCAPED_SLASHES));
     }
