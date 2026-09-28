@@ -27,6 +27,7 @@ final class ResultWorker
         // sem consumir a API antes do horário esperado de término.
         Repository::deferPendingFixtureChecksToPostMatchWindow();
         Repository::restoreImmediateUnsupportedReviews();
+        Repository::reopenLegacyConfidenceReviewsOnce();
         Repository::restorePrematureLookupReviews();
 
         foreach (Repository::unmatchedLegs() as $leg) {
@@ -74,6 +75,8 @@ final class ResultWorker
                         'attempts'=>$attempts,
                         'best_confidence'=>$lookup['best_confidence'] ?? null,
                         'second_confidence'=>$lookup['second_confidence'] ?? null,
+                        'team_a_resolved'=>$lookup['team_a_resolved'] ?? null,
+                        'team_b_resolved'=>$lookup['team_b_resolved'] ?? null,
                     ]);
                 }
             } catch (\Throwable $e) {
