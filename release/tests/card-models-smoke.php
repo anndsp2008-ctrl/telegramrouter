@@ -154,6 +154,36 @@ if($apiFootballSelector->invoke(null,$ambiguousPayload,'United','Premier League'
     throw new RuntimeException('Ambiguous API-Football identity must fall back');
 }
 
+$identityResolver=new ReflectionMethod(AdaptiveVipCardRenderer::class,'resolveParticipantIdentity');
+$identityResolver->setAccessible(true);
+$turkeyIdentity=$identityResolver->invoke(null,'Turquia','Liga das Nações','football');
+$italyIdentity=$identityResolver->invoke(null,'Itália','Liga das Nações','football');
+if(($turkeyIdentity['kind']??'')!=='flag'||(($turkeyIdentity['spec']['type']??'')!=='turkey')){
+    throw new RuntimeException('Turkey national flag resolution failed');
+}
+if(($italyIdentity['kind']??'')!=='flag'||(($italyIdentity['spec']['type']??'')!=='v3')){
+    throw new RuntimeException('Italy national flag resolution failed');
+}
+
+$nationalFixture=[
+    'bookmaker'=>'Betano','bet_kind'=>'multiple','selections_count'=>'2',
+    'sport'=>'Futebol','odd'=>'1.70',
+    'analysis'=>'Dupla internacional usada para validar as bandeiras nacionais.',
+    'card_legs'=>json_encode([
+        ['sport'=>'Futebol','match'=>'Turquia x Itália','league'=>'Liga das Nações','date'=>'28/09/2026','market'=>'Total de escanteios','selection'=>'Mais de 3,5','odd'=>'1.30'],
+        ['sport'=>'Futebol','match'=>'Bélgica x França','league'=>'Liga das Nações','date'=>'28/09/2026','market'=>'Dupla chance','selection'=>'França ou empate','odd'=>'1.31']
+    ],JSON_UNESCAPED_UNICODE)
+];
+$nationalBet=AdaptiveVipCardRenderer::extract($nationalFixture,'',false);
+if($nationalBet===null)throw new RuntimeException('National flag fixture extraction failed');
+$nationalImage=AdaptiveVipCardRenderer::render($nationalBet);
+if($nationalImage===null)throw new RuntimeException('National flag fixture render failed');
+$nationalSize=getimagesize($nationalImage);
+@unlink($nationalImage);
+if(!is_array($nationalSize)||($nationalSize['mime']??'')!=='image/png'){
+    throw new RuntimeException('National flag fixture PNG invalid');
+}
+
 $sportCases=[
     ['Futebol','⚽','Brasil x Argentina'],
     ['Basquete','🏀','Boston x Miami'],
@@ -279,6 +309,8 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'private static function apiFootballTeamAssetPath')
+   ||!str_contains($rendererSource,'TMR_NATIONAL_FLAG_LOCAL')
+   ||!str_contains($rendererSource,"['type'=>'turkey'")
    ||!str_contains($rendererSource,'private static function selectApiFootballTeamLogo')
    ||!str_contains($rendererSource,'SportsApiIntegration::apiFootballKey()')
    ||!str_contains($rendererSource,'https://v3.football.api-sports.io/teams?search=')
