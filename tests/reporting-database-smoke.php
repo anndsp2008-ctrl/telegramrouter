@@ -131,6 +131,36 @@ ok(($recentTickets[0]['legs'][0]['match_name']??'')==='Manchester City x Arsenal
 ok(($recentTickets[0]['legs'][0]['market_text']??'')==='Total de escanteios','historico inclui mercado');
 ok(($recentTickets[0]['legs'][0]['selection_text']??'')==='Mais de 8,5 escanteios','historico inclui selecao');
 
+$pdo->exec(
+    'UPDATE reporting_legs
+     SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 3 HOUR),
+         lookup_attempts=1,
+         lookup_last_reason="not_found"
+     WHERE id='.(int)$id
+);
+$requeued=Repository::requeuePendingUnmatchedForRetryPolicyOnce();
+ok($requeued===1,'reagenda pendencia sem fixture imediatamente');
+$requeuedAgain=Repository::requeuePendingUnmatchedForRetryPolicyOnce();
+ok($requeuedAgain===0,'reagendamento de politica executa uma unica vez');
+$retryRow=$pdo->query('SELECT lookup_attempts,lookup_last_reason,next_check_at<=UTC_TIMESTAMP() AS due_now FROM reporting_legs LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+ok((int)($retryRow['lookup_attempts']??-1)===0,'reagendamento zera tentativas antigas');
+ok(($retryRow['lookup_last_reason']??'')==='retry_policy_requeue','reagendamento registra motivo');
+ok((int)($retryRow['due_now']??0)===1,'reagendamento deixa consulta vencida agora');
+
+$attempts=Repository::recordLookupFailure((int)$id,'not_found',15);
+ok($attempts===1,'falha de lookup contabilizada');
+$retryAt=(string)$pdo->query('SELECT next_check_at FROM reporting_legs LIMIT 1')->fetchColumn();
+$retrySeconds=(new DateTimeImmutable($retryAt,new DateTimeZone('UTC')))->getTimestamp()-time();
+ok($retrySeconds>=840 && $retrySeconds<=960,'nova tentativa fica em aproximadamente 15 minutos');
+
+$pdo->exec(
+    'UPDATE reporting_legs
+     SET next_check_at=UTC_TIMESTAMP(),
+         lookup_attempts=0,
+         lookup_last_reason=NULL
+     WHERE id='.(int)$id
+);
+
 $leg=$pdo->query('SELECT * FROM reporting_legs LIMIT 1')->fetch(PDO::FETCH_ASSOC);
 $result=SettlementEngine::settle($leg,[
     'home_team'=>'Manchester City',
