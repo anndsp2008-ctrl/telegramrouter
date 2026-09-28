@@ -1599,6 +1599,20 @@ final class AdaptiveVipCardRenderer
         return $body;
     }
 
+    private static function drawStar($im,int $cx,int $cy,int $diameter,int $color): void
+    {
+        $outer=max(3,(int)floor($diameter/2));
+        $inner=max(1,(int)round($outer*.42));
+        $points=[];
+        for($i=0;$i<10;$i++){
+            $radius=($i%2===0)?$outer:$inner;
+            $angle=deg2rad(-90+$i*36);
+            $points[]=(int)round($cx+cos($angle)*$radius);
+            $points[]=(int)round($cy+sin($angle)*$radius);
+        }
+        imagefilledpolygon($im,$points,$color);
+    }
+
     private static function drawFlagSized($im,int $cx,int $cy,array $spec,int $size): void
     {
         $size=max(30,min(58,$size));
