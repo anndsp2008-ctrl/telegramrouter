@@ -131,6 +131,10 @@ function rdate(mixed $value): string
     <title>Relatórios · Telegram Router</title>
     <link rel="stylesheet" href="/assets/saas.css">
     <link rel="stylesheet" href="/assets/responsive.css?v=4">
+    <link rel="stylesheet" href="/assets/brand/brand.css?v=2">
+    <link rel="stylesheet" href="/assets/brand/mobile-shell.css?v=2">
+    <link rel="stylesheet" href="/assets/brand/mobile-visual-audit.css?v=17">
+    <link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation.css?v=2">
     <link rel="stylesheet" href="/assets/brand/mobile-app-header.css?v=2">
     <link rel="stylesheet" href="/assets/brand/logout-icon.css?v=1">
     <link rel="stylesheet" href="/assets/reporting.css?v=1">
