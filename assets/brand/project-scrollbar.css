@@ -1,0 +1,45 @@
+/* Telegram Router · scrollbar global canônica
+   Mesmo padrão visual usado no painel principal. */
+@media (forced-colors: none){
+  *{
+    scrollbar-width:thin;
+    scrollbar-color:#408f88 #0b141b;
+  }
+
+  @supports selector(::-webkit-scrollbar){
+    *{
+      scrollbar-width:auto;
+      scrollbar-color:auto;
+    }
+
+    ::-webkit-scrollbar{
+      width:10px;
+      height:10px;
+    }
+
+    ::-webkit-scrollbar-track{
+      background:#0b141b;
+      border-radius:999px;
+    }
+
+    ::-webkit-scrollbar-thumb{
+      background:linear-gradient(180deg,#408f88,#57b5a9);
+      border:2px solid #0b141b;
+      border-radius:999px;
+      min-height:44px;
+      min-width:44px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover{
+      background:#76f3e4;
+    }
+
+    ::-webkit-scrollbar-thumb:active{
+      background:#a4fff1;
+    }
+
+    ::-webkit-scrollbar-button{
+      display:none;
+    }
+  }
+}
