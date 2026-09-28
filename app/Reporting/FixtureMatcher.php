@@ -10,9 +10,15 @@ final class FixtureMatcher
 
     public function match(array $leg): ?array
     {
+        $detailed = $this->matchDetailed($leg);
+        return ($detailed['status'] ?? '') === 'matched' ? ($detailed['match'] ?? null) : null;
+    }
+
+    public function matchDetailed(array $leg): array
+    {
         [$wantedA, $wantedB] = self::matchSides((string)($leg['match_name'] ?? ''));
         if ($wantedA === null || $wantedB === null) {
-            return null;
+            return ['status'=>'invalid_match_name','match'=>null];
         }
 
         $dates = self::candidateDates(
@@ -55,7 +61,7 @@ final class FixtureMatcher
         }
 
         if ($candidates === []) {
-            return null;
+            return ['status'=>'not_found','match'=>null];
         }
 
         usort($candidates, static fn(array $a, array $b): int => $b['confidence'] <=> $a['confidence']);
@@ -63,13 +69,22 @@ final class FixtureMatcher
         $second = $candidates[1]['confidence'] ?? 0.0;
 
         if ($best['confidence'] < 0.82) {
-            return null;
+            return [
+                'status'=>'low_confidence',
+                'match'=>null,
+                'best_confidence'=>$best['confidence'],
+            ];
         }
         if ($best['confidence'] < 0.96 && ($best['confidence'] - $second) < 0.04) {
-            return null;
+            return [
+                'status'=>'ambiguous',
+                'match'=>null,
+                'best_confidence'=>$best['confidence'],
+                'second_confidence'=>$second,
+            ];
         }
 
-        return $best;
+        return ['status'=>'matched','match'=>$best];
     }
 
     private function fixtures(string $date): array
