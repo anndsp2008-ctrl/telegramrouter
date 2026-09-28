@@ -620,6 +620,10 @@ function rdate(mixed $value): string
 
     document.addEventListener('change',(event)=>{
         const target=event.target;
+        const settingsForm=document.getElementById('reporting-settings-form');
+        if(settingsForm && target instanceof Element && settingsForm.contains(target)){
+            settingsForm.dataset.dirty='1';
+        }
 
         if(target instanceof HTMLInputElement && target.name==='scope'){
             if(target.value==='all' && target.checked){
