@@ -16,6 +16,7 @@ on:
       - 'reports.php'
       - 'scripts/report-worker.php'
       - 'tests/reporting-settlement-smoke.php'
+      - 'tests/reporting-database-smoke.php'
       - 'runtime-smart-format.php'
       - 'app/VipCardRenderer.php'
       - 'app/PurePngVipCardRenderer.php'
@@ -29,6 +30,19 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testroot
+          MYSQL_DATABASE: telegramrouter_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptestroot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,6 +77,17 @@ jobs:
           cd release
           composer install --no-interaction --no-scripts --optimize-autoloader --prefer-dist
           php -r 'require "vendor/autoload.php"; echo "STANDALONE_VENDOR_AUTOLOAD_PASSED\n";'
+      - name: Check reporting persistence against MySQL
+        env:
+          APP_KEY: test-app-key
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: telegramrouter_test
+          DB_USER: root
+          DB_PASS: testroot
+        run: |
+          cd release
+          php tests/reporting-database-smoke.php
       - name: Check card and multiple-selection logic in standalone package
         run: |
           cd release
