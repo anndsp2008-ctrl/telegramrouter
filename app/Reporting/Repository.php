@@ -14,6 +14,7 @@ final class Repository
         $row = Database::pdo()->query('SELECT * FROM reporting_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? $row : [
             'enabled'=>1,
+            'scope'=>'all',
             'check_results'=>1,
             'daily_report'=>1,
             'report_time'=>'00:00:00',
@@ -37,17 +38,68 @@ final class Repository
 
         $stmt = Database::pdo()->prepare(
             'UPDATE reporting_settings
-             SET enabled=?,check_results=?,daily_report=?,report_time=?,timezone=?,report_chat=?
+             SET enabled=?,scope=?,check_results=?,daily_report=?,report_time=?,timezone=?,report_chat=?
              WHERE id=1'
         );
         $stmt->execute([
             !empty($input['enabled']) ? 1 : 0,
+            (($input['scope'] ?? 'all') === 'selected' ? 'selected' : 'all'),
             !empty($input['check_results']) ? 1 : 0,
             !empty($input['daily_report']) ? 1 : 0,
             $time,
             $timezone,
             mb_substr(trim((string)($input['report_chat'] ?? '')), 0, 255),
         ]);
+    }
+
+    public static function saveRuleScope(array $ruleIds): void
+    {
+        Schema::migrate();
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec('DELETE FROM reporting_rule_scope');
+            if ($ruleIds !== []) {
+                $stmt = $pdo->prepare('INSERT INTO reporting_rule_scope(rule_id,enabled) VALUES(?,1)');
+                foreach (array_values(array_unique(array_map('intval', $ruleIds))) as $ruleId) {
+                    if ($ruleId > 0) {
+                        $stmt->execute([$ruleId]);
+                    }
+                }
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public static function selectedRuleIds(): array
+    {
+        Schema::migrate();
+        return array_map(
+            'intval',
+            Database::pdo()->query('SELECT rule_id FROM reporting_rule_scope WHERE enabled=1 ORDER BY rule_id')
+                ->fetchAll(PDO::FETCH_COLUMN) ?: []
+        );
+    }
+
+    public static function ruleEnabled(int $ruleId): bool
+    {
+        $settings = self::settings();
+        if (empty($settings['enabled'])) {
+            return false;
+        }
+        if (($settings['scope'] ?? 'all') === 'all') {
+            return true;
+        }
+        $stmt = Database::pdo()->prepare(
+            'SELECT 1 FROM reporting_rule_scope WHERE rule_id=? AND enabled=1 LIMIT 1'
+        );
+        $stmt->execute([$ruleId]);
+        return (bool)$stmt->fetchColumn();
     }
 
     public static function captureTicket(array $ticket, array $context): ?int
