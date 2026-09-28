@@ -69,6 +69,7 @@ final class ResultWorker
                 }
 
                 $stats = self::buildStats($fixture, $api->statistics($fixtureId));
+                $stats['fixture_status']=$short;
                 foreach (Repository::pendingLegsForFixture($fixtureId) as $leg) {
                     $result = SettlementEngine::settle($leg, $stats);
                     Repository::settleLeg((int)$leg['id'], $result, [
