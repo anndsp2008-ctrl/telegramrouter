@@ -226,6 +226,10 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private static function drawFlagSized')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'$marketSelectionGap=15')
+   ||!str_contains($rendererSource,'private const MULTI_DATE_BLOCK_ADVANCE=46')
+   ||!str_contains($rendererSource,'private const MULTI_METADATA_MARKET_GAP=8')
+   ||!str_contains($rendererSource,'$ty+=self::MULTI_DATE_BLOCK_ADVANCE')
+   ||!str_contains($rendererSource,'$ty+=self::MULTI_METADATA_MARKET_GAP')
    ||!str_contains($rendererSource,"return str_replace(',','.',\$odd)")){
     throw new RuntimeException('Global premium renderer hooks missing');
 }
