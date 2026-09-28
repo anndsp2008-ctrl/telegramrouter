@@ -120,6 +120,7 @@ jobs:
           cp runtime-mobile-bottom-nav.php /tmp/tmr-smart-fixture/runtime-mobile-bottom-nav.php
           cp reset.php /tmp/tmr-smart-fixture/reset.php
           cp app/WorkersAITranslation.php /tmp/tmr-smart-fixture/app/WorkersAITranslation.php
+          cp app/OpenAIProvider.php /tmp/tmr-smart-fixture/app/OpenAIProvider.php
           cp app/workers-ai-card.php /tmp/tmr-smart-fixture/app/workers-ai-card.php
           cp scripts/workers-ai-request.php /tmp/tmr-smart-fixture/scripts/workers-ai-request.php
           mkdir -p /tmp/tmr-smart-fixture/assets/brand
