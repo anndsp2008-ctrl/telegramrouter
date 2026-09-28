@@ -38,6 +38,8 @@ final class ResultWorker
                 $match = $matcher->match($leg);
                 if ($match !== null) {
                     Repository::attachFixture((int)$leg['id'], $match);
+                } else {
+                    Repository::rescheduleUnmatchedLeg((int)$leg['id'], 60);
                 }
             } catch (\Throwable $e) {
                 error_log('TMR_REPORTING_FIXTURE_MATCH_NON_FATAL ' . get_class($e));
