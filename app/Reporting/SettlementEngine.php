@@ -25,6 +25,19 @@ final class SettlementEngine
             return self::result(self::REVIEW, null, null, 'Mercado não suportado automaticamente.');
         }
 
+        $fixtureStatus = strtoupper(trim((string)($stats['fixture_status'] ?? 'FT')));
+        if (
+            in_array($fixtureStatus, ['AET','PEN'], true)
+            && !in_array($market, ['match_result','btts','goals_total','team_goals_total'], true)
+        ) {
+            return self::result(
+                self::REVIEW,
+                null,
+                null,
+                'Estatística de 90 minutos não isolada em partida com prorrogação/pênaltis.'
+            );
+        }
+
         if (in_array($market, ['cards_total','team_cards_total'], true)) {
             return self::result(
                 self::REVIEW,
