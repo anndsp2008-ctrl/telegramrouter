@@ -23,7 +23,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $scope = (($_POST['scope'] ?? 'all') === 'selected' ? 'selected' : 'all');
+        $action = (string)($_POST['action'] ?? '');
+        if ($action === 'review_reprocess') {
+            Repository::reprocessReviewLeg((int)($_POST['leg_id'] ?? 0));
+            $notice = 'Aposta enviada para reprocessamento.';
+        } elseif ($action === 'review_resolve') {
+            Repository::manualResolveLeg(
+                (int)($_POST['leg_id'] ?? 0),
+                strtoupper(trim((string)($_POST['manual_status'] ?? '')))
+            );
+            $notice = 'Resultado manual aplicado.';
+        } else {
+            $scope = (($_POST['scope'] ?? 'all') === 'selected' ? 'selected' : 'all');
         Repository::saveSettings([
             'enabled' => isset($_POST['enabled']),
             'scope' => $scope,
@@ -38,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : array_map('intval', (array)($_POST['rules'] ?? []));
         Repository::saveRuleScope($scopeRuleIds);
         $notice = 'Configurações de relatórios atualizadas.';
+        }
     } catch (Throwable $e) {
         $error = 'Não foi possível salvar as configurações.';
     }
@@ -47,6 +59,7 @@ $settings = Repository::settings();
 $rules = RouterRepository::allRules();
 $selectedRules = Repository::selectedRuleIds();
 $tickets = Repository::recentTickets(50);
+$reviewLegs = Repository::reviewLegs(50);
 $stateRows = Database::pdo()->query(
     'SELECT state_key,state_value,updated_at FROM reporting_runtime_state ORDER BY state_key'
 )->fetchAll(PDO::FETCH_ASSOC) ?: [];
