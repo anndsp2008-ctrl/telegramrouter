@@ -193,10 +193,21 @@ final class Repository
             WHERE l.status='PENDING'
               AND l.fixture_id IS NULL
               AND l.market_key<>'unsupported'
+              AND (l.next_check_at IS NULL OR l.next_check_at<=UTC_TIMESTAMP())
             ORDER BY l.id
             LIMIT {$limit}
         ";
         return Database::pdo()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function rescheduleUnmatchedLeg(int $legId, int $minutes = 60): void
+    {
+        $minutes = max(15, min(360, $minutes));
+        Database::pdo()->exec(
+            'UPDATE reporting_legs
+             SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$minutes.' MINUTE)
+             WHERE id='.(int)$legId.' AND fixture_id IS NULL AND status="PENDING"'
+        );
     }
 
     public static function attachFixture(int $legId, array $match): void
@@ -261,12 +272,11 @@ final class Repository
     public static function rescheduleFixture(int $fixtureId, int $minutes): void
     {
         $minutes = max(5, min(180, $minutes));
-        $stmt = Database::pdo()->prepare(
+        Database::pdo()->exec(
             'UPDATE reporting_legs
-             SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL ? MINUTE)
-             WHERE fixture_id=? AND status="PENDING"'
+             SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$minutes.' MINUTE)
+             WHERE fixture_id='.(int)$fixtureId.' AND status="PENDING"'
         );
-        $stmt->execute([$minutes, $fixtureId]);
     }
 
     public static function settleLeg(int $legId, array $result, array $details): void
