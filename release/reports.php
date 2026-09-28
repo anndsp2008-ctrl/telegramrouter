@@ -81,7 +81,7 @@ $workerStatus = strtolower((string)($state['worker_status']['state_value'] ?? 's
 $schedulerStatus = strtolower((string)($state['scheduler_status']['state_value'] ?? 'sem registro'));
 $systemEnabled = !empty($settings['enabled']);
 $scopeSelected = (($settings['scope'] ?? 'all') === 'selected');
-$selectedCount = count($selectedRules);
+$selectedCount = $scopeSelected ? count($selectedRules) : count($rules);
 
 function rh(mixed $value): string
 {
@@ -481,11 +481,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         count.textContent=total+' selecionada'+(total===1?'':'s');
     };
 
-    const sync=(applyAll=false)=>{
-        const selected=document.querySelector('input[name="scope"]:checked')?.value==='selected';
-        if(!selected && applyAll){
-            ruleChecks.forEach(input=>{ input.checked=true; });
-        }
+    const selectAllRules=()=>{
+        ruleChecks.forEach(input=>{ input.checked=true; });
+        updateCount();
+    };
+
+    const isAllScope=()=>document.querySelector('input[name="scope"]:checked')?.value==='all';
+
+    const sync=()=>{
+        const selected=!isAllScope();
+        if(isAllScope())selectAllRules();
         if(box){
             box.classList.toggle('is-disabled',!selected);
             box.setAttribute('aria-disabled',selected?'false':'true');
@@ -495,21 +500,29 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     radios.forEach(radio=>{
         const apply=()=>{
-            if(radio.value==='all' && radio.checked){
-                ruleChecks.forEach(input=>{ input.checked=true; });
-            }
-            sync(false);
+            if(radio.value==='all' && radio.checked)selectAllRules();
+            sync();
         };
         radio.addEventListener('change',apply);
         radio.addEventListener('click',apply);
     });
-    ruleChecks.forEach(input=>input.addEventListener('change',updateCount));
 
-    const current=document.querySelector('input[name="scope"]:checked');
-    if(current?.value==='all'){
-        ruleChecks.forEach(input=>{ input.checked=true; });
+    ruleChecks.forEach(input=>input.addEventListener('change',()=>{
+        if(isAllScope() && !input.checked){
+            input.checked=true;
+        }
+        updateCount();
+    }));
+
+    const form=document.getElementById('reporting-settings-form');
+    if(form){
+        form.addEventListener('submit',()=>{
+            if(isAllScope())selectAllRules();
+        });
     }
-    sync(false);
+
+    if(isAllScope())selectAllRules();
+    sync();
 });
 </script>
 <script src="/assets/live.js" defer></script>
