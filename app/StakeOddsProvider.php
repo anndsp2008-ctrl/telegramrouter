@@ -124,8 +124,13 @@ final class StakeOddsProvider
             // still happens, but the source combined odd remains authoritative.
             if($kind==='bet_builder')continue;
 
-            $finalOdd=self::normalizeOdd((string)($result['bet']['odd']??''));
-            if($finalOdd!=='')$ticket['legs'][$index]['odd']=$finalOdd;
+            // Preserve the source odd byte-for-byte on every fallback
+            // and when Stake confirms the same price. Only a genuinely changed,
+            // validated Stake price is written back to the published leg.
+            if($status==='validated' && $changed){
+                $finalOdd=self::normalizeOdd((string)($result['bet']['odd']??''));
+                if($finalOdd!=='')$ticket['legs'][$index]['odd']=$finalOdd;
+            }
         }
 
         if($kind==='simple' && isset($ticket['legs'][0])){
