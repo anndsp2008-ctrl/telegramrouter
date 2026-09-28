@@ -211,9 +211,9 @@ final class Repository
         );
     }
 
-    public static function recordLookupFailure(int $legId, string $reason, int $retryMinutes = 360): int
+    public static function recordLookupFailure(int $legId, string $reason, int $retryMinutes = 15): int
     {
-        $retryMinutes = max(60, min(720, $retryMinutes));
+        $retryMinutes = max(15, min(180, $retryMinutes));
         $reason = mb_substr(trim($reason), 0, 64);
         $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
@@ -227,6 +227,35 @@ final class Repository
         $read = Database::pdo()->prepare('SELECT lookup_attempts FROM reporting_legs WHERE id=?');
         $read->execute([$legId]);
         return (int)$read->fetchColumn();
+    }
+
+    public static function requeuePendingUnmatchedForRetryPolicyOnce(): int
+    {
+        Schema::migrate();
+        $stateKey = 'unmatched_retry_policy_v2';
+
+        $check = Database::pdo()->prepare(
+            'SELECT state_value FROM reporting_runtime_state WHERE state_key=? LIMIT 1'
+        );
+        $check->execute([$stateKey]);
+        if ((string)$check->fetchColumn() === 'done') {
+            return 0;
+        }
+
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare(
+            'UPDATE reporting_legs
+             SET next_check_at=UTC_TIMESTAMP(),
+                 lookup_attempts=0,
+                 lookup_last_reason="retry_policy_requeue"
+             WHERE status="PENDING"
+               AND fixture_id IS NULL'
+        );
+        $stmt->execute();
+        $count = $stmt->rowCount();
+
+        Schema::setState($stateKey, 'done');
+        return $count;
     }
 
     public static function restoreUnicodeDashLookupFailures(): int
