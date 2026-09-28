@@ -446,6 +446,8 @@ final class SmartFormatting
                             }
                         }
                         if($double!==null && ($sourceAnalysis==='' || $double['analysis']!=='')){
+                            $double['kind']='double';
+                            $double=StakeOddsProvider::applyToTicket($double);
                             $caption=DoubleVipCardRenderer::caption($double);
                             $renderStarted=microtime(true);
                             $image=strlen(mb_convert_encoding($caption,'UTF-16LE','UTF-8'))/2<=4700?DoubleVipCardRenderer::render($double):null;
