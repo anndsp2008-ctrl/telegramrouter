@@ -248,7 +248,11 @@ final class StakeOddsProvider
             $product*=(float)$odd;
             if(!is_finite($product)||$product>99999)return null;
         }
-        return number_format($product,2,'.','');
+        // Combined ticket odds follow the publishing rule requested for
+        // doubles/multiples: multiply every final leg odd and truncate (never
+        // round up) to two decimal places. Example: 1.30 x 1.35 = 1.755 -> 1.75.
+        $truncated=floor(($product+1.0e-9)*100.0)/100.0;
+        return number_format($truncated,2,'.','');
     }
 
     /** @return array<string,mixed> */

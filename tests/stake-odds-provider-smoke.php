@@ -151,6 +151,31 @@ if(($validatedDouble['odd']??'')!=='2.73'){
     throw new RuntimeException('Double total odd must be recalculated from final leg odds.');
 }
 
+$truncateTicket=[
+    'kind'=>'double',
+    'sport'=>'Futebol',
+    'odd'=>'9.99',
+    'legs'=>[
+        ['match'=>'Jogo 1','market'=>'Mercado 1','selection'=>'Seleção 1','odd'=>'1.30'],
+        ['match'=>'Jogo 2','market'=>'Mercado 2','selection'=>'Seleção 2','odd'=>'1.35'],
+    ],
+];
+$truncateCalls=0;
+$truncatedDouble=$ticketValidator->invoke(
+    null,
+    $truncateTicket,
+    static function(array $leg) use (&$truncateCalls): array {
+        $truncateCalls++;
+        return ['bet'=>$leg,'status'=>'fixture_not_found','changed'=>false,'error'=>''];
+    }
+);
+if($truncateCalls!==2){
+    throw new RuntimeException('Both legs must be checked before truncating the final double odd.');
+}
+if(($truncatedDouble['odd']??'')!=='1.75'){
+    throw new RuntimeException('1.30 x 1.35 must publish as 1.75 by truncation.');
+}
+
 $multipleTicket=[
     'kind'=>'multiple',
     'sport'=>'Futebol',
