@@ -23,7 +23,18 @@ final class StakeOddsProvider
     public static function enabled(): bool
     {
         return filter_var((string)getenv('STAKE_ODDS_API_ENABLED'), FILTER_VALIDATE_BOOLEAN)
-            && trim((string)getenv('STAKE_ODDS_API_KEY'))!=='';
+            && self::apiKey()!=='';
+    }
+
+    private static function apiKey(): string
+    {
+        if (class_exists(SportsApiIntegration::class)) {
+            try {
+                return SportsApiIntegration::stakeKey();
+            } catch (\Throwable) {
+            }
+        }
+        return trim((string)(getenv('STAKE_ODDS_API_KEY') ?: ''));
     }
 
     /** @param array<string,mixed> $bet @return array<string,mixed> */
@@ -104,7 +115,7 @@ final class StakeOddsProvider
     /** @return array<string,mixed> */
     private static function request(string $path): array
     {
-        $key=trim((string)getenv('STAKE_ODDS_API_KEY'));
+        $key=self::apiKey();
         if($key==='')throw new \RuntimeException('STAKE_KEY_MISSING');
         if(!function_exists('curl_init'))throw new \RuntimeException('STAKE_CURL_MISSING');
 
