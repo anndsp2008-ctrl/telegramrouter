@@ -375,6 +375,11 @@ CSS;
         if(!rename($temp,$dest))throw new RuntimeException('OPENAI_REPLACE_RENAME');
     }
 
+    if((string)(getenv('SMART_FORMAT_TEST_ONLY')?:'')==='1' || (string)(getenv('OPENAI_TEST_ONLY')?:'')==='1'){
+        echo "OPENAI_REPLACED_AZURE_TEST_ONLY_READY\n";
+        return;
+    }
+
     require_once $root.'/bootstrap.php';
     $pdo=\App\Database::pdo();
 
