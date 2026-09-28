@@ -449,90 +449,92 @@ function rdate(mixed $value): string
                     <div>
                         <span class="saas-kicker">REVISÃO MANUAL</span>
                         <h2>Apostas em revisão</h2>
-                        <p>Confira os dados da seleção e defina o resultado apenas quando necessário.</p>
+                        <p>Revise as informações, escolha o resultado e conclua a pendência em um único fluxo.</p>
                     </div>
-                    <span class="rules-count"><b><?=rh(count($reviewLegs))?></b> em revisão</span>
+                    <div class="reporting-review-summary">
+                        <span><?=rh(count($reviewLegs))?></span>
+                        <small><?=count($reviewLegs)===1?'pendência':'pendências'?></small>
+                    </div>
                 </div>
 
                 <div class="reporting-review-list">
                     <?php foreach ($reviewLegs as $review): ?>
                         <article class="reporting-review-item">
-                            <div class="reporting-review-item-head">
-                                <div class="reporting-review-item-id">
-                                    <span class="reporting-status-badge review">Revisão</span>
-                                    <strong>Ticket #<?=rh($review['ticket_id'])?></strong>
-                                    <span>Seleção #<?=rh($review['position_no'])?></span>
+                            <div class="reporting-review-overview">
+                                <div class="reporting-review-item-head">
+                                    <div class="reporting-review-item-id">
+                                        <span class="reporting-status-badge review">Revisão</span>
+                                        <strong>Ticket #<?=rh($review['ticket_id'])?></strong>
+                                        <span>Seleção #<?=rh($review['position_no'])?></span>
+                                    </div>
+                                    <time><?=rh(rdate($review['placed_at']))?></time>
                                 </div>
-                                <time><?=rh(rdate($review['placed_at']))?></time>
+
+                                <div class="reporting-review-event">
+                                    <span>Evento</span>
+                                    <strong><?=rh($review['match_name'])?></strong>
+                                </div>
+
+                                <div class="reporting-review-meta-grid">
+                                    <div>
+                                        <span>Liga</span>
+                                        <b><?=rh($review['league'] ?: '—')?></b>
+                                    </div>
+                                    <div>
+                                        <span>Mercado</span>
+                                        <b><?=rh($review['market_text'] ?: '—')?></b>
+                                    </div>
+                                    <div>
+                                        <span>Seleção</span>
+                                        <b><?=rh($review['selection_text'] ?: '—')?></b>
+                                    </div>
+                                    <div>
+                                        <span>Odd</span>
+                                        <b><?=rh($review['odds'] ?: '—')?></b>
+                                    </div>
+                                </div>
+
+                                <div class="reporting-review-reason">
+                                    <b>Motivo da revisão</b>
+                                    <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
+                                </div>
                             </div>
 
-                            <div class="reporting-review-form-grid">
-                                <label class="field-wide">
-                                    Evento
-                                    <input type="text" value="<?=rh($review['match_name'])?>" readonly>
-                                </label>
-
-                                <label>
-                                    Liga
-                                    <input type="text" value="<?=rh($review['league'] ?: '—')?>" readonly>
-                                </label>
-
-                                <label>
-                                    Mercado
-                                    <input type="text" value="<?=rh($review['market_text'] ?: '—')?>" readonly>
-                                </label>
-
-                                <label>
-                                    Seleção
-                                    <input type="text" value="<?=rh($review['selection_text'] ?: '—')?>" readonly>
-                                </label>
-
-                                <label>
-                                    Odd
-                                    <input type="text" value="<?=rh($review['odds'] ?: '—')?>" readonly>
-                                </label>
-                            </div>
-
-                            <div class="reporting-review-reason">
-                                <b>Motivo da revisão</b>
-                                <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
-                            </div>
-
-                            <div class="reporting-review-decision">
-                                <div class="reporting-review-decision-copy">
+                            <aside class="reporting-review-decision-panel">
+                                <div class="reporting-review-decision-head">
                                     <span>DECISÃO MANUAL</span>
-                                    <p>Você pode tentar reprocessar ou definir o resultado manualmente.</p>
+                                    <p>Escolha uma ação para esta seleção.</p>
                                 </div>
 
-                                <div class="reporting-review-controls">
-                                    <form method="post" class="reporting-review-resolve-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
-                                        <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
-                                        <input type="hidden" name="action" value="review_resolve">
-                                        <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
+                                <form method="post" class="reporting-review-resolve-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
+                                    <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+                                    <input type="hidden" name="action" value="review_resolve">
+                                    <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
 
-                                        <label>
-                                            Resultado manual
-                                            <select name="manual_status" required>
-                                                <option value="">Selecione o resultado</option>
-                                                <option value="GREEN">Green</option>
-                                                <option value="RED">Red</option>
-                                                <option value="VOID">Void</option>
-                                                <option value="HALF_GREEN">Half Green</option>
-                                                <option value="HALF_RED">Half Red</option>
-                                            </select>
-                                        </label>
+                                    <label>
+                                        Resultado
+                                        <select name="manual_status" required>
+                                            <option value="">Selecione</option>
+                                            <option value="GREEN">Green</option>
+                                            <option value="RED">Red</option>
+                                            <option value="VOID">Void</option>
+                                            <option value="HALF_GREEN">Half Green</option>
+                                            <option value="HALF_RED">Half Red</option>
+                                        </select>
+                                    </label>
 
-                                        <button type="submit" class="saas-primary reporting-review-apply-btn">Aplicar resultado</button>
-                                    </form>
+                                    <button type="submit" class="saas-primary reporting-review-apply-btn">Aplicar resultado</button>
+                                </form>
 
-                                    <form method="post" class="reporting-review-reprocess-form">
-                                        <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
-                                        <input type="hidden" name="action" value="review_reprocess">
-                                        <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
-                                        <button type="submit" class="saas-secondary reporting-review-reprocess-btn">Reprocessar</button>
-                                    </form>
-                                </div>
-                            </div>
+                                <div class="reporting-review-separator"><span>ou</span></div>
+
+                                <form method="post" class="reporting-review-reprocess-form">
+                                    <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+                                    <input type="hidden" name="action" value="review_reprocess">
+                                    <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
+                                    <button type="submit" class="saas-secondary reporting-review-reprocess-btn">Reprocessar automaticamente</button>
+                                </form>
+                            </aside>
                         </article>
                     <?php endforeach; ?>
                 </div>
