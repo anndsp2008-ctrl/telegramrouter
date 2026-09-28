@@ -52,7 +52,7 @@ final class ResultWorker
                 $attempts = Repository::recordLookupFailure(
                     (int)$leg['id'],
                     $lookupStatus,
-                    360
+                    180
                 );
 
                 if ($attempts >= 2) {
