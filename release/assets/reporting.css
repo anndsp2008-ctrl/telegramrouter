@@ -52,6 +52,7 @@
 
 .reporting-rules-box{margin-top:12px;border:1px solid #ffffff10;border-radius:11px;background:#080e17;overflow:hidden;transition:.18s ease}
 .reporting-rules-box.is-disabled{opacity:.42;filter:saturate(.6)}
+.reporting-rules-box.is-disabled .reporting-rules-list{pointer-events:none}
 .reporting-rules-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border-bottom:1px solid #ffffff0b;background:#0b121c}
 .reporting-rules-head>div{display:flex;align-items:center;gap:8px;min-width:0}
 .reporting-rules-head b{color:#cdd9e5;font-size:10px}
