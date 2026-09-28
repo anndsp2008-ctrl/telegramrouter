@@ -11,6 +11,11 @@ on:
       - 'scripts/smart-workers-isolated.php'
       - 'tests/multiple-bet-contingency-smoke.php'
       - 'runtime-ai-learning.php'
+      - 'runtime-reporting.php'
+      - 'app/Reporting/**'
+      - 'reports.php'
+      - 'scripts/report-worker.php'
+      - 'tests/reporting-settlement-smoke.php'
       - 'runtime-smart-format.php'
       - 'app/VipCardRenderer.php'
       - 'app/PurePngVipCardRenderer.php'
@@ -43,6 +48,10 @@ jobs:
           python3 -m json.tool release/railway.json >/dev/null
           test -s release/app/CardLayoutEmojis.php
           test -s release/app/TelegramRouter.php
+          test -s release/app/Reporting/Repository.php
+          test -s release/reports.php
+          test ! -e release/results.php
+          test ! -d release/app/Results
           test -s release/database/schema.sql
           test -s release/config/config.php
           test -s release/assets/brand/connect-responsive.css
@@ -61,6 +70,11 @@ jobs:
           php tests/contingency-card-smoke.php
           php tests/multiple-bet-contingency-smoke.php
           php tests/smart-format-smoke.php
+          php tests/reporting-settlement-smoke.php
+          grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
+          grep -Fq 'lastReportingTicket' app/SmartFormatting.php
+          grep -Fq 'href="/reports.php"' index.php
+          ! grep -Fq 'href="/results.php"' index.php
           echo STANDALONE_ROUTING_TESTS_PASSED
       - name: Report non-secret runtime code hashes for comparison
         run: |
