@@ -23,6 +23,7 @@ final class Schema
             CREATE TABLE IF NOT EXISTS reporting_settings (
                 id TINYINT UNSIGNED PRIMARY KEY,
                 enabled TINYINT(1) NOT NULL DEFAULT 1,
+                scope VARCHAR(16) NOT NULL DEFAULT 'all',
                 check_results TINYINT(1) NOT NULL DEFAULT 1,
                 daily_report TINYINT(1) NOT NULL DEFAULT 1,
                 report_time TIME NOT NULL DEFAULT '00:00:00',
@@ -32,6 +33,15 @@ final class Schema
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         $pdo->exec("INSERT IGNORE INTO reporting_settings(id) VALUES (1)");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS reporting_rule_scope (
+                rule_id BIGINT UNSIGNED PRIMARY KEY,
+                enabled TINYINT(1) NOT NULL DEFAULT 1,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
 
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS reporting_tickets (
