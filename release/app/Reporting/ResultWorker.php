@@ -83,7 +83,7 @@ final class ResultWorker
                     ]);
                 }
             } catch (\Throwable $e) {
-                error_log('TMR_REPORTING_FIXTURE_MATCH_NON_FATAL ' . get_class($e));
+                error_log('TMR_REPORTING_FIXTURE_MATCH_NON_FATAL ' . get_class($e) . ' ' . mb_substr($e->getMessage(), 0, 180));
                 Repository::rescheduleUnmatchedLeg((int)($leg['id'] ?? 0), 60);
             }
         }
@@ -128,7 +128,7 @@ final class ResultWorker
                     ]);
                 }
             } catch (\Throwable $e) {
-                error_log('TMR_REPORTING_SETTLEMENT_NON_FATAL ' . get_class($e));
+                error_log('TMR_REPORTING_SETTLEMENT_NON_FATAL ' . get_class($e) . ' ' . mb_substr($e->getMessage(), 0, 180));
                 Repository::rescheduleFixture($fixtureId, 30);
             }
         }

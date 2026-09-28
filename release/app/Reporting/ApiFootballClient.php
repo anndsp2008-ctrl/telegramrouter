@@ -135,6 +135,10 @@ final class ApiFootballClient
         }
 
         if (!empty($data['errors'])) {
+            $keys = is_array($data['errors']) ? array_keys($data['errors']) : [];
+            error_log('TMR_API_FOOTBALL_APPLICATION_ERROR ' . json_encode([
+                'keys' => array_slice(array_map('strval', $keys), 0, 8),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             throw new \RuntimeException('API de resultados retornou erro de aplicação.');
         }
 

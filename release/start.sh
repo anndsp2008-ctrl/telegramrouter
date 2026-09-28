@@ -27,7 +27,7 @@ fi
 
 (
   while :; do
-    php scripts/report-worker.php >> storage/reporting.log 2>&1 || true
+    php scripts/report-worker.php 2>&1 | tee -a storage/reporting.log || true
     sleep 10
   done
 ) &
