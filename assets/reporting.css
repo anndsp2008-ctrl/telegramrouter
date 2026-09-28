@@ -593,11 +593,25 @@
   font-size:9px;
   white-space:nowrap;
 }
-.reporting-table{min-width:1280px}
+.reporting-table{
+  min-width:900px;
+  table-layout:fixed;
+}
+.reporting-table th,.reporting-table td{padding-left:6px;padding-right:6px}
 .reporting-table td{vertical-align:middle}
 .reporting-table td:first-child{color:#73dccc}
-.reporting-history-games{min-width:230px;max-width:320px}
-.reporting-history-markets{min-width:250px;max-width:360px}
+.reporting-table th:nth-child(1),.reporting-table td:nth-child(1){width:44px}
+.reporting-table th:nth-child(2),.reporting-table td:nth-child(2){width:120px}
+.reporting-table th:nth-child(3),.reporting-table td:nth-child(3){width:72px}
+.reporting-table th:nth-child(4),.reporting-table td:nth-child(4){width:175px}
+.reporting-table th:nth-child(5),.reporting-table td:nth-child(5){width:205px}
+.reporting-table th:nth-child(6),.reporting-table td:nth-child(6){width:60px}
+.reporting-table th:nth-child(7),.reporting-table td:nth-child(7){width:95px}
+.reporting-table th:nth-child(8),.reporting-table td:nth-child(8){width:80px}
+.reporting-table th:nth-child(9),.reporting-table td:nth-child(9){width:105px}
+.reporting-table td:nth-child(9){white-space:normal;line-height:1.35}
+.reporting-history-games{min-width:0;max-width:none}
+.reporting-history-markets{min-width:0;max-width:none}
 .reporting-history-leg{
   display:flex;align-items:flex-start;gap:7px;
   padding:5px 0;
