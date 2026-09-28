@@ -7,8 +7,7 @@ final class ReportingBridge
     public static function afterForward(array $rule, string $sourceChat, int $messageId): void
     {
         try {
-            $settings = Repository::settings();
-            if (empty($settings['enabled'])) {
+            if (!Repository::ruleEnabled((int)($rule['id'] ?? 0))) {
                 return;
             }
             if (!method_exists(\App\SmartFormatting::class, 'lastReportingTicket')) {
