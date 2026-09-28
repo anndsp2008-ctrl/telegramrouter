@@ -11,6 +11,7 @@ final class TelegramRouter extends SimpleEventHandler
     // chat_forwards_restricted_v1 compatibility marker for Railway boot validation
     private string $deliveryMethod='unknown';
     private array $deliveryTelemetry=[];
+    private bool $reportingOutboxTimerStarted=false;
 
     public static function getPlugins(): array { return []; }
     public function getReportPeers(): array { return []; }
@@ -20,6 +21,12 @@ final class TelegramRouter extends SimpleEventHandler
         $this->cleanupRestrictedOrphans();
         $pdo=Database::pdo();
         $pdo->prepare("INSERT INTO worker_status(worker_key,status,last_activity_at) VALUES('telegram-global','conectado',NOW()) ON DUPLICATE KEY UPDATE status='conectado',last_activity_at=NOW(),last_error=NULL")->execute();
+        if(!$this->reportingOutboxTimerStarted){
+            $this->reportingOutboxTimerStarted=true;
+            \Revolt\EventLoop::repeat(15.0,function(): void {
+                $this->flushReportingOutbox();
+            });
+        } // TMR_REPORTING_TIMER_V1
     }
 
     #[EventHandler\Attributes\Handler]
@@ -73,6 +80,7 @@ final class TelegramRouter extends SimpleEventHandler
     {
         $started=hrtime(true);
         $id=(int)$message->id;
+        SmartFormatting::resetReportingTicket(); // TMR_REPORTING_RESET_EVENT_V1
         $pdo=Database::pdo();
         try {
             $s=$pdo->prepare("INSERT INTO router_events(source_chat,message_id,destination_chat,trigger_text,status) VALUES(?,?,?,?, 'processing')");
@@ -136,6 +144,11 @@ final class TelegramRouter extends SimpleEventHandler
             $totalMs=self::elapsedMs($started);
             $details=self::joinDetails((string)($translation['details']??''),$this->deliveryDetails(),'Envio Telegram: '.$sendMs.' ms','Processamento total: '.$totalMs.' ms');
             $this->finish($source,$id,'forwarded',$details);
+            try {
+                \App\Reporting\ReportingBridge::afterForward($rule,$source,$id);
+            } catch(\Throwable $reportingError) {
+                error_log('TMR_REPORTING_CAPTURE_HOOK_NON_FATAL '.get_class($reportingError));
+            } // TMR_REPORTING_CAPTURE_V1
         } catch(\Throwable $e) {
             if($claimedMediaId!==null) $this->releaseMediaClaim($source,$claimedMediaId,$id);
             $details=ErrorTranslator::message($e,'o encaminhamento da mensagem').' | Erro técnico: '.TranslationService::sanitizeError($e->getMessage()).' | Processamento total: '.self::elapsedMs($started).' ms';
@@ -187,15 +200,56 @@ final class TelegramRouter extends SimpleEventHandler
                     // Mandatory-card rescue: structured extraction may fail while
                     // plain text translation still succeeds. Translate first,
                     // then build a deterministic card without inventing fields.
-                    $multipleDetected=SmartFormatting::multipleDetected();
-                    $multipleDetails=$multipleDetected?SmartFormatting::multipleDetails():'';
-                    $contingencyText=$multipleDetails!==''?$multipleDetails:$text;
+                    // When a receipt image is present, never treat Telegram caption
+                    // alternatives or AI-generated multiple_details as verified
+                    // selections from the receipt. Keep the original receipt visual
+                    // and use a neutral Portuguese fallback instead.
+                    $receiptOnly=$sourceImage!==null&&is_file($sourceImage);
+                    $multipleDetected=!$receiptOnly && SmartFormatting::multipleDetected();
+                    $multipleDetails=(!$receiptOnly&&$multipleDetected)
+                        ?SmartFormatting::multipleDetails():'';
+                    $sourceAnalysis=SmartFormatting::extractSourceAnalysis($text);
+                    $translatedSourceAnalysis=$sourceAnalysis;
                     $contingencyTranslated=empty($rule['translation_enabled'])
                         || ($multipleDetails!=='' && SmartFormatting::multipleDetailsTranslated());
-                    // Visual receipt descriptions from AI already respect the
-                    // configured target language. Only translate the original
-                    // Telegram caption when there is no usable AI transcription.
-                    if(!empty($rule['translation_enabled'])
+
+                    // Preserve author analysis independently from receipt extraction.
+                    // When translation is enabled, translate only that preserved prose;
+                    // never replace it with generated commentary.
+                    if($sourceAnalysis!=='' && !empty($rule['translation_enabled'])){
+                        $translationStarted=microtime(true);
+                        try {
+                            $analysisTranslation=Transform::translateDetailed($sourceAnalysis,$rule,[
+                                'rule_id'=>(int)($rule['id']??0),
+                                'context'=>'smart_card_source_analysis'
+                            ]);
+                            $translatedAnalysis=trim((string)($analysisTranslation['text']??''));
+                            if($translatedAnalysis!=='')$translatedSourceAnalysis=$translatedAnalysis;
+                            $contingencyTranslated=!empty($analysisTranslation['translated']);
+                            error_log('TMR_SMART_CARD_SOURCE_ANALYSIS_PRESERVED '.json_encode([
+                                'translated'=>$contingencyTranslated,
+                                'provider'=>(string)($analysisTranslation['provider']??'unknown')
+                            ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+                        } catch(\Throwable $translationError) {
+                            $translatedSourceAnalysis=$sourceAnalysis;
+                            error_log('TMR_SMART_CARD_SOURCE_ANALYSIS_TRANSLATION_FAILED '.json_encode([
+                                'exception'=>get_class($translationError)
+                            ]));
+                        } finally {
+                            $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
+                        }
+                    }
+
+                    $contingencyText=\App\ContingencyCardRenderer::groundedText(
+                        $multipleDetails!==''?$multipleDetails:$text,
+                        $sourceImage,
+                        $translatedSourceAnalysis
+                    );
+
+                    // Without a receipt, the entire original text may still need
+                    // translation. Receipt contingencies translate only preserved
+                    // analysis because selections remain grounded in the image.
+                    if(!$receiptOnly && !empty($rule['translation_enabled'])
                         && $multipleDetails==='' && trim($text)!==''){
                         $translationStarted=microtime(true);
                         try {
@@ -215,12 +269,28 @@ final class TelegramRouter extends SimpleEventHandler
                                 'exception'=>get_class($translationError)
                             ]));
                         } finally {
-                            $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
+                            $contingencyTranslationMs=max(
+                                $contingencyTranslationMs,
+                                max(0,(int)round((microtime(true)-$translationStarted)*1000))
+                            );
                         }
                     }
+                    // Reapply the rule AFTER translation/AI fallback. Translators may
+                    // preserve or introduce emoji/link characters even when the source was
+                    // already cleaned. The final outgoing contingency must obey the rule.
+                    $contingencyText=SmartFormatting::normalizePublishedStakeText(
+                        trim(Transform::clean($contingencyText,$rule,[]))
+                    );
+                    error_log('TMR_SMART_CARD_CONTINGENCY_RULE_CLEAN '.json_encode([
+                        'remove_emojis'=>!empty($rule['remove_emojis']),
+                        'remove_links'=>!empty($rule['remove_links']),
+                        'custom_removals'=>trim((string)($rule['custom_removals']??''))!==''
+                    ]));
                     try {
                         $contingencyRenderStarted=microtime(true);
-                        $contingencyCard=\App\ContingencyCardRenderer::render($contingencyText,$sourceImage);
+                        $contingencyCard=\App\ContingencyCardRenderer::render(
+                            $contingencyText,$sourceImage,$translatedSourceAnalysis
+                        );
                         $contingencyRenderMs=max(0,(int)round((microtime(true)-$contingencyRenderStarted)*1000));
                         if($contingencyCard!==null){
                             $formatted=[
@@ -234,7 +304,8 @@ final class TelegramRouter extends SimpleEventHandler
                             error_log('TMR_SMART_CARD_CONTINGENCY_READY '.json_encode([
                                 'translated'=>$contingencyTranslated,
                                 'multiple_bet'=>$multipleDetected,
-                                'has_image'=>$sourceImage!==null
+                                'has_image'=>$sourceImage!==null,
+                                'receipt_only'=>$receiptOnly
                             ]));
                         }
                     } catch(\Throwable $contingencyError) {
@@ -265,11 +336,13 @@ final class TelegramRouter extends SimpleEventHandler
             }
         }
         if($formatted!==null){
-            $newText=SmartFormatting::normalizePublishedStakeText(
-                \App\CardLayoutEmojis::clean(
-                    (string)$formatted['caption'],$rule,!empty($formatted['contingency'])
-                )
-            );
+            // Generated smart-card captions keep their structural emojis globally.
+            // The card renderer already strips emojis only from analysis/details.
+            $isContingency=!empty($formatted['contingency']);
+            $captionForDelivery=$isContingency
+                ?\App\CardLayoutEmojis::clean((string)$formatted['caption'],$rule,true)
+                :(string)$formatted['caption'];
+            $newText=SmartFormatting::normalizePublishedStakeText(trim($captionForDelivery));
             $output=$formatted['mode'];
             $card=$formatted['image'];
             $isContingency=!empty($formatted['contingency']);
@@ -758,6 +831,46 @@ final class TelegramRouter extends SimpleEventHandler
         } catch(\Throwable) {}
     }
 
+    private function flushReportingOutbox(): void
+    {
+        $row=null;
+        try {
+            $settings=\App\Reporting\Repository::settings();
+            if(empty($settings['enabled']) || empty($settings['daily_report']))return;
+            $row=\App\Reporting\Repository::claimOutbox();
+            if(!is_array($row))return;
+
+            $response=$this->messages->sendMessage(
+                peer:(string)$row['destination_chat'],
+                message:(string)$row['payload'],
+                entities:[],
+                random_id:(int)$row['telegram_random_id']
+            );
+            \App\Reporting\Repository::markOutboxSent(
+                (int)$row['id'],
+                self::reportingTelegramMessageId($response)
+            );
+            error_log('TMR_REPORTING_OUTBOX_SENT id='.(int)$row['id']);
+        } catch(\Throwable $e) {
+            if(is_array($row) && isset($row['id'])){
+                try {
+                    \App\Reporting\Repository::markOutboxFailed((int)$row['id'],get_class($e).': '.$e->getMessage());
+                } catch(\Throwable) {}
+            }
+            error_log('TMR_REPORTING_OUTBOX_NON_FATAL '.get_class($e));
+        }
+    }
+
+    private static function reportingTelegramMessageId(mixed $response): ?int
+    {
+        if(is_object($response) && isset($response->id) && is_numeric($response->id)){
+            return (int)$response->id;
+        }
+        if(is_array($response) && isset($response['id']) && is_numeric($response['id'])){
+            return (int)$response['id'];
+        }
+        return null;
+    }
     private function finish(string $source,int $id,string $status,string $details): void
     {
         $s=Database::pdo()->prepare('UPDATE router_events SET status=?,details=?,updated_at=NOW() WHERE source_chat=? AND message_id=?');

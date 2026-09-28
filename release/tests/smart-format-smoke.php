@@ -10,6 +10,36 @@ require __DIR__.'/../app/PurePngVipCardRenderer.php';
 require __DIR__.'/../app/VipCardRenderer.php';
 require __DIR__.'/../app/SmartFormatting.php';
 
+// Generated analysis must sound professional without fabricating sports context.
+$smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+foreach([
+    'tom de tipster profissional',
+    'em 3 a 5 frases',
+    'SOMENTE em fatos explícitos',
+    'Não invente forma recente',
+    'Não chame a aposta de "valor"',
+    'Toda frase factual deve ser rastreável aos dados disponíveis'
+] as $analysisPolicyToken){
+    if(!str_contains($smartFormattingSource,$analysisPolicyToken))
+        throw new RuntimeException('Professional grounded analysis policy missing: '.$analysisPolicyToken);
+}
+echo "SMART_FORMAT_PROFESSIONAL_GROUNDED_ANALYSIS_POLICY_TESTS_PASSED\n";
+
+// Global rule: generated tipster analysis must never narrate the source/evidence.
+foreach([
+    'Fale DIRETAMENTE sobre a aposta',
+    'É proibido mencionar ou escrever expressões como "origem"',
+    'não reclame da falta de dados',
+    'como alguém que está avaliando e justificando a própria entrada',
+    'nunca mencione origem, comprovante, bilhete, mensagem ou falta de dados'
+] as $globalTipsterToken){
+    if(!str_contains($smartFormattingSource,$globalTipsterToken))
+        throw new RuntimeException('Global direct-tipster analysis policy missing: '.$globalTipsterToken);
+}
+if(str_contains($smartFormattingSource,'reconheça de forma natural que a origem não fornece elementos adicionais'))
+    throw new RuntimeException('Legacy source-commentary analysis instruction is still active');
+echo "SMART_FORMAT_GLOBAL_DIRECT_TIPSTER_ANALYSIS_POLICY_TESTS_PASSED\n";
+
 // PR #77 regression: MadelineProto promotes PHP warnings to exceptions.
 // A missing /tmp backoff marker must be a normal first-run state.
 $backoffFile='/tmp/tmr-smart-gemini-backoff-until';
@@ -49,6 +79,69 @@ $proseAnalysis='A Lazio chega em bom momento porque mantém sequência consisten
     'Por isso, o autor acredita que a seleção tem valor para este mercado.';
 if(!SmartFormatting::sourceHasAnalysis($proseAnalysis))
     throw new RuntimeException('Real analytical prose was not detected');
+// A ranking pair identifies two teams' positions, never the home team's points.
+// A generated analysis must retain its valid commentary and original bet fields.
+$standingsSource="Mandante: Solihull Moors\nVisitante: Boreham Wood\nPosição na classificação: 23 - 1";
+$generatedStandings='A equipe de casa, Solihull Moors, está na 23ª posição da classificação com 1 ponto, enquanto o Boreham Wood lidera o campeonato. A diferença na tabela favorece o visitante.';
+$correctedStandings='A equipe de casa, Solihull Moors, está na 23ª posição da classificação, enquanto o Boreham Wood lidera o campeonato. A diferença na tabela favorece o visitante.';
+if(SmartFormatting::correctGeneratedAnalysis($generatedStandings,$standingsSource)!==$correctedStandings
+    || SmartFormatting::correctGeneratedAnalysis($correctedStandings,$standingsSource)!==$correctedStandings){
+    throw new RuntimeException('Ranking pair was misread as points or generated analysis was removed');
+}
+$secondaryClaim='O Solihull está na 23ª posição com apenas 1 ponto. O Boreham Wood ocupa a liderança.';
+if(SmartFormatting::correctGeneratedAnalysis($secondaryClaim,$standingsSource)
+    !=='O Solihull está na 23ª posição. O Boreham Wood ocupa a liderança.'){
+    throw new RuntimeException('Only the unsupported point claim should be removed');
+}
+$providedPoints=$standingsSource."\nPontos: 4 - 30";
+if(SmartFormatting::correctGeneratedAnalysis('O mandante está na 23ª posição com 4 pontos.',$providedPoints)
+    !=='O mandante está na 23ª posição com 4 pontos.'){
+    throw new RuntimeException('Explicitly provided point statistics must not be removed');
+}
+if(SmartFormatting::correctGeneratedAnalysis('A equipe está na 23ª posição com 1 ponto.','Odd: 1,55')
+    !=='A equipe está na 23ª posição com 1 ponto.'){
+    throw new RuntimeException('Unrelated messages must not be changed by the standings guard');
+}
+$authorAnalysis='O confronto tende a favorecer a equipe visitante, segundo o autor da mensagem.';
+if(SmartFormatting::extractSourceAnalysis("Análise: ".$authorAnalysis)!==$authorAnalysis){
+    throw new RuntimeException('Original author analysis must be preserved');
+}
+echo "SMART_FORMAT_STANDINGS_ANALYSIS_GUARD_TESTS_PASSED\n";
+
+foreach([
+    'El partido entre Noruega e Dinamarca puede plantear un escenario favorable para los corners.',
+    'Corners',
+    'The match is likely to see under 11.0 corners.'
+] as $foreign){
+    if(!SmartFormatting::hasForeignPortugueseCues($foreign))
+        throw new RuntimeException('Untranslated AI output was not detected');
+}
+foreach([
+    'O confronto entre Noruega e Dinamarca pode terminar com menos de 11,0 escanteios.',
+    'Vitória da equipe da casa',
+    'Noruega vs Dinamarca'
+] as $portuguese){
+    if(SmartFormatting::hasForeignPortugueseCues($portuguese))
+        throw new RuntimeException('Portuguese output was incorrectly rejected');
+}
+$localeRule=['translation_enabled'=>true,'translation_target_language'=>'pt-BR','id'=>1];
+$localeBet=['match'=>'Noruega vs Dinamarca','sport'=>'Futebol','market'=>'Corners',
+    'selection'=>'Menos de 11.0','odd'=>'1.50','analysis'=>'O confronto pode terminar com poucos escanteios.'];
+$localeMethod=new ReflectionMethod(SmartFormatting::class,'enforcePortugueseOutput');
+$localized=$localeMethod->invoke(null,$localeBet,$localeRule,true);
+if(!is_array($localized) || $localized['market']!=='Escanteios'
+    || $localized['selection']!=='Menos de 11,0'
+    || $localized['analysis']!==$localeBet['analysis']
+    || $localized['odd']!=='1.50'
+    || $localized['match']!==$localeBet['match']
+    || $localeBet['market']!=='Corners'){
+    throw new RuntimeException('Portuguese card normalization changed source or protected bet fields');
+}
+$untranslated=$localeMethod->invoke(null,$localeBet,$localeRule,false);
+if($untranslated!==$localeBet)
+    throw new RuntimeException('Disabled translation changed the source bet');
+echo "SMART_FORMAT_PORTUGUESE_GATE_TESTS_PASSED\n";
+
 // Sentence initials, not Title Case: keep internal case, proper names, numeric
 // odds, URLs and paragraph structure intact. Format card text and image identically.
 $caseExamples=[
@@ -161,7 +254,7 @@ $moneyFixture=array_merge($bet,['stake'=>'3','stake_amount'=>'R$ 200,00',
 $moneyText=SmartFormatting::asText($moneyFixture,true);
 if(!str_contains($moneyText,'Stake: 10') ||
    !str_contains($moneyText,'Valor apostado: R$ 200,00') ||
-   !str_contains($moneyText,'Odd: 2,00'))
+   !str_contains($moneyText,'Odd: 2.00'))
     throw new RuntimeException('Fixed stake overwrote receipt money or odds');
 echo "SMART_FORMAT_FIXED_STAKE_10_TESTS_PASSED\\n";
 // Source-channel stake labels in free text must never survive any formatted path.
@@ -249,7 +342,7 @@ $cardFixture['bookmaker']='WINAMAX';
 $cardFixture['day']='Sábado';
 $cardView=SmartFormatting::cardView($cardFixture);
 $cardText=SmartFormatting::asText($cardView,true);
-foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1,60','Stake: 10',
+foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1.60','Stake: 10',
          'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
     if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
 }

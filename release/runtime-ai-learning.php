@@ -22,22 +22,21 @@ if(str_contains($original,$marker)){
     echo "AI_LEARNING_ALREADY_INSTALLED\n";
     return;
 }
-// The first production release already ships the seven memory-context changes
-// in app/SmartFormatting.php, so the older unpatched hash is NOT expected there.
-// Accept that exact, validated source as already wired; do not patch it twice.
+// Current production releases may already contain the memory-context wiring.
+// Recognize that state by the exact integration anchors instead of a brittle
+// whole-file hash, while still refusing to patch unknown source variants.
 $sourceHash=substr(hash('sha256',$original),0,12);
-if($sourceHash==='c29d05822713'){
-    $wiredAnchors=[
-        'AiLearningMemory::contextFor($sourceText,(int)($rule[\'id\']??0))',
-        'self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples)',
-        'self::request($key,$sourceText,$localImage,$inputLanguage,$fields,$memoryExamples)',
-        '($memoryExamples!==\'\'?$memoryExamples:\'\')',
-    ];
-    foreach($wiredAnchors as $anchor){
-        if(!str_contains($original,$anchor)){
-            fwrite(STDERR,"AI_LEARNING_PREWIRED_ANCHOR_MISSING\n");return;
-        }
-    }
+$wiredAnchors=[
+    'AiLearningMemory::contextFor($sourceText,(int)($rule[\'id\']??0))',
+    'self::requestWorkers($sourceText,$localImage,$inputLanguage,$fields,null,$memoryExamples)',
+    'self::request($key,$sourceText,$localImage,$inputLanguage,$fields,$memoryExamples)',
+    '($memoryExamples!==\'\'?$memoryExamples:\'\')',
+];
+$alreadyWired=true;
+foreach($wiredAnchors as $anchor){
+    if(!str_contains($original,$anchor)){$alreadyWired=false;break;}
+}
+if($alreadyWired){
     echo "AI_LEARNING_RUNTIME_READY_ALREADY_WIRED\n";
     return;
 }

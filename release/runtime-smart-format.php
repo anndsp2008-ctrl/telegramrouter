@@ -57,7 +57,7 @@ try {
     $section=<<<'HTML'
 <section class="treatment-block tmr-smart-format-choice" aria-labelledby="smart-format-title">
   <div class="treatment-title"><span id="smart-format-title">✦ Formatação inteligente com IA</span></div>
-  <p class="field-help">Opcional por regra. A interpretação e a tradução inteligentes usam o mesmo provedor definido na regra e, quando necessário, seu fallback configurado. Para gerar cards, o provedor deve aceitar interpretação por IA (Gemini ou Workers AI); Azure Translator e Google Cloud Translation, isoladamente, não interpretam comprovantes. Com a opção desligada, o encaminhamento atual permanece igual.</p>
+  <p class="field-help">Opcional por regra. A interpretação e a tradução inteligentes usam o mesmo provedor definido na regra e, quando necessário, seu fallback configurado. Para gerar cards, o provedor deve aceitar interpretação por IA (OpenAI, Gemini ou Workers AI); Google Cloud Translation, isoladamente, não interpreta comprovantes. Com a opção desligada, o encaminhamento atual permanece igual.</p>
   <div class="treatment-checks">
     <label><input type="checkbox" name="smart_format_enabled" <?=\App\SmartFormatting::settings((int)($editRule['id']??0))['enabled']?'checked':''?>> Ativar somente nesta regra</label>
   </div>
@@ -162,14 +162,47 @@ HTML;
                     $multipleDetected=!$receiptOnly && SmartFormatting::multipleDetected();
                     $multipleDetails=(!$receiptOnly&&$multipleDetected)
                         ?SmartFormatting::multipleDetails():'';
-                    $contingencyText=\App\ContingencyCardRenderer::groundedText(
-                        $multipleDetails!==''?$multipleDetails:$text,$sourceImage
-                    );
+                    $sourceAnalysis=SmartFormatting::extractSourceAnalysis($text);
+                    $translatedSourceAnalysis=$sourceAnalysis;
                     $contingencyTranslated=empty($rule['translation_enabled'])
                         || ($multipleDetails!=='' && SmartFormatting::multipleDetailsTranslated());
-                    // Visual receipt descriptions from AI already respect the
-                    // configured target language. Only translate the original
-                    // Telegram caption when there is no usable AI transcription.
+
+                    // Preserve author analysis independently from receipt extraction.
+                    // When translation is enabled, translate only that preserved prose;
+                    // never replace it with generated commentary.
+                    if($sourceAnalysis!=='' && !empty($rule['translation_enabled'])){
+                        $translationStarted=microtime(true);
+                        try {
+                            $analysisTranslation=Transform::translateDetailed($sourceAnalysis,$rule,[
+                                'rule_id'=>(int)($rule['id']??0),
+                                'context'=>'smart_card_source_analysis'
+                            ]);
+                            $translatedAnalysis=trim((string)($analysisTranslation['text']??''));
+                            if($translatedAnalysis!=='')$translatedSourceAnalysis=$translatedAnalysis;
+                            $contingencyTranslated=!empty($analysisTranslation['translated']);
+                            error_log('TMR_SMART_CARD_SOURCE_ANALYSIS_PRESERVED '.json_encode([
+                                'translated'=>$contingencyTranslated,
+                                'provider'=>(string)($analysisTranslation['provider']??'unknown')
+                            ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+                        } catch(\Throwable $translationError) {
+                            $translatedSourceAnalysis=$sourceAnalysis;
+                            error_log('TMR_SMART_CARD_SOURCE_ANALYSIS_TRANSLATION_FAILED '.json_encode([
+                                'exception'=>get_class($translationError)
+                            ]));
+                        } finally {
+                            $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
+                        }
+                    }
+
+                    $contingencyText=\App\ContingencyCardRenderer::groundedText(
+                        $multipleDetails!==''?$multipleDetails:$text,
+                        $sourceImage,
+                        $translatedSourceAnalysis
+                    );
+
+                    // Without a receipt, the entire original text may still need
+                    // translation. Receipt contingencies translate only preserved
+                    // analysis because selections remain grounded in the image.
                     if(!$receiptOnly && !empty($rule['translation_enabled'])
                         && $multipleDetails==='' && trim($text)!==''){
                         $translationStarted=microtime(true);
@@ -190,7 +223,10 @@ HTML;
                                 'exception'=>get_class($translationError)
                             ]));
                         } finally {
-                            $contingencyTranslationMs=max(0,(int)round((microtime(true)-$translationStarted)*1000));
+                            $contingencyTranslationMs=max(
+                                $contingencyTranslationMs,
+                                max(0,(int)round((microtime(true)-$translationStarted)*1000))
+                            );
                         }
                     }
                     // Reapply the rule AFTER translation/AI fallback. Translators may
@@ -206,7 +242,9 @@ HTML;
                     ]));
                     try {
                         $contingencyRenderStarted=microtime(true);
-                        $contingencyCard=\App\ContingencyCardRenderer::render($contingencyText,$sourceImage);
+                        $contingencyCard=\App\ContingencyCardRenderer::render(
+                            $contingencyText,$sourceImage,$translatedSourceAnalysis
+                        );
                         $contingencyRenderMs=max(0,(int)round((microtime(true)-$contingencyRenderStarted)*1000));
                         if($contingencyCard!==null){
                             $formatted=[
@@ -252,11 +290,13 @@ HTML;
             }
         }
         if($formatted!==null){
-            $newText=SmartFormatting::normalizePublishedStakeText(
-                \App\CardLayoutEmojis::clean(
-                    (string)$formatted['caption'],$rule,!empty($formatted['contingency'])
-                )
-            );
+            // Generated smart-card captions keep their structural emojis globally.
+            // The card renderer already strips emojis only from analysis/details.
+            $isContingency=!empty($formatted['contingency']);
+            $captionForDelivery=$isContingency
+                ?\App\CardLayoutEmojis::clean((string)$formatted['caption'],$rule,true)
+                :(string)$formatted['caption'];
+            $newText=SmartFormatting::normalizePublishedStakeText(trim($captionForDelivery));
             $output=$formatted['mode'];
             $card=$formatted['image'];
             $isContingency=!empty($formatted['contingency']);
@@ -459,6 +499,44 @@ foreach($temps as $dest=>$temp){
 // Apply the opt-in learning overlay only after the original smart-format runtime is verified.
 // Failure leaves the previous formatter and forwarding behavior unchanged.
 if(is_file(__DIR__.'/runtime-ai-learning.php'))require __DIR__.'/runtime-ai-learning.php';
+// Reapply OpenAI token telemetry after Railway restores the baseline bundle.
+// This is observational only: request payloads, model selection and routing are unchanged.
+$openAIPath=__DIR__.'/app/OpenAIProvider.php';
+$openAISource=@file_get_contents($openAIPath);
+if(!is_string($openAISource)){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_SOURCE_MISSING\\n");exit(1);}
+if(!str_contains($openAISource,'TMR_OPENAI_USAGE')){
+    $usageAnchor="        if(\$text===''){\n            return ['ok'=>false,'model'=>\$model,'fallback_used'=>false,'latency_ms'=>\$latency,'http_code'=>\$http,'reason'=>'OPENAI_RESPONSE_EMPTY'];\n        }";
+    if(substr_count($openAISource,$usageAnchor)!==1){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_ANCHOR_MISMATCH\\n");exit(1);}
+    $usagePatch=<<<'PHP'
+        $usage=is_array($data['usage']??null)?$data['usage']:[];
+        $inputTokens=max(0,(int)($usage['input_tokens']??0));
+        $outputTokens=max(0,(int)($usage['output_tokens']??0));
+        $totalTokens=max(0,(int)($usage['total_tokens']??($inputTokens+$outputTokens)));
+        $cachedTokens=max(0,(int)($usage['input_tokens_details']['cached_tokens']??0));
+        $reasoningTokens=max(0,(int)($usage['output_tokens_details']['reasoning_tokens']??0));
+        error_log('TMR_OPENAI_USAGE '.json_encode([
+            'model'=>$model,
+            'input_tokens'=>$inputTokens,
+            'cached_tokens'=>$cachedTokens,
+            'output_tokens'=>$outputTokens,
+            'reasoning_tokens'=>$reasoningTokens,
+            'total_tokens'=>$totalTokens,
+            'latency_ms'=>$latency,
+            'http_code'=>$http
+        ],JSON_UNESCAPED_SLASHES));
+PHP;
+    $openAISource=str_replace($usageAnchor,$usagePatch."\n".$usageAnchor,$openAISource);
+    $openAITemp=$openAIPath.'.usage-candidate';
+    if(@file_put_contents($openAITemp,$openAISource)===false){fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_WRITE_FAILED\\n");exit(1);}
+    $openAILint=[];$openAIStatus=0;
+    exec('php -l '.escapeshellarg($openAITemp).' 2>&1',$openAILint,$openAIStatus);
+    if($openAIStatus!==0){@unlink($openAITemp);fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_LINT_FAILED ".implode(' ',$openAILint)."\\n");exit(1);}
+    if(!@rename($openAITemp,$openAIPath)){@unlink($openAITemp);fwrite(STDERR,"OPENAI_USAGE_TELEMETRY_REPLACE_FAILED\\n");exit(1);}
+    echo "TMR_OPENAI_USAGE_TELEMETRY_INSTALLED\\n";
+}else{
+    echo "TMR_OPENAI_USAGE_TELEMETRY_ALREADY_PRESENT\\n";
+}
+
 $installerSucceeded=true;
 $routerHash=@hash_file('sha256',$routerPath);
 $smartHash=@hash_file('sha256',__DIR__.'/app/SmartFormatting.php');

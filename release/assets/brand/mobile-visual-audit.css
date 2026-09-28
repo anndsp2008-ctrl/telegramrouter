@@ -1064,3 +1064,30 @@
     min-height:2.8em!important;
   }
 }
+
+
+/* OpenAI mobile/tablet spacing parity with Gemini and Workers AI.
+   The original card inherits default saas-card padding in some layouts;
+   keep its outer box flush and use the same header/test insets as peers. */
+@media (max-width:1024px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card{
+    box-sizing:border-box!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card > .provider-head{
+    box-sizing:border-box!important;
+    margin:0!important;
+    padding:13px 14px!important;
+  }
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card > .provider-test{
+    box-sizing:border-box!important;
+    margin:0!important;
+    padding:11px 14px!important;
+  }
+}
+@media (max-width:400px){
+  body:has(.translation-provider-grid) .translation-provider-grid > .openai-provider-card > .provider-head{
+    padding:11px 10px!important;
+  }
+}

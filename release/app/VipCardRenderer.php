@@ -105,7 +105,7 @@ final class VipCardRenderer
         self::roundRect($im,547,407,1027,505,15,$panel);
         self::txt($im,71,437,'ODD',16,$muted,$font);
         self::txt($im,565,437,'STAKE',16,$muted,$font);
-        $odd=trim((string)($bet['odd']??''))?:'—';
+        $odd=SmartFormatting::normalizeOddDecimal(trim((string)($bet['odd']??'')))?:'—';
         $stake=trim((string)($bet['stake']??''))?:'—';
         $oddSize=self::fitSize($odd,$bold,42,22,435);
         $stakeSize=self::fitSize($stake,$bold,42,22,435);

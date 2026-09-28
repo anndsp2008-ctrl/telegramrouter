@@ -25,4 +25,11 @@ if [ "${TMR_RUN_WORKER:-1}" = "1" ]; then
   ) &
 fi
 
+(
+  while :; do
+    php scripts/report-worker.php >> storage/reporting.log 2>&1 || true
+    sleep 10
+  done
+) &
+
 exec frankenphp run --config /app/Caddyfile

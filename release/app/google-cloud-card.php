@@ -12,7 +12,7 @@
     <div class="provider-actions"><button class="saas-primary" name="action" value="save_translation_provider">Salvar</button><button class="saas-secondary" name="action" value="test_translation_provider">Testar conexão</button></div>
   </form>
   <div class="provider-test <?=$googleCloudTest?((int)$googleCloudTest['last_test_ok']?'ok':'bad'):'neutral'?>">
-    <b>Último teste</b><span><?=$googleCloudTest?((int)$googleCloudTest['last_test_ok']?'Conexão válida':'Falha'):'Ainda não testado'?></span>
+    <b>Último teste</b><span><?=$googleCloudTest?((int)$googleCloudTest['last_test_ok']?'Conexão válida':'Falha'.(!empty($googleCloudTest['last_test_error'])?' — '.sh((string)$googleCloudTest['last_test_error']):(!empty($googleCloudTest['last_test_http_code'])?' — HTTP '.(int)$googleCloudTest['last_test_http_code']:''))):'Ainda não testado'?></span>
     <small><?=$googleCloudTest?sh(dataHoraBrasil($googleCloudTest['last_test_at'])).' · '.(int)$googleCloudTest['last_test_latency_ms'].' ms':'—'?></small>
     <?php if($googleCloudTest&&!$googleCloudTest['last_test_ok']&&!empty($googleCloudTest['last_test_error'])):?><em><?=sh($googleCloudTest['last_test_error'])?></em><?php endif;?>
   </div>
