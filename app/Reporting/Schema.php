@@ -8,9 +8,13 @@ use PDO;
 final class Schema
 {
     public const VERSION = 1;
+    private static bool $migrated = false;
 
     public static function migrate(): void
     {
+        if (self::$migrated) {
+            return;
+        }
         $pdo = Database::pdo();
 
         self::dropLegacy($pdo);
@@ -139,6 +143,7 @@ final class Schema
         ");
 
         self::setState('schema_version', (string)self::VERSION);
+        self::$migrated = true;
     }
 
     private static function dropLegacy(PDO $pdo): void
