@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace App;
+require_once __DIR__.'/StakeOddsProvider.php';
 
 final class DoubleVipCardRenderer
 {
@@ -52,7 +53,16 @@ final class DoubleVipCardRenderer
         if(mb_strtolower($legs[0]['match'])===mb_strtolower($legs[1]['match']))return null;
         $odd=trim((string)($data['odd']??''));
         if($odd!==''&&!self::validOdd($odd))return null;
-        return ['sport'=>trim((string)($data['sport']??'')),'legs'=>$legs,'odd'=>$odd,'analysis'=>''];
+
+        $ticket=[
+            'kind'=>'double',
+            'sport'=>trim((string)($data['sport']??'')),
+            'legs'=>$legs,
+            'odd'=>$odd,
+            'analysis'=>''
+        ];
+
+        return StakeOddsProvider::applyToTicket($ticket);
     }
 
     private static function validOdd(string $odd): bool
