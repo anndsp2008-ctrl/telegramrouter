@@ -9,11 +9,14 @@ $checks=[
     'accordion accessibility'=>str_contains($reports,'aria-expanded="false"'),
     'accordion detail row'=>str_contains($reports,'reporting-history-accordion-row'),
     'accordion leg cards'=>str_contains($reports,'reporting-history-accordion-leg'),
-    'double/multiple gating'=>str_contains($reports,"in_array(\$betKind,['double','multiple'],true)"),
+    'double/triple/multiple gating'=>str_contains($reports,"in_array(\$betKind,['double','triple','multiple'],true)"),
     'toggle javascript'=>str_contains($reports,"closest('.reporting-history-toggle')"),
     'hidden detail row'=>str_contains($reports,'hidden>'),
     'accordion visual style'=>str_contains($css,'.reporting-history-accordion{'),
     'expanded arrow style'=>str_contains($css,'.reporting-history-toggle[aria-expanded="true"] svg'),
+    'compact table width'=>str_contains($css,'min-width:900px'),
+    'fixed compact columns'=>str_contains($css,'table-layout:fixed'),
+    'compact horizontal padding'=>str_contains($css,'padding-left:6px;padding-right:6px'),
 ];
 
 foreach($checks as $label=>$ok){
