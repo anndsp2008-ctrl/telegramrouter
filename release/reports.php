@@ -176,7 +176,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=4">
+<link rel="stylesheet" href="/assets/reporting.css?v=5">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
