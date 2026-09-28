@@ -257,6 +257,13 @@ PHP;
             $index = str_replace($navAnchor, $reportLink . $navAnchor, $index);
         }
     }
+    if (substr_count($index, 'href="/reports.php"') < 2) {
+        $mobileAnchor = '<div class="tmr-more-panel">';
+        if (substr_count($index, $mobileAnchor) === 1) {
+            $mobileReportLink = '<a href="/reports.php"><span class="tmr-nav-icon" aria-hidden="true">◎</span><span>Relatórios</span></a>';
+            $index = str_replace($mobileAnchor, $mobileAnchor . "\n      " . $mobileReportLink, $index);
+        }
+    }
 
     $candidates = [
         $smartPath . '.reporting-candidate' => $smart,
