@@ -484,22 +484,6 @@ final class SmartFormatting
                             }
 
                             if($analysisHolder!==null && trim((string)($adaptive['analysis']??''))!==''){
-                                if(($adaptive['kind']??'')==='simple' && count($adaptive['legs'])===1){
-                                    $leg=$adaptive['legs'][0];
-                                    $validated=StakeOddsProvider::applyToSingle([
-                                        'sport'=>(string)($leg['sport']??$adaptive['sport']??''),
-                                        'match'=>(string)($leg['match']??''),
-                                        'league'=>(string)($leg['league']??''),
-                                        'date'=>(string)($leg['date']??''),
-                                        'market'=>(string)($leg['market']??''),
-                                        'selection'=>(string)($leg['selection']??''),
-                                        'odd'=>(string)($adaptive['odd']??$leg['odd']??'')
-                                    ]);
-                                    if(trim((string)($validated['odd']??''))!==''){
-                                        $adaptive['odd']=(string)$validated['odd'];
-                                        $adaptive['legs'][0]['odd']=(string)$validated['odd'];
-                                    }
-                                }
                                 $caption=AdaptiveVipCardRenderer::caption($adaptive);
                                 $captionUnits=(int)(strlen(mb_convert_encoding($caption,'UTF-16LE','UTF-8'))/2);
                                 $renderStarted=microtime(true);
