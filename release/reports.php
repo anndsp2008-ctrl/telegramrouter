@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         const selected=document.querySelector('input[name="scope"]:checked')?.value==='selected';
         if(box){
             box.classList.toggle('is-disabled',!selected);
-            box.querySelectorAll('input[type="checkbox"]').forEach(input=>input.disabled=!selected);
+            box.setAttribute('aria-disabled',selected?'false':'true');
         }
     };
     radios.forEach(radio=>radio.addEventListener('change',sync));
