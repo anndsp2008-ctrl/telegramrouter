@@ -4,7 +4,8 @@
   const main = () => document.querySelector('.saas-content');
   const shouldPause = () => {
     const active = document.activeElement;
-    return !!(active && main()?.contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName));
+    const reportsDirty = document.querySelector('#reporting-settings-form[data-dirty="1"]');
+    return !!reportsDirty || !!(active && main()?.contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName));
   };
   const replaceMain = (html) => {
     const doc = new DOMParser().parseFromString(html, 'text/html');
