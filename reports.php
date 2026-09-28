@@ -444,115 +444,95 @@ function rdate(mixed $value): string
             </div>
 
             <?php if ($reviewLegs !== []): ?>
-            <section class="saas-card reporting-review-card reporting-review-premium">
-                <div class="reporting-review-premium-head">
-                    <div class="reporting-review-premium-title">
-                        <div class="reporting-review-premium-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 3 2.8 19h18.4L12 3Z"/>
-                                <path d="M12 9v4"/>
-                                <path d="M12 17h.01"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <span class="saas-kicker">REVISÃO MANUAL</span>
-                            <h2>Apostas em revisão</h2>
-                            <p>Itens que precisam de validação antes de entrarem no resultado consolidado.</p>
-                        </div>
+            <section class="saas-card reporting-review-card">
+                <div class="saas-card-head reporting-review-card-head">
+                    <div>
+                        <span class="saas-kicker">REVISÃO MANUAL</span>
+                        <h2>Apostas em revisão</h2>
+                        <p>Confira os dados da seleção e defina o resultado apenas quando necessário.</p>
                     </div>
-                    <div class="reporting-review-premium-count">
-                        <span><?=rh(count($reviewLegs))?></span>
-                        <small><?=count($reviewLegs)===1?'pendência':'pendências'?></small>
-                    </div>
+                    <span class="rules-count"><b><?=rh(count($reviewLegs))?></b> em revisão</span>
                 </div>
 
                 <div class="reporting-review-list">
                     <?php foreach ($reviewLegs as $review): ?>
                         <article class="reporting-review-item">
-                            <div class="reporting-review-content">
-                                <div class="reporting-review-item-top">
-                                    <div class="reporting-review-item-status">
-                                        <span class="reporting-status-badge review">Revisão</span>
-                                        <span class="reporting-review-ticket">Ticket #<?=rh($review['ticket_id'])?></span>
-                                        <span class="reporting-review-leg">Seleção #<?=rh($review['position_no'])?></span>
-                                    </div>
-                                    <time><?=rh(rdate($review['placed_at']))?></time>
+                            <div class="reporting-review-item-head">
+                                <div class="reporting-review-item-id">
+                                    <span class="reporting-status-badge review">Revisão</span>
+                                    <strong>Ticket #<?=rh($review['ticket_id'])?></strong>
+                                    <span>Seleção #<?=rh($review['position_no'])?></span>
                                 </div>
-
-                                <div class="reporting-review-match-wrap">
-                                    <span class="reporting-review-match-label">Evento</span>
-                                    <h3 class="reporting-review-match"><?=rh($review['match_name'])?></h3>
-                                </div>
-
-                                <div class="reporting-review-grid">
-                                    <?php if (!empty($review['league'])): ?>
-                                    <div class="reporting-review-info-card">
-                                        <span>Liga</span>
-                                        <b><?=rh($review['league'])?></b>
-                                    </div>
-                                    <?php endif; ?>
-                                    <div class="reporting-review-info-card">
-                                        <span>Mercado</span>
-                                        <b><?=rh($review['market_text'] ?: '—')?></b>
-                                    </div>
-                                    <div class="reporting-review-info-card">
-                                        <span>Seleção</span>
-                                        <b><?=rh($review['selection_text'] ?: '—')?></b>
-                                    </div>
-                                    <div class="reporting-review-info-card reporting-review-info-card-odd">
-                                        <span>Odd</span>
-                                        <b><?=rh($review['odds'] ?: '—')?></b>
-                                    </div>
-                                </div>
-
-                                <div class="reporting-review-reason">
-                                    <div class="reporting-review-reason-icon">!</div>
-                                    <div>
-                                        <b>Motivo da revisão</b>
-                                        <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
-                                    </div>
-                                </div>
+                                <time><?=rh(rdate($review['placed_at']))?></time>
                             </div>
 
-                            <aside class="reporting-review-actions-box">
-                                <div class="reporting-review-actions-header">
-                                    <span>Decisão manual</span>
-                                    <small>Escolha somente após validar o evento.</small>
+                            <div class="reporting-review-form-grid">
+                                <label class="field-wide">
+                                    Evento
+                                    <input type="text" value="<?=rh($review['match_name'])?>" readonly>
+                                </label>
+
+                                <label>
+                                    Liga
+                                    <input type="text" value="<?=rh($review['league'] ?: '—')?>" readonly>
+                                </label>
+
+                                <label>
+                                    Mercado
+                                    <input type="text" value="<?=rh($review['market_text'] ?: '—')?>" readonly>
+                                </label>
+
+                                <label>
+                                    Seleção
+                                    <input type="text" value="<?=rh($review['selection_text'] ?: '—')?>" readonly>
+                                </label>
+
+                                <label>
+                                    Odd
+                                    <input type="text" value="<?=rh($review['odds'] ?: '—')?>" readonly>
+                                </label>
+                            </div>
+
+                            <div class="reporting-review-reason">
+                                <b>Motivo da revisão</b>
+                                <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
+                            </div>
+
+                            <div class="reporting-review-decision">
+                                <div class="reporting-review-decision-copy">
+                                    <span>DECISÃO MANUAL</span>
+                                    <p>Você pode tentar reprocessar ou definir o resultado manualmente.</p>
                                 </div>
 
-                                <form method="post" class="reporting-review-form">
-                                    <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
-                                    <input type="hidden" name="action" value="review_reprocess">
-                                    <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
-                                    <button type="submit" class="reporting-review-reprocess-btn">
-                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 9A7 7 0 0 1 18.7 6L20 11"/><path d="M4 13l1.3 5A7 7 0 0 0 17.9 15"/></svg>
-                                        Reprocessar automaticamente
-                                    </button>
-                                </form>
-
-                                <div class="reporting-review-action-divider"><span>ou definir resultado</span></div>
-
-                                <div class="reporting-review-action-grid">
-                                    <?php foreach ([
-                                        'GREEN'=>'Green',
-                                        'RED'=>'Red',
-                                        'VOID'=>'Void',
-                                        'HALF_GREEN'=>'Half Green',
-                                        'HALF_RED'=>'Half Red',
-                                    ] as $manualValue=>$manualLabel): ?>
-                                    <form method="post" class="reporting-review-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
+                                <div class="reporting-review-controls">
+                                    <form method="post" class="reporting-review-resolve-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
                                         <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
                                         <input type="hidden" name="action" value="review_resolve">
                                         <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
-                                        <input type="hidden" name="manual_status" value="<?=rh($manualValue)?>">
-                                        <button type="submit" class="reporting-action-btn <?=strtolower(str_replace('_','-',$manualValue))?>">
-                                            <span class="reporting-action-dot"></span>
-                                            <?=rh($manualLabel)?>
-                                        </button>
+
+                                        <label>
+                                            Resultado manual
+                                            <select name="manual_status" required>
+                                                <option value="">Selecione o resultado</option>
+                                                <option value="GREEN">Green</option>
+                                                <option value="RED">Red</option>
+                                                <option value="VOID">Void</option>
+                                                <option value="HALF_GREEN">Half Green</option>
+                                                <option value="HALF_RED">Half Red</option>
+                                            </select>
+                                        </label>
+
+                                        <button type="submit" class="saas-primary reporting-review-apply-btn">Aplicar resultado</button>
                                     </form>
-                                    <?php endforeach; ?>
+
+                                    <form method="post" class="reporting-review-reprocess-form">
+                                        <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+                                        <input type="hidden" name="action" value="review_reprocess">
+                                        <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
+                                        <button type="submit" class="saas-secondary reporting-review-reprocess-btn">Reprocessar</button>
+                                    </form>
                                 </div>
-                            </aside>
+                            </div>
                         </article>
                     <?php endforeach; ?>
                 </div>
