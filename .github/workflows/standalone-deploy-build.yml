@@ -99,6 +99,9 @@ jobs:
           php tests/multiple-bet-contingency-smoke.php
           php tests/smart-format-smoke.php
           php tests/stake-odds-provider-smoke.php
+          test -s app/StakeOddsProvider.php
+          grep -Fq 'StakeOddsProvider::applyToSingle' app/SmartFormatting.php
+          grep -Fq 'StakeOddsProvider::applyToSingle' app/AdaptiveVipCardRenderer.php
           php tests/reporting-settlement-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php
