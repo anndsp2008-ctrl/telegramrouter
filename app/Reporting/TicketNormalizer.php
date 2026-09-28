@@ -103,6 +103,9 @@ final class TicketNormalizer
         }
 
         $targetTeam = self::selectedTeam($selection, $left, $right);
+        if ($targetTeam === null) {
+            $targetTeam = self::selectedTeam($market, $left, $right);
+        }
 
         if ($targetTeam !== null && in_array($side, ['over','under'], true)) {
             $marketKey = match ($marketKey) {
@@ -113,6 +116,13 @@ final class TicketNormalizer
                 'cards_total' => 'team_cards_total',
                 default => $marketKey,
             };
+        } elseif (
+            $targetTeam === null
+            && in_array($side, ['over','under'], true)
+            && in_array($marketKey, ['goals_total','corners_total','fouls_total','yellow_cards_total','cards_total'], true)
+            && (self::teamQualifier($selection) !== '' || self::teamQualifier($market) !== '')
+        ) {
+            $marketKey = 'unsupported';
         }
 
         if ($marketKey === 'btts') {
@@ -186,7 +196,41 @@ final class TicketNormalizer
         if ($right !== null && self::containsTeam($text, $right)) {
             return $right;
         }
-        return null;
+
+        $qualifier=self::teamQualifier($text);
+        if ($qualifier==='' || ($left===null && $right===null)) {
+            return null;
+        }
+
+        $scores=[];
+        if ($left!==null)$scores[]=['team'=>$left,'score'=>self::teamSimilarity($qualifier,$left)];
+        if ($right!==null)$scores[]=['team'=>$right,'score'=>self::teamSimilarity($qualifier,$right)];
+        usort($scores,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
+        $best=$scores[0]??null;
+        $second=(float)($scores[1]['score']??0.0);
+        if($best===null || (float)$best['score']<0.64 || ((float)$best['score']-$second)<0.12){
+            return null;
+        }
+        return (string)$best['team'];
+    }
+
+    private static function teamQualifier(string $text): string
+    {
+        $key=self::key($text);
+        if($key==='')return '';
+        $key=preg_replace('/\\b(over|under|mais|menos|acima|abaixo|mas|de|do|da|dos|das|no|na|nos|nas|total|jogo|partida|match|team|equipe|time|equipo|goal|goals|gol|gols|goles|corner|corners|escanteio|escanteios|corneres|foul|fouls|falta|faltas|yellow|amarelo|amarelos|card|cards|cartao|cartoes|tarjeta|tarjetas)\\b/u',' ',$key)??$key;
+        $key=preg_replace('/[0-9]+(?:[.,][0-9]+)?|[+.,-]+/u',' ',$key)??$key;
+        return trim(preg_replace('/\\s+/u',' ',$key)??$key);
+    }
+
+    private static function teamSimilarity(string $a,string $b): float
+    {
+        $a=self::compactKey($a);
+        $b=self::compactKey($b);
+        if($a===''||$b==='')return 0.0;
+        if($a===$b)return 1.0;
+        similar_text($a,$b,$percent);
+        return $percent/100;
     }
 
     private static function containsTeam(string $text, string $team): bool
