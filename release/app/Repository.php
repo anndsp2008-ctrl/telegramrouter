@@ -166,7 +166,7 @@ final class Repository
 
     public static function saveProviderTest(string $provider,bool $ok,int $latencyMs,?int $httpCode,?string $error): void
     {
-        if(!in_array($provider,['openai','gemini','google_cloud','workers_ai'],true)) return;
+        if(!in_array($provider,['openai','gemini','google_cloud','workers_ai','stake','api_football'],true)) return;
         $sql='INSERT INTO translation_provider_status(provider,last_test_ok,last_test_at,last_test_latency_ms,last_test_http_code,last_test_error) VALUES(?, ?, NOW(), ?, ?, ?) ON DUPLICATE KEY UPDATE last_test_ok=VALUES(last_test_ok),last_test_at=VALUES(last_test_at),last_test_latency_ms=VALUES(last_test_latency_ms),last_test_http_code=VALUES(last_test_http_code),last_test_error=VALUES(last_test_error)';
         Database::pdo()->prepare($sql)->execute([$provider,(int)$ok,max(0,$latencyMs),$httpCode,$error]);
     }
