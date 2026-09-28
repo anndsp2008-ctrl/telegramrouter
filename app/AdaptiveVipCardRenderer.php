@@ -90,10 +90,6 @@ final class AdaptiveVipCardRenderer
             'legs'=>$legs
         ];
 
-        // Mandatory Stake pass for every structured ticket. Simple,
-        // double, multiple and Bet Builder all reach the validator here.
-        $result=StakeOddsProvider::applyToTicket($result);
-
         return $result;
     }
 
