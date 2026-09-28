@@ -176,7 +176,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=3">
+<link rel="stylesheet" href="/assets/reporting.css?v=4">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -559,18 +559,35 @@ function rdate(mixed $value): string
                                 <?php [$statusLabel,$statusClass]=rstatus((string)$ticket['status']); ?>
                                 <?php $ticketProfit=(float)$ticket['profit_units']; ?>
                                 <?php $historyLegs=is_array($ticket['legs']??null)?$ticket['legs']:[]; ?>
-                                <?php $multiLeg=count($historyLegs)>1; ?>
-                                <tr>
+                                <?php $betKind=strtolower(trim((string)($ticket['bet_kind']??''))); ?>
+                                <?php $expandable=in_array($betKind,['double','multiple'],true)&&count($historyLegs)>1; ?>
+                                <?php $firstLeg=$historyLegs[0]??null; ?>
+                                <?php $accordionId='reporting-ticket-'.(int)$ticket['id']; ?>
+                                <tr class="<?=$expandable?'reporting-history-parent':''?>" data-ticket-id="<?=rh($ticket['id'])?>">
                                     <td>#<?=rh($ticket['id'])?></td>
                                     <td><?=rh($ticket['destination_chat'])?></td>
                                     <td><span class="reporting-kind"><?=rh(strtoupper((string)$ticket['bet_kind']))?></span></td>
                                     <td class="reporting-history-games">
                                         <?php if($historyLegs===[]): ?>
                                             <span class="reporting-history-empty-value">—</span>
+                                        <?php elseif($expandable): ?>
+                                            <div class="reporting-history-summary">
+                                                <b><?=rh($firstLeg['match_name']??'—')?></b>
+                                                <small><?=rh(count($historyLegs))?> jogos neste bilhete</small>
+                                                <button
+                                                    type="button"
+                                                    class="reporting-history-toggle"
+                                                    aria-expanded="false"
+                                                    aria-controls="<?=rh($accordionId)?>"
+                                                    data-history-target="<?=rh($accordionId)?>"
+                                                >
+                                                    <span>Ver <?=rh(count($historyLegs))?> jogos</span>
+                                                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5"/></svg>
+                                                </button>
+                                            </div>
                                         <?php else: ?>
                                             <?php foreach($historyLegs as $leg): ?>
                                                 <div class="reporting-history-leg">
-                                                    <?php if($multiLeg): ?><span class="reporting-history-leg-no"><?=rh($leg['position_no'])?></span><?php endif; ?>
                                                     <b><?=rh($leg['match_name'])?></b>
                                                 </div>
                                             <?php endforeach; ?>
@@ -579,10 +596,15 @@ function rdate(mixed $value): string
                                     <td class="reporting-history-markets">
                                         <?php if($historyLegs===[]): ?>
                                             <span class="reporting-history-empty-value">—</span>
+                                        <?php elseif($expandable): ?>
+                                            <div class="reporting-history-summary reporting-history-market-summary">
+                                                <b><?=rh($firstLeg['market_text']??'—')?></b>
+                                                <small><?=rh($firstLeg['selection_text']??'—')?></small>
+                                                <em>+<?=rh(max(0,count($historyLegs)-1))?> <?=count($historyLegs)===2?'mercado':'mercados'?></em>
+                                            </div>
                                         <?php else: ?>
                                             <?php foreach($historyLegs as $leg): ?>
                                                 <div class="reporting-history-leg reporting-history-market">
-                                                    <?php if($multiLeg): ?><span class="reporting-history-leg-no"><?=rh($leg['position_no'])?></span><?php endif; ?>
                                                     <span><b><?=rh($leg['market_text'])?></b><small><?=rh($leg['selection_text'])?></small></span>
                                                 </div>
                                             <?php endforeach; ?>
@@ -593,6 +615,47 @@ function rdate(mixed $value): string
                                     <td class="<?=$ticketProfit<0?'reporting-negative':'reporting-positive'?>"><?=($ticketProfit>0?'+':'')?><?=rh(number_format($ticketProfit,2,',','.'))?> un.</td>
                                     <td><?=rh(rdate($ticket['placed_at']))?></td>
                                 </tr>
+
+                                <?php if($expandable): ?>
+                                    <tr id="<?=rh($accordionId)?>" class="reporting-history-accordion-row" hidden>
+                                        <td colspan="9">
+                                            <div class="reporting-history-accordion">
+                                                <div class="reporting-history-accordion-head">
+                                                    <div>
+                                                        <span class="saas-kicker">SELEÇÕES DO BILHETE</span>
+                                                        <b><?=rh(strtoupper((string)$ticket['bet_kind']))?> · <?=rh(count($historyLegs))?> pernas</b>
+                                                    </div>
+                                                    <small>Odd total <?=rh($ticket['total_odds'] ?? '—')?></small>
+                                                </div>
+                                                <div class="reporting-history-accordion-list">
+                                                    <?php foreach($historyLegs as $leg): ?>
+                                                        <?php [$legStatusLabel,$legStatusClass]=rstatus((string)($leg['status']??'PENDING')); ?>
+                                                        <article class="reporting-history-accordion-leg">
+                                                            <span class="reporting-history-leg-no"><?=rh($leg['position_no'])?></span>
+                                                            <div class="reporting-history-accordion-field reporting-history-accordion-game">
+                                                                <small>JOGO</small>
+                                                                <b><?=rh($leg['match_name'])?></b>
+                                                            </div>
+                                                            <div class="reporting-history-accordion-field reporting-history-accordion-market">
+                                                                <small>MERCADO</small>
+                                                                <b><?=rh($leg['market_text'])?></b>
+                                                                <span><?=rh($leg['selection_text'])?></span>
+                                                            </div>
+                                                            <div class="reporting-history-accordion-field reporting-history-accordion-odd">
+                                                                <small>ODD</small>
+                                                                <b><?=rh($leg['odds'] ?? '—')?></b>
+                                                            </div>
+                                                            <div class="reporting-history-accordion-field reporting-history-accordion-status">
+                                                                <small>STATUS</small>
+                                                                <span class="reporting-status-badge <?=$legStatusClass?>"><?=$legStatusLabel?></span>
+                                                            </div>
+                                                        </article>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
                             <?php endforeach; ?>
                             </tbody>
                         </table>
@@ -672,6 +735,25 @@ function rdate(mixed $value): string
 
     document.addEventListener('click',(event)=>{
         const target=event.target;
+
+        const historyToggle=target instanceof Element ? target.closest('.reporting-history-toggle') : null;
+        if(historyToggle instanceof HTMLButtonElement){
+            const rowId=historyToggle.dataset.historyTarget||'';
+            const detailRow=rowId!==''?document.getElementById(rowId):null;
+            if(detailRow instanceof HTMLTableRowElement){
+                const expanded=historyToggle.getAttribute('aria-expanded')==='true';
+                historyToggle.setAttribute('aria-expanded',expanded?'false':'true');
+                detailRow.hidden=expanded;
+                historyToggle.closest('tr')?.classList.toggle('is-expanded',!expanded);
+                const label=historyToggle.querySelector('span');
+                if(label){
+                    const count=detailRow.querySelectorAll('.reporting-history-accordion-leg').length;
+                    label.textContent=expanded?'Ver '+count+' jogos':'Ocultar jogos';
+                }
+            }
+            return;
+        }
+
         const choice=target instanceof Element ? target.closest('.reporting-choice') : null;
         if(!choice) return;
 
