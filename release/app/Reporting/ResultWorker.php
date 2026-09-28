@@ -43,7 +43,14 @@ final class ResultWorker
                 if ($match !== null) {
                     Repository::attachFixture((int)$leg['id'], $match);
                 } else {
-                    Repository::rescheduleUnmatchedLeg((int)$leg['id'], 60);
+                    Repository::settleLeg((int)$leg['id'], [
+                        'status'=>SettlementEngine::REVIEW,
+                        'return_factor'=>null,
+                        'observed'=>null,
+                        'reason'=>'Partida/horário oficial não identificado com confiança na consulta inicial.',
+                    ], [
+                        'phase'=>'kickoff_lookup',
+                    ]);
                 }
             } catch (\Throwable $e) {
                 error_log('TMR_REPORTING_FIXTURE_MATCH_NON_FATAL ' . get_class($e));
