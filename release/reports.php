@@ -444,14 +444,26 @@ function rdate(mixed $value): string
             </div>
 
             <?php if ($reviewLegs !== []): ?>
-            <section class="saas-card reporting-review-card">
-                <div class="saas-card-head reporting-review-card-head">
-                    <div>
-                        <span class="saas-kicker">REVISÃO MANUAL</span>
-                        <h2>Apostas em revisão</h2>
-                        <p>Analise os dados da seleção antes de definir o resultado manualmente.</p>
+            <section class="saas-card reporting-review-card reporting-review-premium">
+                <div class="reporting-review-premium-head">
+                    <div class="reporting-review-premium-title">
+                        <div class="reporting-review-premium-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 3 2.8 19h18.4L12 3Z"/>
+                                <path d="M12 9v4"/>
+                                <path d="M12 17h.01"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="saas-kicker">REVISÃO MANUAL</span>
+                            <h2>Apostas em revisão</h2>
+                            <p>Itens que precisam de validação antes de entrarem no resultado consolidado.</p>
+                        </div>
                     </div>
-                    <span class="rules-count"><b><?=rh(count($reviewLegs))?></b> em revisão</span>
+                    <div class="reporting-review-premium-count">
+                        <span><?=rh(count($reviewLegs))?></span>
+                        <small><?=count($reviewLegs)===1?'pendência':'pendências'?></small>
+                    </div>
                 </div>
 
                 <div class="reporting-review-list">
@@ -467,43 +479,58 @@ function rdate(mixed $value): string
                                     <time><?=rh(rdate($review['placed_at']))?></time>
                                 </div>
 
-                                <h3 class="reporting-review-match"><?=rh($review['match_name'])?></h3>
+                                <div class="reporting-review-match-wrap">
+                                    <span class="reporting-review-match-label">Evento</span>
+                                    <h3 class="reporting-review-match"><?=rh($review['match_name'])?></h3>
+                                </div>
 
                                 <div class="reporting-review-grid">
                                     <?php if (!empty($review['league'])): ?>
-                                    <div>
+                                    <div class="reporting-review-info-card">
                                         <span>Liga</span>
                                         <b><?=rh($review['league'])?></b>
                                     </div>
                                     <?php endif; ?>
-                                    <div>
+                                    <div class="reporting-review-info-card">
                                         <span>Mercado</span>
                                         <b><?=rh($review['market_text'] ?: '—')?></b>
                                     </div>
-                                    <div>
+                                    <div class="reporting-review-info-card">
                                         <span>Seleção</span>
                                         <b><?=rh($review['selection_text'] ?: '—')?></b>
                                     </div>
-                                    <div>
+                                    <div class="reporting-review-info-card reporting-review-info-card-odd">
                                         <span>Odd</span>
                                         <b><?=rh($review['odds'] ?: '—')?></b>
                                     </div>
                                 </div>
 
                                 <div class="reporting-review-reason">
-                                    <b>Motivo da revisão</b>
-                                    <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
+                                    <div class="reporting-review-reason-icon">!</div>
+                                    <div>
+                                        <b>Motivo da revisão</b>
+                                        <span><?=rh(rreviewReason($review['settlement_details'] ?? null))?></span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="reporting-review-actions-box">
-                                <span class="reporting-review-actions-title">Ações</span>
+                            <aside class="reporting-review-actions-box">
+                                <div class="reporting-review-actions-header">
+                                    <span>Decisão manual</span>
+                                    <small>Escolha somente após validar o evento.</small>
+                                </div>
+
                                 <form method="post" class="reporting-review-form">
                                     <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
                                     <input type="hidden" name="action" value="review_reprocess">
                                     <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
-                                    <button type="submit" class="reporting-review-reprocess-btn">Reprocessar</button>
+                                    <button type="submit" class="reporting-review-reprocess-btn">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 9A7 7 0 0 1 18.7 6L20 11"/><path d="M4 13l1.3 5A7 7 0 0 0 17.9 15"/></svg>
+                                        Reprocessar automaticamente
+                                    </button>
                                 </form>
+
+                                <div class="reporting-review-action-divider"><span>ou definir resultado</span></div>
 
                                 <div class="reporting-review-action-grid">
                                     <?php foreach ([
@@ -519,12 +546,13 @@ function rdate(mixed $value): string
                                         <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
                                         <input type="hidden" name="manual_status" value="<?=rh($manualValue)?>">
                                         <button type="submit" class="reporting-action-btn <?=strtolower(str_replace('_','-',$manualValue))?>">
+                                            <span class="reporting-action-dot"></span>
                                             <?=rh($manualLabel)?>
                                         </button>
                                     </form>
                                     <?php endforeach; ?>
                                 </div>
-                            </div>
+                            </aside>
                         </article>
                     <?php endforeach; ?>
                 </div>
