@@ -2,6 +2,7 @@
 namespace App;
 require_once __DIR__.'/DoubleVipCardRenderer.php';
 require_once __DIR__.'/AdaptiveVipCardRenderer.php';
+require_once __DIR__.'/StakeOddsProvider.php';
 
 /**
  * Isolated, opt-in AI formatting. Existing forwarding is the only fallback.
@@ -637,7 +638,7 @@ final class SmartFormatting
                     }
                     continue;
                 }
-                $candidate=$localized;
+                $candidate=StakeOddsProvider::applyToSingle($localized);
                 self::recordProviderAttempt(
                     $provider,$attemptStarted,$attemptFailureOffset,true,$logicalAttempt);
                 $bet=self::sentenceCaseBet($candidate);

@@ -6,6 +6,9 @@ on:
       - 'scripts/audit-standalone-release.py'
       - 'deploy/standalone/**'
       - 'app/SmartFormatting.php'
+      - 'app/AdaptiveVipCardRenderer.php'
+      - 'app/StakeOddsProvider.php'
+      - 'tests/stake-odds-provider-smoke.php'
       - 'app/CardLayoutEmojis.php'
       - 'tests/card-layout-emojis-smoke.php'
       - 'scripts/smart-workers-isolated.php'
@@ -95,6 +98,10 @@ jobs:
           php tests/contingency-card-smoke.php
           php tests/multiple-bet-contingency-smoke.php
           php tests/smart-format-smoke.php
+          php tests/stake-odds-provider-smoke.php
+          test -s app/StakeOddsProvider.php
+          grep -Fq 'StakeOddsProvider::applyToSingle' app/SmartFormatting.php
+          grep -Fq 'StakeOddsProvider::applyToSingle' app/AdaptiveVipCardRenderer.php
           php tests/reporting-settlement-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php

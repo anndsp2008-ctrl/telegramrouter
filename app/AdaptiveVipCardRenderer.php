@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace App;
+require_once __DIR__.'/StakeOddsProvider.php';
 
 final class AdaptiveVipCardRenderer
 {
@@ -72,7 +73,7 @@ final class AdaptiveVipCardRenderer
         $odd=self::cleanOdd((string)($data['odd']??''));
         if($odd===''&&count($legs)===1)$odd=$legs[0]['odd'];
 
-        return [
+        $result=[
             'kind'=>$kind,
             'bookmaker'=>$bookmaker['name'],
             'bookmaker_key'=>$bookmaker['key'],
@@ -83,6 +84,25 @@ final class AdaptiveVipCardRenderer
             'analysis'=>trim((string)($data['analysis']??'')),
             'legs'=>$legs
         ];
+
+        if($kind==='simple' && count($legs)===1 && $odd!==''){
+            $leg=$legs[0];
+            $validated=StakeOddsProvider::applyToSingle([
+                'sport'=>(string)($leg['sport']?:$result['sport']),
+                'match'=>(string)$leg['match'],
+                'league'=>(string)$leg['league'],
+                'date'=>(string)$leg['date'],
+                'market'=>(string)$leg['market'],
+                'selection'=>(string)$leg['selection'],
+                'odd'=>$odd,
+            ]);
+            if(trim((string)($validated['odd']??''))!==''){
+                $result['odd']=(string)$validated['odd'];
+                $result['legs'][0]['odd']=(string)$validated['odd'];
+            }
+        }
+
+        return $result;
     }
 
     /** @return list<array{sport:string,match:string,league:string,date:string,market:string,selection:string,odd:string}> */
