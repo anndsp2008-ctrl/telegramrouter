@@ -225,21 +225,19 @@ function rdate(mixed $value): string
                 </div>
             </div>
 
-            <section class="overview-status <?=$systemEnabled?'is-good':'is-alert'?> reporting-status">
+            <section class="overview-status <?=$systemEnabled?'is-good':'is-alert'?>">
                 <div class="overview-status-icon"><i></i></div>
-
-                <div class="overview-status-copy">
+                <div>
                     <span class="saas-kicker">ESTADO DO MÓDULO</span>
                     <h2><?=$systemEnabled?'Relatórios ativos':'Relatórios desativados'?></h2>
                     <p><?=$systemEnabled
                         ? ($scopeSelected ? 'Acompanhando somente as regras selecionadas.' : 'Acompanhando todas as regras de roteamento.')
                         : 'O Router continua funcionando normalmente; apenas o acompanhamento de resultados está desligado.'?></p>
                 </div>
-
                 <div class="overview-status-meta">
                     <span>Worker de resultados</span>
                     <b><?=rh(rstateLabel($workerStatus))?></b>
-                    <span class="reporting-scope-chip"><?=$scopeSelected?rh($selectedCount).' selecionadas':'Todos os canais'?></span>
+                    <span class="reporting-status-detail"><?=$scopeSelected?rh($selectedCount).' regras selecionadas':'Todos os canais'?></span>
                 </div>
             </section>
 
