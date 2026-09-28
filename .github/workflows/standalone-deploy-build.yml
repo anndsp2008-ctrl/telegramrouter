@@ -98,8 +98,10 @@ jobs:
           php tests/reporting-settlement-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php
-          grep -Fq 'href="/reports.php"' index.php
-          ! grep -Fq 'href="/results.php"' index.php
+          ! grep -Fq 'lastStructuredBet' app/SmartFormatting.php
+          ! grep -R -Fq 'App\\Results' app scripts reports.php
+          test "$(grep -o 'href="/reports.php"' index.php | wc -l)" -eq 2
+          test "$(grep -o 'href="/results.php"' index.php | wc -l)" -eq 0
           echo STANDALONE_ROUTING_TESTS_PASSED
       - name: Report non-secret runtime code hashes for comparison
         run: |
