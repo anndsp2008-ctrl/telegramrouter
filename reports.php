@@ -657,26 +657,6 @@ function rdate(mixed $value): string
                                     </tr>
                                 <?php endif; ?>
                             <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="reporting-history-markets">
-                                        <?php if($historyLegs===[]): ?>
-                                            <span class="reporting-history-empty-value">—</span>
-                                        <?php else: ?>
-                                            <?php foreach($historyLegs as $leg): ?>
-                                                <div class="reporting-history-leg reporting-history-market">
-                                                    <?php if($multiLeg): ?><span class="reporting-history-leg-no"><?=rh($leg['position_no'])?></span><?php endif; ?>
-                                                    <span><b><?=rh($leg['market_text'])?></b><small><?=rh($leg['selection_text'])?></small></span>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><?=rh($ticket['total_odds'] ?? '—')?></td>
-                                    <td><span class="reporting-status-badge <?=$statusClass?>"><?=$statusLabel?></span></td>
-                                    <td class="<?=$ticketProfit<0?'reporting-negative':'reporting-positive'?>"><?=($ticketProfit>0?'+':'')?><?=rh(number_format($ticketProfit,2,',','.'))?> un.</td>
-                                    <td><?=rh(rdate($ticket['placed_at']))?></td>
-                                </tr>
-                            <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
