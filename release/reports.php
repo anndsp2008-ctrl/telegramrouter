@@ -314,7 +314,7 @@ function rdate(mixed $value): string
                                 </div>
                                 <div class="reporting-rules-list">
                                     <?php foreach ($rules as $rule): ?>
-                                        <?php $checked=in_array((int)$rule['id'],$selectedRules,true); ?>
+                                        <?php $checked=!$scopeSelected || in_array((int)$rule['id'],$selectedRules,true); ?>
                                         <label class="reporting-rule-option">
                                             <input type="checkbox" name="rules[]" value="<?=rh($rule['id'])?>" <?=$checked?'checked':''?>>
                                             <span class="reporting-rule-main">
@@ -493,9 +493,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         updateCount();
     };
 
-    radios.forEach(radio=>radio.addEventListener('change',()=>{
-        sync(radio.value==='all' && radio.checked);
-    }));
+    radios.forEach(radio=>{
+        const apply=()=>{
+            if(radio.value==='all' && radio.checked){
+                ruleChecks.forEach(input=>{ input.checked=true; });
+            }
+            sync(false);
+        };
+        radio.addEventListener('change',apply);
+        radio.addEventListener('click',apply);
+    });
     ruleChecks.forEach(input=>input.addEventListener('change',updateCount));
 
     const current=document.querySelector('input[name="scope"]:checked');
