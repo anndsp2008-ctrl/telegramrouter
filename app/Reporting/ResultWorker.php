@@ -13,7 +13,9 @@ final class ResultWorker
             return;
         }
 
-        $apiKey = trim((string)(getenv('API_FOOTBALL_KEY') ?: ''));
+        $apiKey = class_exists(\App\SportsApiIntegration::class)
+            ? \App\SportsApiIntegration::apiFootballKey()
+            : trim((string)(getenv('API_FOOTBALL_KEY') ?: ''));
         if ($apiKey === '') {
             Repository::setState('worker_status', 'api_key_missing');
             Repository::setState('worker_last_run_at', gmdate('Y-m-d H:i:s'));

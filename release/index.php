@@ -75,6 +75,39 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $page='integrations';
         }
 
+        if($action==='save_sports_api_provider'){
+            $provider=(string)($_POST['provider']??'');
+            if($provider==='stake'){
+                $newKey=trim((string)($_POST['stake_odds_api_key']??''));
+                if($newKey!=='') Repository::saveIntegration('stake_odds_api_key',$newKey);
+                $notice='Stake atualizada com segurança.';
+            } elseif($provider==='api_football'){
+                $newKey=trim((string)($_POST['api_football_key']??''));
+                if($newKey!=='') Repository::saveIntegration('api_football_key',$newKey);
+                $notice='API-Football atualizada com segurança.';
+            } else throw new RuntimeException('Provedor esportivo inválido.');
+            $page='integrations';
+        }
+
+        if($action==='test_sports_api_provider'){
+            $provider=(string)($_POST['provider']??'');
+            $override='';
+            if($provider==='stake') $override=trim((string)($_POST['stake_odds_api_key']??''));
+            elseif($provider==='api_football') $override=trim((string)($_POST['api_football_key']??''));
+            else throw new RuntimeException('Provedor esportivo inválido.');
+
+            $test=\App\SportsApiIntegration::test($provider,$override);
+            Repository::saveProviderTest(
+                $provider,
+                (bool)$test['ok'],
+                (int)$test['latency_ms'],
+                $test['http_code']!==null?(int)$test['http_code']:null,
+                $test['error']!==null?(string)$test['error']:null
+            );
+            if($test['ok']) $notice=(string)$test['message']; else $error=(string)$test['message'];
+            $page='integrations';
+        }
+
         if($action==='save_translation_routing'){
             Repository::saveTranslationRouting((string)($_POST['translation_primary_provider']??''),(string)($_POST['translation_fallback_provider']??'none'));
             $notice='Prioridade e fallback dos tradutores atualizados.';
@@ -135,7 +168,7 @@ $active=$page==='dashboard'?'dashboard':$page;
   ::-webkit-scrollbar-button:vertical{display:none}
  }
 }
-</style><link rel="stylesheet" href="/assets/brand/workers-ai-provider.css?v=5"><link rel="stylesheet" href="/assets/brand/brand.css?v=2"><link rel="stylesheet" href="/assets/brand/mobile-shell.css?v=2"><link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8&workers-dot=5&openai-form=2"><link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=4"><link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1"><link rel="stylesheet" href="/assets/brand/project-scrollbar.css?v=1"><link rel="stylesheet" href="/assets/brand/mobile-visual-audit.css?v=17"><link rel="stylesheet" href="/assets/brand/service-status-responsive.css?v=1"><link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2"><link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1"><link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3"><link rel="manifest" href="/manifest.webmanifest?v=2"><meta name="theme-color" content="#0B1220"><link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation.css?v=2">
+</style><link rel="stylesheet" href="/assets/brand/workers-ai-provider.css?v=5"><link rel="stylesheet" href="/assets/brand/brand.css?v=2"><link rel="stylesheet" href="/assets/brand/mobile-shell.css?v=2"><link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=9&workers-dot=5&openai-form=2&sports-api=1"><link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=4"><link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1"><link rel="stylesheet" href="/assets/brand/project-scrollbar.css?v=1"><link rel="stylesheet" href="/assets/brand/mobile-visual-audit.css?v=17"><link rel="stylesheet" href="/assets/brand/service-status-responsive.css?v=1"><link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2"><link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1"><link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3"><link rel="manifest" href="/manifest.webmanifest?v=2"><meta name="theme-color" content="#0B1220"><link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation.css?v=2">
 <style id="tmr-mobile-bottom-nav-critical">
 @media (max-width:1024px){
   .saas-shell>.saas-sidebar{display:none!important}
@@ -214,6 +247,10 @@ $geminiKey=Repository::integration('gemini_api_key');
 $geminiModel=Repository::integration('gemini_model')?:'gemini-3.6-flash';
 $workersAIKey=\App\WorkersAITranslation::token();
 $workersAIAccount=\App\WorkersAITranslation::account();
+$stakeKey=\App\SportsApiIntegration::stakeKey();
+$apiFootballKey=\App\SportsApiIntegration::apiFootballKey();
+$stakeTest=Repository::providerTestStatus('stake');
+$apiFootballTest=Repository::providerTestStatus('api_football');
 $primaryProvider=Repository::translationPrimaryProvider();
 $fallbackProvider=Repository::translationFallbackProvider();
 $openaiStats=Repository::translationProviderStats('openai'); $geminiStats=Repository::translationProviderStats('gemini');
@@ -228,11 +265,35 @@ $openaiTest=Repository::providerTestStatus('openai'); $geminiTest=Repository::pr
     <small>Configure credenciais, valide conexões e acompanhe o estado de cada provedor sem poluição visual.</small>
   </div>
   <div class="integrations-overview-v10-status">
-    <span class="<?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0)+((!empty($workersAIKey)&&!empty($workersAIAccount))?1:0))>0?'is-good':''?>">Chaves <?=((!empty($azureKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0)+((!empty($workersAIKey)&&!empty($workersAIAccount))?1:0))?>/4</span>
+    <?php $integrationKeyCount=(!empty($openaiKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0)+((!empty($workersAIKey)&&!empty($workersAIAccount))?1:0)+(!empty($stakeKey)?1:0)+(!empty($apiFootballKey)?1:0); ?>
+    <span class="<?=$integrationKeyCount>0?'is-good':''?>">Chaves <?=$integrationKeyCount?>/6</span>
     <span class="<?=$connectedPhone!==''?'is-good':''?>">Telegram <?=$connectedPhone!==''?'online':'offline'?></span>
   </div>
 </section>
 <section class="saas-card integrations-connection"><div><span class="saas-kicker">CONEXÃO</span><h2>Telegram</h2><p>Gerencie a conta usada para receber e encaminhar as mensagens.</p></div><a class="saas-secondary" href="/connect.php">Gerenciar conexão →</a></section>
+<div class="integrations-section-heading sports-api-heading"><div><span class="saas-kicker">APIS ESPORTIVAS</span><h2>Validação e resultados</h2><p>Substitua as credenciais usadas para validar odds na Stake e consultar partidas/resultados na API-Football. O teste pode ser executado antes de salvar.</p></div></div>
+<div class="translation-provider-grid sports-api-provider-grid">
+<section class="saas-card translation-provider-card sports-api-card">
+  <div class="provider-head">
+    <div><span class="saas-kicker">STAKE SPORTS DATA</span><h2>Stake</h2><p>Validação de evento, mercado, linha e odd antes da geração do card.</p></div>
+    <span class="provider-badge <?=$stakeKey?'is-configured':'is-empty'?>"><?=$stakeKey?'Configurado':'Não configurado'?></span>
+  </div>
+  <form method="post" class="provider-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="provider" value="stake"><div class="saas-form-grid">
+    <label class="field-wide">API Key<span class="field-help"><?=$stakeKey?'Atual: '.sh(TranslationService::maskSecret($stakeKey)).'. Digite uma nova chave apenas para substituir.':'Informe a chave da Stake Sports Data API.'?></span><input name="stake_odds_api_key" type="password" autocomplete="new-password" placeholder="<?=$stakeKey?'••••••••••••••••':'Cole a API Key da Stake'?>"></label>
+  </div><div class="provider-actions"><button class="saas-primary" name="action" value="save_sports_api_provider">Salvar</button><button class="saas-secondary" name="action" value="test_sports_api_provider">Testar conexão</button></div></form>
+  <div class="provider-test <?=$stakeTest?((int)$stakeTest['last_test_ok']?'ok':'bad'):'neutral'?>"><b>Último teste</b><span><?=$stakeTest?((int)$stakeTest['last_test_ok']?'Conexão válida':'Falha'.(!empty($stakeTest['last_test_error'])?' — '.sh((string)$stakeTest['last_test_error']):(!empty($stakeTest['last_test_http_code'])?' — HTTP '.(int)$stakeTest['last_test_http_code']:''))):'Ainda não testado'?></span><small><?=$stakeTest?sh(dataHoraBrasil($stakeTest['last_test_at'])).' · '.(int)$stakeTest['last_test_latency_ms'].' ms':'—'?></small></div>
+</section>
+<section class="saas-card translation-provider-card sports-api-card">
+  <div class="provider-head">
+    <div><span class="saas-kicker">API-SPORTS</span><h2>API-Football</h2><p>Consulta oficial de partidas, horários, placares e estatísticas usadas pelo módulo de resultados.</p></div>
+    <span class="provider-badge <?=$apiFootballKey?'is-configured':'is-empty'?>"><?=$apiFootballKey?'Configurado':'Não configurado'?></span>
+  </div>
+  <form method="post" class="provider-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="provider" value="api_football"><div class="saas-form-grid">
+    <label class="field-wide">API Key<span class="field-help"><?=$apiFootballKey?'Atual: '.sh(TranslationService::maskSecret($apiFootballKey)).'. Digite uma nova chave apenas para substituir.':'Informe a chave da API-Football.'?></span><input name="api_football_key" type="password" autocomplete="new-password" placeholder="<?=$apiFootballKey?'••••••••••••••••':'Cole a API Key da API-Football'?>"></label>
+  </div><div class="provider-actions"><button class="saas-primary" name="action" value="save_sports_api_provider">Salvar</button><button class="saas-secondary" name="action" value="test_sports_api_provider">Testar conexão</button></div></form>
+  <div class="provider-test <?=$apiFootballTest?((int)$apiFootballTest['last_test_ok']?'ok':'bad'):'neutral'?>"><b>Último teste</b><span><?=$apiFootballTest?((int)$apiFootballTest['last_test_ok']?'Conexão válida':'Falha'.(!empty($apiFootballTest['last_test_error'])?' — '.sh((string)$apiFootballTest['last_test_error']):(!empty($apiFootballTest['last_test_http_code'])?' — HTTP '.(int)$apiFootballTest['last_test_http_code']:''))):'Ainda não testado'?></span><small><?=$apiFootballTest?sh(dataHoraBrasil($apiFootballTest['last_test_at'])).' · '.(int)$apiFootballTest['last_test_latency_ms'].' ms':'—'?></small></div>
+</section>
+</div>
 <section class="translation-routing-card saas-card"><div class="saas-card-head"><div><span class="saas-kicker">ORQUESTRAÇÃO</span><h2>Prioridade e fallback</h2><p>A regra sempre tem prioridade. O fallback usa o provedor alternativo configurado quando estiver habilitado.</p></div></div><form method="post" class="translation-routing-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="action" value="save_translation_routing"><label>Provedor principal<select id="translation-primary" name="translation_primary_provider"><option value="openai" <?=$primaryProvider==='openai'?'selected':''?>>OpenAI</option><option value="gemini" <?=$primaryProvider==='gemini'?'selected':''?>>Google Gemini</option><option value="google_cloud" <?=$primaryProvider==='google_cloud'?'selected':''?>>Google Cloud Translation</option><option value="workers_ai" <?=($primaryProvider==='workers_ai')?'selected':''?>>Cloudflare Workers AI</option></select></label><label>Provedor de fallback<select id="translation-fallback" name="translation_fallback_provider"><option value="none" <?=$fallbackProvider==='none'?'selected':''?>>Nenhum</option><option value="openai" <?=$fallbackProvider==='openai'?'selected':''?>>OpenAI</option><option value="gemini" <?=$fallbackProvider==='gemini'?'selected':''?>>Google Gemini</option><option value="google_cloud" <?=$fallbackProvider==='google_cloud'?'selected':''?>>Google Cloud Translation</option><option value="workers_ai" <?=($fallbackProvider==='workers_ai')?'selected':''?>>Cloudflare Workers AI</option></select></label><button class="saas-primary">Salvar prioridade →</button></form></section>
 <div class="integrations-section-heading"><div><span class="saas-kicker">PROVEDORES DE TRADUÇÃO</span><h2>Credenciais e conexão</h2><p>Clique no card para expandir. Cada provedor mantém sua própria chave, teste de conexão, data/hora, latência e diagnóstico.</p></div></div><div class="translation-provider-grid">
 <?php require __DIR__.'/app/google-cloud-card.php'; ?>
@@ -268,4 +329,4 @@ $openaiTest=Repository::providerTestStatus('openai'); $geminiTest=Repository::pr
 <?php if(($status['status']??'')==='erro' && !empty($status['last_error'])):?><section class="overview-alert"><b>Falha registrada no trabalhador</b><p><?=sh($status['last_error'])?></p><small>A conexão permanece monitorada. Verifique a conta e os canais configurados antes de tentar novamente.</small></section><?php endif;?>
 <section class="saas-metrics overview-metrics"><div class="saas-metric"><div class="saas-metric-label">REGRAS ATIVAS <span class="saas-metric-icon"><svg class="tmr-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="19" r="2"/><path d="M6 7v10a2 2 0 0 0 2 2h4M18 17V7a2 2 0 0 0-2-2h-4m-2 12 2 2-2 2m4-18-2 2 2 2"/></svg></span></div><strong><?=sh($stats['active'])?></strong><small><?=sh($stats['total'])?> regras cadastradas</small></div><div class="saas-metric"><div class="saas-metric-label">ENCAMINHADAS HOJE <span class="saas-metric-icon"><svg class="tmr-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21 3-7 18-4-7-7-4Zm0 0L10 14"/></svg></span></div><strong><?=sh($stats['forwarded']??0)?></strong><small>entregas concluídas</small></div><div class="saas-metric"><div class="saas-metric-label">TENTATIVAS COM FALHA <span class="saas-metric-icon danger"><svg class="tmr-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m10 4-8 14a2 2 0 0 0 2 3h16a2 2 0 0 0 2-3L14 4a2 2 0 0 0-4 0ZM12 9v4m0 4h.01"/></svg></span></div><strong class="metric-danger"><?=sh($stats['failed']??0)?></strong><small>exigem atenção</small></div><div class="saas-metric"><div class="saas-metric-label">EVENTOS PROCESSADOS <span class="saas-metric-icon"><svg class="tmr-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span></div><strong><?=sh(($stats['forwarded']??0)+($stats['failed']??0)+($stats['skipped']??0))?></strong><small><?=sh($stats['skipped']??0)?> ignorados pelas regras</small></div></section>
 <div class="saas-grid overview-grid"><section class="saas-card"><div class="saas-card-head"><div><span class="saas-kicker">MONITORAMENTO</span><h2>Últimas movimentações</h2><p>O que aconteceu recentemente no roteador.</p></div><a class="saas-link" href="/?page=events">Abrir histórico →</a></div><?php if(!$events):?><div class="saas-empty">Ainda não há mensagens processadas. O trabalhador continuará conectado e aguardando novos eventos.</div><?php else:?><div class="saas-table-wrap"><table class="saas-table"><thead><tr><th>Origem</th><th>Destino</th><th>Resultado</th><th>Quando</th></tr></thead><tbody><?php foreach(array_slice($events,0,6) as $e):?><tr><td><?=sh($e['source_chat'])?> · #<?=sh($e['message_id'])?></td><td><?=sh($e['destination_chat'])?></td><td><span class="saas-badge <?=sh(match($e['status']){'forwarded'=>'Encaminhada','failed'=>'Falhou','skipped'=>'Ignorada','processing'=>'Processando',default=>'Registrada'})?>"><?=sh(match($e['status']){'forwarded'=>'Encaminhada','failed'=>'Falhou','skipped'=>'Ignorada','processing'=>'Processando',default=>$e['status']})?></span></td><td><?=sh(dataHoraBrasil($e['created_at']))?></td></tr><?php endforeach;?></tbody></table></div><?php endif;?></section><section class="saas-card"><div class="saas-card-head"><div><span class="saas-kicker">CONFIGURAÇÃO</span><h2>Regras em operação</h2><p>Resumo das origens e destinos ativos.</p></div><a class="saas-link" href="/?page=rules">Gerenciar →</a></div><?php foreach(array_slice($rules,0,5) as $r):?><div class="saas-rule"><div class="saas-rule-top"><b><span class="saas-dot <?=((int)$r['enabled']?'':'off')?>"></span><?=sh($r['source_chat'])?></b><span class="rule-state"><?=((int)$r['enabled']?'Ativa':'Pausada')?></span></div><p><?=sh($r['trigger_text'])?> <span class="rule-arrow">→</span> <?=sh($r['destination_chat'])?></p></div><?php endforeach;if(!$rules):?><div class="saas-empty">Nenhuma regra criada. Configure a primeira para iniciar os encaminhamentos.</div><?php endif;?></section></div>
-<section class="saas-card overview-guide"><div><span class="saas-kicker">COMO FUNCIONA</span><h2>O trabalhador permanece pronto</h2><p>Sem mensagens, o sistema não entra em espera: ele continua conectado, monitorando os canais e preparado para processar o próximo evento.</p></div><div class="guide-points"><span><i>1</i>Recebe a mensagem</span><span><i>2</i>Valida a regra</span><span><i>3</i>Encaminha ao destino</span></div></section><?php endif;?></main></div></div><script src="/assets/live.js" defer></script><script src="/assets/toast.js" defer></script><script src="/assets/brand/integrations-v10.js?v=7" defer></script></body></html>
+<section class="saas-card overview-guide"><div><span class="saas-kicker">COMO FUNCIONA</span><h2>O trabalhador permanece pronto</h2><p>Sem mensagens, o sistema não entra em espera: ele continua conectado, monitorando os canais e preparado para processar o próximo evento.</p></div><div class="guide-points"><span><i>1</i>Recebe a mensagem</span><span><i>2</i>Valida a regra</span><span><i>3</i>Encaminha ao destino</span></div></section><?php endif;?></main></div></div><script src="/assets/live.js" defer></script><script src="/assets/toast.js" defer></script><script src="/assets/brand/integrations-v10.js?v=8" defer></script></body></html>

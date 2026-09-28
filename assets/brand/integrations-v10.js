@@ -1,9 +1,9 @@
 (() => {
-  const grid = document.querySelector('.translation-provider-grid');
-  if (!grid) return;
+  const grids = Array.from(document.querySelectorAll('.translation-provider-grid'));
+  if (!grids.length) return;
 
   const KEY = 'telegramrouter.integrations.openProvider.v10';
-  const cards = Array.from(grid.children).filter(card =>
+  const cards = grids.flatMap(grid => Array.from(grid.children)).filter(card =>
     card.querySelector('.provider-form input[name="provider"]')
   );
   if (!cards.length) return;
@@ -57,7 +57,7 @@
     if (notice.closest('.translation-provider-grid')) return;
     // Never hide a container, even if it has an alert class or role.
     if (notice.matches('.saas-shell, .saas-sidebar, .saas-main, .saas-content')) return;
-    if (notice.contains(grid)) return;
+    if (grids.some(grid => notice.contains(grid))) return;
     if (!testFeedbackRx.test((notice.textContent || '').trim())) return;
     notice.classList.add('integrations-global-test-feedback');
     notice.setAttribute('hidden', '');
@@ -177,15 +177,17 @@
 
       const html = await response.text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      const responseGrid = doc.querySelector('.translation-provider-grid');
+      const responseGrids = Array.from(doc.querySelectorAll('.translation-provider-grid'));
 
-      if (!responseGrid) {
+      if (!responseGrids.length) {
         throw new Error('Resposta do teste sem o módulo de integrações.');
       }
 
-      const responseCard = Array.from(responseGrid.children).find(item =>
-        (item.querySelector('.provider-form input[name="provider"]')?.value || '') === provider
-      );
+      const responseCard = responseGrids
+        .flatMap(responseGrid => Array.from(responseGrid.children))
+        .find(item =>
+          (item.querySelector('.provider-form input[name="provider"]')?.value || '') === provider
+        );
 
       if (!responseCard) {
         throw new Error('Resposta do provedor não encontrada.');
@@ -272,7 +274,7 @@
       try { sessionStorage.setItem(KEY, provider); } catch (_) {}
     }
 
-    if (action === 'test_translation_provider') {
+    if (action === 'test_translation_provider' || action === 'test_sports_api_provider') {
       event.preventDefault();
       event.stopImmediatePropagation();
       runConnectionTest(form, submitter, card, provider);
