@@ -6,6 +6,10 @@ final class AdaptiveVipCardRenderer
 {
     private const FIXED_STAKE='10';
     private const SPORTSDB_FREE_KEY='123';
+    // Vertical rhythm for multi-selection rows. Keep metadata, date and market
+    // on distinct baselines so Telegram downscaling never makes them collide.
+    private const MULTI_DATE_BLOCK_ADVANCE=46;
+    private const MULTI_METADATA_MARKET_GAP=8;
     private static bool $identityAssetsDisabled=false;
 
     public static function extractionInstruction(): string
@@ -389,9 +393,10 @@ final class AdaptiveVipCardRenderer
             $marketSelectionGap=15;
             $rowH=$builder||count($legs)===1
                 ?max(124,42+count($marketLines)*32+$marketSelectionGap+count($selectionLines)*38)
-                :max(190,61+count($matchLines)*30+count($leagueLines)*23
-                    +(!empty($leg['date'])?27:0)+count($marketLines)*29
-                    +$marketSelectionGap+count($selectionLines)*36);
+                :max(218,69+count($matchLines)*30+count($leagueLines)*23
+                    +(!empty($leg['date'])?self::MULTI_DATE_BLOCK_ADVANCE:0)
+                    +self::MULTI_METADATA_MARKET_GAP+count($marketLines)*29
+                    +$marketSelectionGap+count($selectionLines)*38);
 
             $selectionRows[]=[$index,$leg,$matchLines,$leagueLines,$marketLines,$selectionLines,$rowH];
             $selectionBodyH+=$rowH;
@@ -604,8 +609,11 @@ final class AdaptiveVipCardRenderer
                         if(!empty($leg['date'])){
                             self::calendarIcon($im,$textX,$ty+7,$dim);
                             self::text($im,$textX+41,$ty+18,(string)$leg['date'],16,$dim,$font);
-                            $ty+=29;
+                            $ty+=self::MULTI_DATE_BLOCK_ADVANCE;
                         }
+                        // Metadata/date and the betting market are separate
+                        // information groups; keep a visible gap between them.
+                        $ty+=self::MULTI_METADATA_MARKET_GAP;
                         foreach($marketLines as $line){
                             self::text($im,$textX,$ty,$line,18,$muted,$font);$ty+=29;
                         }
