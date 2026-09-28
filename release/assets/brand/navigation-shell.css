@@ -1,0 +1,64 @@
+/* Canonical navigation shell: identical across dashboard, reports and reset. */
+.tmr-icon{
+  display:inline-block;
+  vertical-align:middle;
+  flex-shrink:0;
+  pointer-events:none;
+}
+.saas-sidebar .nav-icon{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex:0 0 30px!important;
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  min-height:30px!important;
+  line-height:0!important;
+  border-radius:9px;
+  background:rgba(137,160,180,.06);
+  color:#8da5b9;
+  transition:background .18s,color .18s;
+}
+.saas-sidebar .nav-icon svg,
+.saas-sidebar .nav-icon .tmr-icon{
+  display:block;
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  min-height:20px!important;
+  stroke:currentColor;
+}
+.saas-sidebar .saas-nav a:hover .nav-icon,
+.saas-sidebar .saas-nav a.active .nav-icon{
+  background:rgba(118,243,228,.12);
+  color:#76f3e4;
+}
+
+@media (max-width:1024px){
+  .saas-shell>.saas-sidebar{display:none!important}
+  .saas-shell>.saas-main{
+    margin-left:0!important;
+    width:100%!important;
+    max-width:100%!important;
+    padding-bottom:calc(105px + env(safe-area-inset-bottom,0px))!important;
+  }
+  nav.tmr-mobile-navigation{
+    display:grid!important;
+    position:fixed!important;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    left:clamp(8px,2vw,20px);
+    right:clamp(8px,2vw,20px);
+    bottom:calc(8px + env(safe-area-inset-bottom,0px));
+    z-index:1100;
+    min-height:78px;
+    padding:7px 6px;
+    background:#151f2b;
+    border:1px solid rgba(142,163,184,.16);
+    border-radius:15px;
+    box-sizing:border-box;
+  }
+}
+@media (min-width:1025px){
+  nav.tmr-mobile-navigation{display:none!important}
+}
