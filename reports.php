@@ -306,7 +306,7 @@ function rdate(mixed $value): string
                             <div class="reporting-rules-box" id="reporting-rules-box">
                                 <div class="reporting-rules-head">
                                     <div><b>Regras disponíveis</b><small><?=rh(count($rules))?> cadastradas</small></div>
-                                    <span><?=rh($selectedCount)?> selecionadas</span>
+                                    <span id="reporting-selected-count"><?=rh($selectedCount)?> selecionadas</span>
                                 </div>
                                 <div class="reporting-rules-list">
                                     <?php foreach ($rules as $rule): ?>
@@ -468,15 +468,37 @@ function rdate(mixed $value): string
 document.addEventListener('DOMContentLoaded',()=>{
     const radios=[...document.querySelectorAll('input[name="scope"]')];
     const box=document.getElementById('reporting-rules-box');
-    const sync=()=>{
+    const count=document.getElementById('reporting-selected-count');
+    const ruleChecks=box?[...box.querySelectorAll('input[name="rules[]"]')]:[];
+
+    const updateCount=()=>{
+        if(!count)return;
+        const total=ruleChecks.filter(input=>input.checked).length;
+        count.textContent=total+' selecionada'+(total===1?'':'s');
+    };
+
+    const sync=(applyAll=false)=>{
         const selected=document.querySelector('input[name="scope"]:checked')?.value==='selected';
+        if(!selected && applyAll){
+            ruleChecks.forEach(input=>{ input.checked=true; });
+        }
         if(box){
             box.classList.toggle('is-disabled',!selected);
             box.setAttribute('aria-disabled',selected?'false':'true');
         }
+        updateCount();
     };
-    radios.forEach(radio=>radio.addEventListener('change',sync));
-    sync();
+
+    radios.forEach(radio=>radio.addEventListener('change',()=>{
+        sync(radio.value==='all' && radio.checked);
+    }));
+    ruleChecks.forEach(input=>input.addEventListener('change',updateCount));
+
+    const current=document.querySelector('input[name="scope"]:checked');
+    if(current?.value==='all'){
+        ruleChecks.forEach(input=>{ input.checked=true; });
+    }
+    sync(false);
 });
 </script>
 <script src="/assets/live.js" defer></script>
