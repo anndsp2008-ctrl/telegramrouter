@@ -315,9 +315,23 @@ function rdate(mixed $value): string
                     </label>
                 </section>
 
-                <section class="saas-card reporting-setting-card reporting-setting-card-wide">
+                <section class="saas-card reporting-setting-card">
                     <div class="reporting-setting-card-head">
                         <span class="reporting-setting-index">02</span>
+                        <div>
+                            <h3>Apuração automática</h3>
+                            <p>Controle a consulta e a liquidação das apostas.</p>
+                        </div>
+                    </div>
+                    <label class="reporting-switch-row">
+                        <input type="checkbox" name="check_results" <?=!empty($settings['check_results'])?'checked':''?>>
+                        <span><b>Verificar resultados automaticamente</b><small>Consulta somente quando necessário e liquida com dados confiáveis.</small></span>
+                    </label>
+                </section>
+
+                <section class="saas-card reporting-setting-card reporting-setting-card-wide">
+                    <div class="reporting-setting-card-head">
+                        <span class="reporting-setting-index">03</span>
                         <div>
                             <h3>Escopo do acompanhamento</h3>
                             <p>Defina quais regras entram nas estatísticas e liquidações.</p>
@@ -358,20 +372,6 @@ function rdate(mixed $value): string
                             <?php endif; ?>
                         </div>
                     </div>
-                </section>
-
-                <section class="saas-card reporting-setting-card">
-                    <div class="reporting-setting-card-head">
-                        <span class="reporting-setting-index">03</span>
-                        <div>
-                            <h3>Apuração automática</h3>
-                            <p>Controle a consulta e a liquidação das apostas.</p>
-                        </div>
-                    </div>
-                    <label class="reporting-switch-row">
-                        <input type="checkbox" name="check_results" <?=!empty($settings['check_results'])?'checked':''?>>
-                        <span><b>Verificar resultados automaticamente</b><small>Consulta somente quando necessário e liquida com dados confiáveis.</small></span>
-                    </label>
                 </section>
 
                 <section class="saas-card reporting-setting-card">
