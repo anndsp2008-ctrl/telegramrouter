@@ -29,8 +29,8 @@ final class FixtureMatcher
         );
 
         // First choice: resolve both sides to stable API team IDs, then match fixture by IDs.
-        $teamA = $this->resolveTeam($wantedA);
-        $teamB = $this->resolveTeam($wantedB);
+        $teamA = $this->safeResolveTeam($wantedA);
+        $teamB = $this->safeResolveTeam($wantedB);
         if (is_array($teamA) && is_array($teamB) && (int)$teamA['team_id'] !== (int)$teamB['team_id']) {
             foreach ($dates as $date) {
                 $exact = $this->matchByTeamIds(
@@ -119,6 +119,16 @@ final class FixtureMatcher
         return ['status'=>'matched','match'=>$best];
     }
 
+    private function safeResolveTeam(string $input): ?array
+    {
+        try {
+            return $this->resolveTeam($input);
+        } catch (\Throwable $e) {
+            error_log('TMR_REPORTING_TEAM_RESOLVE_NON_FATAL ' . get_class($e));
+            return null;
+        }
+    }
+
     private function resolveTeam(string $input): ?array
     {
         $cacheKey = self::key($input);
@@ -139,10 +149,12 @@ final class FixtureMatcher
             ];
         }
 
-        $queries = array_values(array_unique([
-            trim($input),
-            self::canonicalAlias($input),
-        ]));
+        $canonical = self::canonicalAlias($input);
+        $queries = array_values(array_unique(
+            self::key($canonical) !== self::key($input)
+                ? [$canonical, trim($input)]
+                : [trim($input)]
+        ));
 
         $best = null;
         foreach ($queries as $query) {
@@ -205,7 +217,6 @@ final class FixtureMatcher
             1.0
         );
 
-        $canonical = self::canonicalAlias($input);
         if ($canonical !== '' && self::key($canonical) !== self::key($input)) {
             Repository::saveTeamAlias(
                 $canonical,
