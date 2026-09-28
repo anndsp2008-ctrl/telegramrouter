@@ -1163,3 +1163,65 @@ body:has(.translation-provider-grid) .translation-provider-grid > .openai-provid
     padding:12px 0!important;
   }
 }
+
+
+/* Sports API credentials — same provider-card contract used by Integrações v10 */
+.sports-api-heading{
+  margin-top:0!important;
+}
+.sports-api-provider-grid{
+  margin-bottom:24px!important;
+}
+.translation-provider-grid>*:has(input[name="provider"][value="stake"]){
+  --provider-accent:#22c55e;
+}
+.translation-provider-grid>*:has(input[name="provider"][value="api_football"]){
+  --provider-accent:#06b6d4;
+}
+.translation-provider-grid>*:has(input[name="provider"][value="stake"])>.provider-head::before,
+.translation-provider-grid>*:has(input[name="provider"][value="stake"])>.saas-card-head::before{
+  content:"ST"!important;
+}
+.translation-provider-grid>*:has(input[name="provider"][value="api_football"])>.provider-head::before,
+.translation-provider-grid>*:has(input[name="provider"][value="api_football"])>.saas-card-head::before{
+  content:"AF"!important;
+}
+.sports-api-provider-grid .provider-badge.is-configured{
+  color:#79e9be!important;
+  border-color:#284840!important;
+  background:#152a29!important;
+}
+.sports-api-provider-grid .provider-badge.is-configured::before{
+  background:#39ff88!important;
+}
+.sports-api-provider-grid .provider-badge.is-empty{
+  color:#fde68a!important;
+  border-color:rgba(250,204,21,.20)!important;
+  background:rgba(250,204,21,.05)!important;
+}
+.sports-api-provider-grid .provider-badge.is-empty::before{
+  background:#facc15!important;
+}
+.translation-provider-grid .provider-actions button[name="action"][value="test_sports_api_provider"]{
+  opacity:1!important;
+  color:#eaf2ff!important;
+  border:1px solid rgba(96,165,250,.34)!important;
+  background:linear-gradient(180deg,rgba(59,130,246,.16),rgba(37,99,235,.10))!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)!important;
+  cursor:pointer!important;
+  font-weight:780!important;
+}
+.translation-provider-grid .provider-actions button[name="action"][value="test_sports_api_provider"]:hover{
+  color:#fff!important;
+  border-color:rgba(96,165,250,.54)!important;
+  background:linear-gradient(180deg,rgba(59,130,246,.24),rgba(37,99,235,.15))!important;
+}
+.translation-provider-grid .provider-actions button[name="action"][value="test_sports_api_provider"]:focus-visible{
+  outline:0!important;
+  box-shadow:0 0 0 3px rgba(59,130,246,.14)!important;
+}
+@media(max-width:640px){
+  .sports-api-provider-grid{
+    margin-bottom:18px!important;
+  }
+}
