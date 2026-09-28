@@ -1,8 +1,10 @@
 <?php declare(strict_types=1);
 
 require_once __DIR__.'/../app/StakeOddsProvider.php';
+require_once __DIR__.'/../app/AdaptiveVipCardRenderer.php';
 
 use App\StakeOddsProvider;
+use App\AdaptiveVipCardRenderer;
 
 putenv('STAKE_ODDS_API_ENABLED=0');
 $source=[
@@ -15,6 +17,25 @@ $source=[
 ];
 if(StakeOddsProvider::applyToSingle($source)!==$source){
     throw new RuntimeException('Disabled Stake validator must preserve the source bet.');
+}
+
+$adaptive=AdaptiveVipCardRenderer::extract([
+    'sport'=>'Futebol',
+    'bookmaker'=>'Betano',
+    'odd'=>'1.80',
+    'analysis'=>'Teste de integração.',
+    'card_legs'=>json_encode([[
+        'sport'=>'Futebol',
+        'match'=>'Palmeiras x Flamengo',
+        'league'=>'Brasileirão',
+        'date'=>'',
+        'market'=>'Total de escanteios',
+        'selection'=>'Mais de 8,5 escanteios',
+        'odd'=>'1.80',
+    ]],JSON_UNESCAPED_UNICODE),
+],'',false);
+if(!is_array($adaptive) || ($adaptive['odd']??'')!=='1.80' || ($adaptive['legs'][0]['odd']??'')!=='1.80'){
+    throw new RuntimeException('Adaptive card path must preserve the source odd when Stake validation is disabled.');
 }
 
 $fixtures=[
