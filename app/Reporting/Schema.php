@@ -32,6 +32,7 @@ final class Schema
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        self::ensureColumn($pdo, 'reporting_settings', 'scope', "VARCHAR(16) NOT NULL DEFAULT 'all'");
         $pdo->exec("INSERT IGNORE INTO reporting_settings(id) VALUES (1)");
 
         $pdo->exec("
@@ -154,6 +155,18 @@ final class Schema
 
         self::setState('schema_version', (string)self::VERSION);
         self::$migrated = true;
+    }
+
+    private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
+    {
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?'
+        );
+        $stmt->execute([$table, $column]);
+        if ((int)$stmt->fetchColumn() === 0) {
+            $pdo->exec('ALTER TABLE ' . $table . ' ADD COLUMN ' . $column . ' ' . $definition);
+        }
     }
 
     private static function dropLegacy(PDO $pdo): void
