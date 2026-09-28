@@ -4,6 +4,7 @@ require __DIR__ . '/bootstrap.php';
 
 use App\Auth;
 use App\Database;
+use App\Repository as RouterRepository;
 use App\Reporting\Repository;
 use App\Reporting\Schema;
 
@@ -18,12 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Auth::verifyCsrf($_POST['csrf'] ?? null);
         Repository::saveSettings([
             'enabled' => isset($_POST['enabled']),
+            'scope' => (($_POST['scope'] ?? 'all') === 'selected' ? 'selected' : 'all'),
             'check_results' => isset($_POST['check_results']),
             'daily_report' => isset($_POST['daily_report']),
             'report_time' => (string)($_POST['report_time'] ?? '00:00'),
             'timezone' => 'America/Sao_Paulo',
             'report_chat' => (string)($_POST['report_chat'] ?? ''),
         ]);
+        Repository::saveRuleScope((array)($_POST['rules'] ?? []));
         $notice = 'Configurações de relatórios atualizadas.';
     } catch (Throwable $e) {
         $error = 'Não foi possível salvar as configurações.';
@@ -31,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $settings = Repository::settings();
+$rules = RouterRepository::allRules();
+$selectedRules = Repository::selectedRuleIds();
 $tickets = Repository::recentTickets(50);
 $stateRows = Database::pdo()->query(
     'SELECT state_key,state_value,updated_at FROM reporting_runtime_state ORDER BY state_key'
@@ -106,6 +111,20 @@ function rstatus(string $status): string
             <form method="post">
                 <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
                 <label><input type="checkbox" name="enabled" <?=!empty($settings['enabled'])?'checked':''?>> Ativar sistema de relatórios</label>
+                <fieldset style="border:0;padding:0;margin:16px 0">
+                    <legend style="font-weight:600;margin-bottom:8px">Escopo do acompanhamento</legend>
+                    <label><input type="radio" name="scope" value="all" <?=($settings['scope']??'all')==='all'?'checked':''?>> Todos os canais/regras</label>
+                    <label><input type="radio" name="scope" value="selected" <?=($settings['scope']??'all')==='selected'?'checked':''?>> Somente canais/regras selecionados</label>
+                </fieldset>
+                <div style="max-height:280px;overflow:auto;border:1px solid #dfe5ea;border-radius:12px;padding:10px 12px;margin-bottom:14px">
+                    <?php foreach ($rules as $rule): ?>
+                        <label style="display:flex;gap:9px;align-items:flex-start">
+                            <input type="checkbox" name="rules[]" value="<?=rh($rule['id'])?>" <?=in_array((int)$rule['id'],$selectedRules,true)?'checked':''?>>
+                            <span><strong><?=rh($rule['source_chat'])?></strong> → <?=rh($rule['destination_chat'])?><?php if(trim((string)$rule['trigger_text'])!==''): ?><br><small class="report-muted">Gatilho: <?=rh($rule['trigger_text'])?></small><?php endif; ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <?php if ($rules === []): ?><div class="report-muted">Nenhuma regra de roteamento cadastrada.</div><?php endif; ?>
+                </div>
                 <label><input type="checkbox" name="check_results" <?=!empty($settings['check_results'])?'checked':''?>> Verificar resultados automaticamente</label>
                 <label><input type="checkbox" name="daily_report" <?=!empty($settings['daily_report'])?'checked':''?>> Gerar relatório diário</label>
                 <label>Horário do relatório
