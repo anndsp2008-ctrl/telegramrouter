@@ -268,6 +268,61 @@ final class Repository
         return count($ids);
     }
 
+    public static function reopenLegacyConfidenceReviewsOnce(): int
+    {
+        Schema::migrate();
+        $stateKey = 'team_id_matcher_review_reopen_v1';
+        $check = Database::pdo()->prepare(
+            'SELECT state_value FROM reporting_runtime_state WHERE state_key=? LIMIT 1'
+        );
+        $check->execute([$stateKey]);
+        if ((string)$check->fetchColumn() === 'done') {
+            return 0;
+        }
+
+        $pdo = Database::pdo();
+        $rows = $pdo->query(
+            'SELECT id,ticket_id
+             FROM reporting_legs
+             WHERE status="REVIEW"
+               AND fixture_id IS NULL
+               AND (
+                 JSON_UNQUOTE(JSON_EXTRACT(settlement_details,"$.reason"))=
+                   "Partida encontrada com confiança insuficiente após duas tentativas espaçadas."
+                 OR JSON_UNQUOTE(JSON_EXTRACT(settlement_details,"$.reason"))=
+                   "Partida/horário oficial não identificado após duas consultas espaçadas."
+               )'
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if ($rows !== []) {
+            $ids = array_map(static fn(array $row): int => (int)$row['id'], $rows);
+            $ticketIds = array_values(array_unique(array_map(
+                static fn(array $row): int => (int)$row['ticket_id'],
+                $rows
+            )));
+
+            $pdo->exec(
+                'UPDATE reporting_legs
+                 SET status="PENDING",
+                     settlement_details=NULL,
+                     settled_at=NULL,
+                     next_check_at=UTC_TIMESTAMP(),
+                     lookup_attempts=0,
+                     lookup_last_reason="team_id_matcher_reopen"
+                 WHERE id IN (' . implode(',', $ids) . ')'
+            );
+
+            foreach ($ticketIds as $ticketId) {
+                if ($ticketId > 0) {
+                    self::recomputeTicket($ticketId);
+                }
+            }
+        }
+
+        Schema::setState($stateKey, 'done');
+        return count($rows);
+    }
+
     public static function restorePrematureLookupReviews(): int
     {
         Schema::migrate();
