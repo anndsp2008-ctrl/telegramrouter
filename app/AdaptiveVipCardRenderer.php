@@ -90,22 +90,9 @@ final class AdaptiveVipCardRenderer
             'legs'=>$legs
         ];
 
-        if($kind==='simple' && count($legs)===1 && $odd!==''){
-            $leg=$legs[0];
-            $validated=StakeOddsProvider::applyToSingle([
-                'sport'=>(string)($leg['sport']?:$result['sport']),
-                'match'=>(string)$leg['match'],
-                'league'=>(string)$leg['league'],
-                'date'=>(string)$leg['date'],
-                'market'=>(string)$leg['market'],
-                'selection'=>(string)$leg['selection'],
-                'odd'=>$odd,
-            ]);
-            if(trim((string)($validated['odd']??''))!==''){
-                $result['odd']=(string)$validated['odd'];
-                $result['legs'][0]['odd']=(string)$validated['odd'];
-            }
-        }
+        // Mandatory Stake pass for every structured ticket. Simple,
+        // double, multiple and Bet Builder all reach the validator here.
+        $result=StakeOddsProvider::applyToTicket($result);
 
         return $result;
     }
