@@ -16,7 +16,7 @@ final class AdaptiveVipCardRenderer
     public static function extractionInstruction(): string
     {
         return 'CARD ADAPTATIVO: identifique a casa de aposta SOMENTE quando houver nome ou logotipo inequívoco no texto ou na imagem. '
-            .'No campo bookmaker use o nome canônico (ex.: Betano, bet365); se não for possível identificar, deixe vazio. '
+            .'No campo bookmaker use o nome canônico (ex.: Betano, bet365); se não for possível identificar, deixe vazio — o sistema tratará automaticamente como Stake. '
             .'Preencha card_legs como STRING contendo um array JSON de 1 a 16 objetos na ordem real do bilhete. '
             .'Cada objeto deve ter somente strings: sport, match, league, date, market, selection, odd. Em sport, informe o esporte daquela seleção quando identificável. '
             .'Nunca inclua horário em card_legs; date pode conter apenas a data explicitamente visível, sem hora. '
@@ -181,10 +181,29 @@ final class AdaptiveVipCardRenderer
         }
 
         $candidate=self::cleanText($candidate,50);
-        if($candidate===''||preg_match('~^(?:unknown|desconhecid[ao]|n/?a|-)$~iu',$candidate)){
-            return ['name'=>'Casa desconhecida','key'=>'unknown'];
+        if($candidate===''||preg_match('~^(?:(?:casa|bookmaker|casa de aposta)\\s+)?(?:unknown|desconhecid[ao]|n/?a|-)$~iu',$candidate)){
+            // Business rule: any unidentified bookmaker is treated as Stake.
+            return ['name'=>'Stake','key'=>'stake'];
         }
         return ['name'=>$candidate,'key'=>'generic'];
+    }
+
+    /** @return array{name:string,key:string} */
+    private static function bookmakerForOutput(array $bet): array
+    {
+        $name=trim((string)($bet['bookmaker']??''));
+        $key=mb_strtolower(trim((string)($bet['bookmaker_key']??'')),'UTF-8');
+
+        if($key==='stake'||preg_match('~^stake$~iu',$name)){
+            return ['name'=>'Stake','key'=>'stake'];
+        }
+
+        if($name===''||$key==='unknown'
+            ||preg_match('~^(?:(?:casa|bookmaker|casa de aposta)\\s+)?(?:unknown|desconhecid[ao]|n/?a|-)$~iu',$name)){
+            return ['name'=>'Stake','key'=>'stake'];
+        }
+
+        return ['name'=>$name,'key'=>$key!==''?$key:'generic'];
     }
 
     private static function cleanText(mixed $value,int $max): string
@@ -220,7 +239,8 @@ final class AdaptiveVipCardRenderer
     {
         $kindKey=(string)($bet['kind']??'simple');
         $kind=self::kindLabel($kindKey);
-        $bookmaker=trim((string)($bet['bookmaker']??''))?:'Casa desconhecida';
+        $bookmakerInfo=self::bookmakerForOutput($bet);
+        $bookmaker=$bookmakerInfo['name'];
         $legs=is_array($bet['legs']??null)?$bet['legs']:[];
         $lines=['🎟️ '.$kind.' • '.$bookmaker,''];
 
@@ -321,8 +341,9 @@ final class AdaptiveVipCardRenderer
 
         $kind=(string)($bet['kind']??'simple');
         $builder=$kind==='bet_builder';
-        $brandKey=(string)($bet['bookmaker_key']??'unknown');
-        $bookmaker=trim((string)($bet['bookmaker']??''))?:'Casa desconhecida';
+        $bookmakerInfo=self::bookmakerForOutput($bet);
+        $brandKey=$bookmakerInfo['key'];
+        $bookmaker=$bookmakerInfo['name'];
         $odd=trim((string)($bet['odd']??''))?:'—';
         $analysis=trim((string)($bet['analysis']??''));
         if($analysis==='')return null;
