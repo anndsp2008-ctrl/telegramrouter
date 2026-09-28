@@ -841,6 +841,18 @@ final class AdaptiveVipCardRenderer
     }
 
     /** @return array{type:string,colors:list<string>}|null */
+    private static function safeLogName(string $value): string
+    {
+        $value=trim($value);
+        if($value==='')return '-';
+        $value=preg_replace('~[\x00-\x1F\x7F]+~u',' ',$value)??$value;
+        $value=preg_replace('~\s+~u',' ',$value)??$value;
+        if(mb_strlen($value,'UTF-8')>80){
+            $value=mb_substr($value,0,79,'UTF-8').'…';
+        }
+        return $value;
+    }
+
     private static function flagSpec(string $team): ?array
     {
         $t=mb_strtolower(trim($team),'UTF-8');
