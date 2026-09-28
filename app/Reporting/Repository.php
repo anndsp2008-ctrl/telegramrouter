@@ -210,6 +210,63 @@ final class Repository
         );
     }
 
+    public static function recordLookupFailure(int $legId, string $reason, int $retryMinutes = 360): int
+    {
+        $retryMinutes = max(60, min(720, $retryMinutes));
+        $reason = mb_substr(trim($reason), 0, 64);
+        $stmt = Database::pdo()->prepare(
+            'UPDATE reporting_legs
+             SET lookup_attempts=lookup_attempts+1,
+                 lookup_last_reason=?,
+                 next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$retryMinutes.' MINUTE)
+             WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
+        );
+        $stmt->execute([$reason, $legId]);
+
+        $read = Database::pdo()->prepare('SELECT lookup_attempts FROM reporting_legs WHERE id=?');
+        $read->execute([$legId]);
+        return (int)$read->fetchColumn();
+    }
+
+    public static function restorePrematureLookupReviews(): int
+    {
+        Schema::migrate();
+        $pdo = Database::pdo();
+        $rows = $pdo->query(
+            'SELECT id,ticket_id
+             FROM reporting_legs
+             WHERE status="REVIEW"
+               AND fixture_id IS NULL
+               AND market_key<>"unsupported"
+               AND JSON_UNQUOTE(JSON_EXTRACT(settlement_details,"$.reason"))=
+                   "Partida/horário oficial não identificado com confiança na consulta inicial."'
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if ($rows === []) {
+            return 0;
+        }
+
+        $ids = array_map(static fn(array $row): int => (int)$row['id'], $rows);
+        $ticketIds = array_values(array_unique(array_map(static fn(array $row): int => (int)$row['ticket_id'], $rows)));
+        $pdo->exec(
+            'UPDATE reporting_legs
+             SET status="PENDING",
+                 settlement_details=NULL,
+                 settled_at=NULL,
+                 next_check_at=UTC_TIMESTAMP(),
+                 lookup_attempts=0,
+                 lookup_last_reason="policy_reopened"
+             WHERE id IN (' . implode(',', $ids) . ')'
+        );
+
+        foreach ($ticketIds as $ticketId) {
+            if ($ticketId > 0) {
+                self::recomputeTicket($ticketId);
+            }
+        }
+        return count($ids);
+    }
+
     public static function attachFixture(int $legId, array $match): void
     {
         $kickoff = (string)($match['kickoff_at'] ?? '');
@@ -229,7 +286,8 @@ final class Repository
 
         $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
-             SET fixture_id=?,api_home_team=?,api_away_team=?,kickoff_at=?,match_confidence=?,next_check_at=?
+             SET fixture_id=?,api_home_team=?,api_away_team=?,kickoff_at=?,match_confidence=?,next_check_at=?,
+                 lookup_last_reason=NULL
              WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
         );
         $stmt->execute([
