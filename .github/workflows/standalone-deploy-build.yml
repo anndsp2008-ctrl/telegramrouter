@@ -20,6 +20,7 @@ on:
       - 'scripts/report-worker.php'
       - 'tests/reporting-settlement-smoke.php'
       - 'tests/reporting-database-smoke.php'
+      - 'tests/reporting-history-accordion-smoke.php'
       - 'runtime-smart-format.php'
       - 'app/VipCardRenderer.php'
       - 'app/PurePngVipCardRenderer.php'
@@ -104,6 +105,7 @@ jobs:
           grep -Fq 'StakeOddsProvider::applyToTicket' app/SmartFormatting.php
           grep -Fq 'TMR_STAKE_TICKET' app/StakeOddsProvider.php
           php tests/reporting-settlement-smoke.php
+          php tests/reporting-history-accordion-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php
           ! grep -Fq 'lastStructuredBet' app/SmartFormatting.php
