@@ -33,6 +33,7 @@ final class DailyReportService
 
         if ($forcedChat !== '') {
             $stats = Repository::reportStats($date, $timezoneName, null);
+            $stats['cumulative_profit'] = Repository::cumulativeProfit($date, $timezoneName, null);
             Repository::enqueueDailyReport($date, $forcedChat, self::format($date, $stats));
             Repository::setState('daily_report_last_check_at', gmdate('Y-m-d H:i:s'));
             return;
@@ -62,6 +63,7 @@ final class DailyReportService
         $profit = (float)($stats['profit'] ?? 0);
         $avgOdds = (float)($stats['avg_odds'] ?? 0);
         $settledStake = (float)($stats['settled_stake'] ?? 0);
+        $cumulativeProfit = (float)($stats['cumulative_profit'] ?? 0);
 
         $decisions = $greens + $reds + $halfGreens + $halfReds;
         $weightedWins = $greens + (0.5 * $halfGreens);
@@ -75,6 +77,7 @@ final class DailyReportService
         }
 
         $resultSign = $profit > 0 ? '+' : '';
+        $cumulativeSign = $cumulativeProfit > 0 ? '+' : '';
         $roiSign = $roi > 0 ? '+' : '';
 
         return
@@ -90,8 +93,9 @@ final class DailyReportService
             "Taxa de acerto: " . number_format($hitRate, 2, ',', '.') . "%\n" .
             "Stake padrão: 10 unidades\n" .
             "Volume liquidado: " . number_format($settledStake, 2, ',', '.') . " unidades\n\n" .
-            "💰 Resultado: {$resultSign}" . number_format($profit, 2, ',', '.') . " unidades\n" .
-            "📈 ROI: {$roiSign}" . number_format($roi, 2, ',', '.') . "%\n" .
+            "💰 Resultado do dia: {$resultSign}" . number_format($profit, 2, ',', '.') . " unidades\n" .
+            "🏦 Acumulado geral: {$cumulativeSign}" . number_format($cumulativeProfit, 2, ',', '.') . " unidades\n" .
+            "📈 ROI do dia: {$roiSign}" . number_format($roi, 2, ',', '.') . "%\n" .
             "Odd média: " . number_format($avgOdds, 2, '.', '');
     }
 }
