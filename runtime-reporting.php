@@ -207,6 +207,8 @@ PHP;
     {
         $row=null;
         try {
+            $settings=\App\Reporting\Repository::settings();
+            if(empty($settings['enabled']) || empty($settings['daily_report']))return;
             $row=\App\Reporting\Repository::claimOutbox();
             if(!is_array($row))return;
 
