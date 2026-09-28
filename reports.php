@@ -23,16 +23,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        $scope = (($_POST['scope'] ?? 'all') === 'selected' ? 'selected' : 'all');
         Repository::saveSettings([
             'enabled' => isset($_POST['enabled']),
-            'scope' => (($_POST['scope'] ?? 'all') === 'selected' ? 'selected' : 'all'),
+            'scope' => $scope,
             'check_results' => isset($_POST['check_results']),
             'daily_report' => isset($_POST['daily_report']),
             'report_time' => (string)($_POST['report_time'] ?? '00:00'),
             'timezone' => 'America/Sao_Paulo',
             'report_chat' => (string)($_POST['report_chat'] ?? ''),
         ]);
-        Repository::saveRuleScope((array)($_POST['rules'] ?? []));
+        $scopeRuleIds = $scope === 'all'
+            ? array_map(static fn(array $rule): int => (int)$rule['id'], RouterRepository::allRules())
+            : array_map('intval', (array)($_POST['rules'] ?? []));
+        Repository::saveRuleScope($scopeRuleIds);
         $notice = 'Configurações de relatórios atualizadas.';
     } catch (Throwable $e) {
         $error = 'Não foi possível salvar as configurações.';
