@@ -22,16 +22,14 @@ $fixtures=[
         [
             'slug'=>'palmeiras-flamengo-123',
             'name'=>'Palmeiras - Flamengo',
-            'tournament'=>'Brazil Serie A',
-            'competitors'=>['Palmeiras','Flamengo'],
-            'startTime'=>1790546400000,
+            'name'=>'Palmeiras - Flamengo',
+            'date'=>1790546400000,
         ],
         [
             'slug'=>'palmeiras-santos-124',
             'name'=>'Palmeiras - Santos',
-            'tournament'=>'Brazil Serie A',
-            'competitors'=>['Palmeiras','Santos'],
-            'startTime'=>1790546400000,
+            'name'=>'Palmeiras - Santos',
+            'date'=>1790546400000,
         ],
     ],
 ];
