@@ -866,7 +866,7 @@ final class AdaptiveVipCardRenderer
         if(preg_match('~dinamarca|denmark~u',$t))return ['type'=>'nordic','colors'=>['#c8102e','#ffffff']];
         if(preg_match('~su[eé]cia|sweden~u',$t))return ['type'=>'nordic','colors'=>['#006aa7','#fecc00']];
         if(preg_match('~noruega|norway~u',$t))return ['type'=>'nordic','colors'=>['#ba0c2f','#ffffff','#00205b']];
-        if(preg_match('~turquia|turkey|türkiye~u',$t))return ['type'=>'japan','colors'=>['#e30a17','#ffffff']];
+        if(preg_match('~turquia|turkey|türkiye~u',$t))return ['type'=>'turkey','colors'=>['#e30a17','#ffffff']];
         if(preg_match('~coreia do sul|south korea~u',$t))return ['type'=>'japan','colors'=>['#ffffff','#cd2e3a']];
         if(preg_match('~malta~u',$t))return ['type'=>'malta','colors'=>['#ffffff','#cf142b','#b8b8b8']];
         if(preg_match('~gales|wales~u',$t))return ['type'=>'wales','colors'=>['#ffffff','#00ab39','#d30731']];
@@ -928,34 +928,36 @@ final class AdaptiveVipCardRenderer
         $cacheKey=sha1(mb_strtolower($participant.'|'.$league.'|'.$sport,'UTF-8'));
         if(array_key_exists($cacheKey,$memory))return $memory[$cacheKey];
 
-        // Football identities: API-Football is the primary source. Its /teams
-        // endpoint provides stable team IDs and PNG logo URLs. Any lookup failure,
-        // quota issue or ambiguous match falls through without blocking the card.
-        if($sport==='football'){
-            $apiFootballPath=self::apiFootballTeamAssetPath($participant,$league);
-            if($apiFootballPath!==null){
-                return $memory[$cacheKey]=['kind'=>'image','path'=>$apiFootballPath];
-            }
-        }
-
-        // National selections: TheSportsDB flag artwork remains the first fallback.
-        // If its artwork endpoint is temporarily unavailable, keep the flag
-        // visible with the built-in real-flag renderer instead of hiding both sides.
+        // National teams are resolved before club lookup. API-Football's
+        // /countries artwork is SVG, while this PNG renderer is GD-based.
+        // Prefer the built-in real-flag renderer for known countries so national
+        // matches never disappear because an SVG cannot be decoded by GD.
         $country=self::theSportsDbCountryName($participant);
         if($country!==null){
+            $localFlag=self::flagSpec($participant);
+            if($localFlag!==null){
+                error_log('TMR_NATIONAL_FLAG_LOCAL '.self::safeLogName($participant));
+                return $memory[$cacheKey]=['kind'=>'flag','spec'=>$localFlag];
+            }
+
+            // For countries not covered by the local renderer, keep the
+            // existing TheSportsDB raster flag as a secondary fallback.
             $flagPath=self::sportsDbFlagPath($country);
             if($flagPath!==null){
                 return $memory[$cacheKey]=['kind'=>'image','path'=>$flagPath];
             }
 
-            $localFlag=self::flagSpec($participant);
-            if($localFlag!==null){
-                error_log('TMR_SPORTSDB_FLAG_LOCAL_FALLBACK '.self::safeLogName($participant));
-                return $memory[$cacheKey]=['kind'=>'flag','spec'=>$localFlag];
-            }
-
             $memory[$cacheKey]=null;
             return null;
+        }
+
+        // Clubs: API-Football remains the primary source. Its /teams endpoint
+        // provides stable team IDs and PNG logo URLs.
+        if($sport==='football'){
+            $apiFootballPath=self::apiFootballTeamAssetPath($participant,$league);
+            if($apiFootballPath!==null){
+                return $memory[$cacheKey]=['kind'=>'image','path'=>$apiFootballPath];
+            }
         }
 
         // Clubs/teams and non-football sports: TheSportsDB remains the fallback.
@@ -1619,6 +1621,27 @@ final class AdaptiveVipCardRenderer
             imagefilledellipse($im,$cx,$cy,max(9,(int)($size*.32)),max(9,(int)($size*.32)),$blue);
         }elseif($type==='japan'){
             imagefilledellipse($im,$cx,$cy,max(10,(int)($size*.38)),max(10,(int)($size*.38)),self::color($im,'#bc002d'));
+        }elseif($type==='turkey'){
+            $white=self::color($im,$colors[1]);
+            $red=self::color($im,$colors[0]);
+            $moonR=max(8,(int)round($size*.20));
+            $moonX=$cx-(int)round($size*.08);
+            imagefilledellipse($im,$moonX,$cy,$moonR*2,$moonR*2,$white);
+            imagefilledellipse(
+                $im,
+                $moonX+max(3,(int)round($size*.07)),
+                $cy,
+                max(5,(int)round($moonR*1.55)),
+                max(5,(int)round($moonR*1.55)),
+                $red
+            );
+            self::drawStar(
+                $im,
+                $cx+(int)round($size*.16),
+                $cy,
+                max(7,(int)round($size*.17)),
+                $white
+            );
         }elseif($type==='swiss'){
             $flagWhite=self::color($im,'#ffffff');
             $bar=max(3,(int)($size*.10));
