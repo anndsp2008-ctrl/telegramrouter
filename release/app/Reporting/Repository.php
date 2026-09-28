@@ -695,6 +695,126 @@ final class Repository
         $stmt->execute([$error, $id]);
     }
 
+    public static function reviewLegs(int $limit = 50): array
+    {
+        Schema::migrate();
+        $limit = max(1, min(200, $limit));
+        $sql = "
+            SELECT
+                l.id,l.ticket_id,l.position_no,l.fixture_id,l.match_name,l.league,l.event_date,
+                l.kickoff_at,l.market_text,l.selection_text,l.odds,l.status,l.settlement_details,
+                t.destination_chat,t.bet_kind,t.total_odds,t.stake_units,t.placed_at
+            FROM reporting_legs l
+            JOIN reporting_tickets t ON t.id=l.ticket_id
+            WHERE l.status='REVIEW'
+            ORDER BY l.id DESC
+            LIMIT {$limit}
+        ";
+        return Database::pdo()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function manualResolveLeg(int $legId, string $status): void
+    {
+        Schema::migrate();
+        $allowed = [
+            SettlementEngine::GREEN,
+            SettlementEngine::RED,
+            SettlementEngine::VOID,
+            SettlementEngine::HALF_GREEN,
+            SettlementEngine::HALF_RED,
+        ];
+        if (!in_array($status, $allowed, true)) {
+            throw new \InvalidArgumentException('Status manual inválido.');
+        }
+
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT ticket_id FROM reporting_legs WHERE id=? AND status="REVIEW" FOR UPDATE'
+            );
+            $stmt->execute([$legId]);
+            $ticketId = (int)$stmt->fetchColumn();
+            if ($ticketId <= 0) {
+                throw new \RuntimeException('Seleção em revisão não encontrada.');
+            }
+
+            $details = json_encode([
+                'manual'=>true,
+                'manual_status'=>$status,
+                'resolved_at'=>gmdate('c'),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+            $update = $pdo->prepare(
+                'UPDATE reporting_legs
+                 SET status=?,settlement_details=?,settled_at=UTC_TIMESTAMP(),next_check_at=NULL
+                 WHERE id=? AND status="REVIEW"'
+            );
+            $update->execute([$status, $details, $legId]);
+            $pdo->commit();
+
+            self::recomputeTicket($ticketId);
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public static function reprocessReviewLeg(int $legId): void
+    {
+        Schema::migrate();
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT ticket_id,fixture_id,kickoff_at
+                 FROM reporting_legs
+                 WHERE id=? AND status="REVIEW"
+                 FOR UPDATE'
+            );
+            $stmt->execute([$legId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row)) {
+                throw new \RuntimeException('Seleção em revisão não encontrada.');
+            }
+
+            $nextCheck = gmdate('Y-m-d H:i:s');
+            if (!empty($row['fixture_id']) && !empty($row['kickoff_at'])) {
+                try {
+                    $candidate = (new \DateTimeImmutable((string)$row['kickoff_at'], new \DateTimeZone('UTC')))
+                        ->modify('+125 minutes');
+                    $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+                    if ($candidate > $now) {
+                        $nextCheck = $candidate->format('Y-m-d H:i:s');
+                    }
+                } catch (Throwable) {
+                }
+            }
+
+            $update = $pdo->prepare(
+                'UPDATE reporting_legs
+                 SET status="PENDING",
+                     settlement_details=NULL,
+                     settled_at=NULL,
+                     next_check_at=?,
+                     lookup_attempts=0,
+                     lookup_last_reason="manual_reprocess"
+                 WHERE id=? AND status="REVIEW"'
+            );
+            $update->execute([$nextCheck, $legId]);
+            $pdo->commit();
+
+            self::recomputeTicket((int)$row['ticket_id']);
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public static function recentTickets(int $limit = 50): array
     {
         Schema::migrate();
