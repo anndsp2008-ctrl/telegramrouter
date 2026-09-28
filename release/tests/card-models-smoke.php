@@ -307,7 +307,26 @@ if(($bet365['bookmaker_key']??'')!=='bet365')throw new RuntimeException('bet365 
 $unknown=$fixtures[0]['data'];
 $unknown['bookmaker']='';
 $unknownBet=AdaptiveVipCardRenderer::extract($unknown,'',false);
-if(($unknownBet['bookmaker']??'')!=='Casa desconhecida')throw new RuntimeException('Unknown bookmaker fallback failed');
+if(($unknownBet['bookmaker']??'')!=='Stake'||($unknownBet['bookmaker_key']??'')!=='stake'){
+    throw new RuntimeException('Empty bookmaker must be treated as Stake');
+}
+
+foreach(['Casa Desconhecida','Casa desconhecida','desconhecida','unknown','N/A','-'] as $unknownLabel){
+    $unknownCase=$fixtures[0]['data'];
+    $unknownCase['bookmaker']=$unknownLabel;
+    $normalizedUnknown=AdaptiveVipCardRenderer::extract($unknownCase,'',false);
+    if(($normalizedUnknown['bookmaker']??'')!=='Stake'||($normalizedUnknown['bookmaker_key']??'')!=='stake'){
+        throw new RuntimeException('Unknown bookmaker label must be treated as Stake: '.$unknownLabel);
+    }
+}
+
+$legacyUnknown=$unknownBet;
+$legacyUnknown['bookmaker']='Casa desconhecida';
+$legacyUnknown['bookmaker_key']='unknown';
+$legacyCaption=AdaptiveVipCardRenderer::caption($legacyUnknown);
+if(!str_contains($legacyCaption,'• Stake')||str_contains($legacyCaption,'Casa desconhecida')){
+    throw new RuntimeException('Legacy unknown bookmaker output must be rendered as Stake');
+}
 
 $rendererSource=file_get_contents(__DIR__.'/../app/AdaptiveVipCardRenderer.php');
 if(!is_string($rendererSource)
@@ -341,6 +360,8 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'$flagW=$size')
    ||!str_contains($rendererSource,'Team/club artwork is rendered as-is: transparent background')
    ||!str_contains($rendererSource,'private static function drawStar')
+   ||!str_contains($rendererSource,'private static function bookmakerForOutput')
+   ||!str_contains($rendererSource,'any unidentified bookmaker is treated as Stake')
    ||!str_contains($rendererSource,'private static function selectionParticipant')
    ||!str_contains($rendererSource,'private static function apiFootballTeamAssetPath')
    ||!str_contains($rendererSource,'TMR_NATIONAL_FLAG_LOCAL')
