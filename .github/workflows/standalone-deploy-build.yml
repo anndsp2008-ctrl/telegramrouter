@@ -115,14 +115,14 @@ jobs:
           printf '%s' "$output" | grep -Fq 'Missing required environment variable: APP_KEY'
           echo STANDALONE_PRIVATE_CONFIGURATION_REQUIRED
       - name: Publish verified sources to the release branch
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'release/standalone-no-secrets-20260922' }}
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (github.head_ref == 'release/standalone-no-secrets-20260922' || github.head_ref == 'feature/reporting-clean-v1') }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A release/
           if ! git diff --cached --quiet; then
             git commit -m "build(release): materialize audited standalone source"
-            git push origin HEAD:refs/heads/release/standalone-no-secrets-20260922
+            git push origin HEAD:refs/heads/${{ github.head_ref }}
           else
             echo STANDALONE_RELEASE_ALREADY_CURRENT
           fi
