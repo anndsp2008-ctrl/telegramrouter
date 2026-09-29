@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Light Theme Visual Audit</title>
-<link rel="stylesheet" href="/release/assets/saas.css">\n<link rel="stylesheet" href="/release/assets/pro.css">
+<link rel="stylesheet" href="/release/assets/saas.css">
+<link rel="stylesheet" href="/release/assets/pro.css">
 <link rel="stylesheet" href="/release/assets/brand/navigation-shell.css?v=1">
 <link rel="stylesheet" href="/release/assets/responsive.css?v=4">
 <link rel="stylesheet" href="/release/assets/dialogs.css?v=3">
@@ -19,7 +20,7 @@
 <link rel="stylesheet" href="/release/assets/reset.css?v=6">
 <link rel="stylesheet" href="/release/assets/brand/theme.css?v=3">
 <style>
-body{margin:0}
+body{margin:0} body.audit-connect .saas-sidebar,body.audit-connect .saas-topbar,body.audit-connect .audit-mobile-nav{display:none!important} body.audit-connect .saas-main{margin-left:0!important;width:100%!important} body.audit-connect .saas-content{padding:0!important;background:transparent!important;min-height:100vh!important}
 .visual-screen[hidden]{display:none!important}
 .audit-spacer{height:22px}
 .audit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
@@ -91,8 +92,8 @@ body{margin:0}
         <section class="saas-card integrations-connection"><div><span class="saas-kicker">CONEXÃO</span><h2>Telegram</h2><p>Gerencie a conta usada para receber e encaminhar mensagens.</p></div><a class="saas-secondary">Gerenciar conexão →</a></section>
         <div class="integrations-section-heading"><span class="saas-kicker">APIS ESPORTIVAS</span><h2>Validação e resultados</h2><p>Valide odds e consulte partidas e resultados.</p></div>
         <div class="translation-provider-grid sports-api-provider-grid">
-          <section class="saas-card translation-provider-card sports-api-card"><div class="provider-head"><div><span class="saas-kicker">STAKE SPORTS DATA</span><h2>Stake</h2><p>Validação de evento, mercado, linha e odd.</p></div><span class="provider-badge is-configured">Configurado</span></div><form class="provider-form"><div class="saas-form-grid"><label class="field-wide">API Key<span class="field-help">Chave armazenada com segurança.</span><input type="password" value="••••••••••••"></label></div><div class="provider-actions"><button class="saas-primary">Salvar</button><button class="saas-secondary" name="action" value="test_sports_api_provider">Testar conexão</button></div></form><div class="provider-test ok"><b>Último teste</b><span>Conexão válida</span><small>20:03 · 209 ms</small></div></section>
-          <section class="saas-card translation-provider-card openai-provider-card is-expanded"><div class="provider-head"><div><span class="saas-kicker">OPENAI</span><h2>OpenAI</h2><p>Interpretação multimodal e tradução dos cards.</p></div><span class="provider-badge is-configured">Configurado</span></div><form class="provider-form"><fieldset class="openai-models"><legend>Modelo principal</legend><label><input type="radio" checked><span><b>GPT-5.6 Sol</b><small>Modelo avançado para interpretação complexa.</small></span></label><label><input type="radio"><span><b>GPT-5.6 Luna</b><small>Rápido e econômico.</small></span></label></fieldset><div class="provider-actions"><button class="saas-primary">Salvar</button><button class="saas-secondary" name="action" value="test_translation_provider">Testar conexão</button></div></form><div class="provider-test ok"><b>Último teste</b><span>Conexão válida</span><small>20:01 · 411 ms</small></div></section>
+          <section class="saas-card translation-provider-card sports-api-card"><div class="provider-head"><div><span class="saas-kicker">STAKE SPORTS DATA</span><h2>Stake</h2><p>Validação de evento, mercado, linha e odd.</p></div><span class="provider-badge is-configured">Configurado</span></div><form class="provider-form"><input type="hidden" name="provider" value="stake"><div class="saas-form-grid"><label class="field-wide">API Key<span class="field-help">Chave armazenada com segurança.</span><input type="password" value="••••••••••••"></label></div><div class="provider-actions"><button class="saas-primary">Salvar</button><button class="saas-secondary" name="action" value="test_sports_api_provider">Testar conexão</button></div></form><div class="provider-test ok"><b>Último teste</b><span>Conexão válida</span><small>20:03 · 209 ms</small></div></section>
+          <section class="saas-card translation-provider-card openai-provider-card is-expanded"><div class="provider-head"><div><span class="saas-kicker">OPENAI</span><h2>OpenAI</h2><p>Interpretação multimodal e tradução dos cards.</p></div><span class="provider-badge is-configured">Configurado</span></div><form class="provider-form"><input type="hidden" name="provider" value="openai"><fieldset class="openai-models"><legend>Modelo principal</legend><label><input type="radio" checked><span><b>GPT-5.6 Sol</b><small>Modelo avançado para interpretação complexa.</small></span></label><label><input type="radio"><span><b>GPT-5.6 Luna</b><small>Rápido e econômico.</small></span></label></fieldset><div class="provider-actions"><button class="saas-primary">Salvar</button><button class="saas-secondary" name="action" value="test_translation_provider">Testar conexão</button></div></form><div class="provider-test ok"><b>Último teste</b><span>Conexão válida</span><small>20:01 · 411 ms</small></div></section>
         </div>
       </section>
 
@@ -115,10 +116,25 @@ body{margin:0}
       </section>
 
       <section class="visual-screen reset-page" data-screen="reset" hidden>
-        <div class="saas-heading reset-heading"><div><span class="saas-kicker">MANUTENÇÃO</span><h1>Reset de dados</h1><p>Limpe dados operacionais sem comprometer a configuração do sistema.</p></div></div>
-        <section class="reset-warning-banner"><div class="reset-warning-icon">!</div><div><b>Ação sensível</b><p>Revise cuidadosamente os itens antes de confirmar.</p></div></section>
-        <div class="audit-spacer"></div>
-        <div class="reset-grid"><section class="reset-card reset-custom"><div class="reset-card-head"><div class="reset-mode-icon">✓</div><div><h2>Limpeza personalizada</h2><p>Escolha apenas os grupos que deseja remover.</p></div></div><div class="reset-category-list"><label class="reset-category"><input type="checkbox" checked><span class="reset-category-surface"><span class="reset-category-topline"><b>Atividades</b><span class="reset-count">248</span></span><span class="reset-category-content"><small>Logs e eventos processados.</small></span></span></label><label class="reset-category"><input type="checkbox"><span class="reset-category-surface"><span class="reset-category-topline"><b>Relatórios</b><span class="reset-count">104</span></span><span class="reset-category-content"><small>Histórico de apostas e resultados.</small></span></span></label></div><button class="saas-primary">Continuar</button></section><section class="reset-card reset-full"><div class="reset-card-head"><div class="reset-mode-icon">!</div><div><h2>Reset completo</h2><p>Remove todos os dados operacionais selecionados.</p></div></div><div class="reset-danger-note"><b>Irreversível</b><p>Esta ação exige confirmação adicional.</p></div><button class="reset-danger-button">Preparar reset completo</button></section></div>
+        <div class="saas-heading reset-heading"><div><span class="saas-kicker">MANUTENÇÃO</span><h1>Reset de dados</h1><p>Limpe dados operacionais sem comprometer a configuração do sistema.</p></div><div class="reset-shield is-ready"><span>✓</span><div><b>Proteção ativa</b><small>Frase de segurança configurada</small></div></div></div>
+        <section class="reset-warning-banner"><div class="reset-warning-icon">!</div><div><b>Operação destrutiva e irreversível</b><p>Um reset remove registros permanentemente. Instalação, login e auditoria são preservados.</p></div></section>
+        <section class="reset-grid">
+          <article class="saas-card reset-card reset-custom">
+            <div class="reset-card-head"><span class="reset-mode-icon">◫</span><div><span class="saas-kicker">MODO 01</span><h2>Reset personalizado</h2><p>Escolha exatamente quais grupos de dados deseja excluir.</p></div></div>
+            <div class="reset-category-list">
+              <label class="reset-category"><input type="checkbox" class="reset-category-check" checked><span class="reset-category-surface"><span class="reset-check-ui"></span><span class="reset-category-content"><span class="reset-category-topline"><b>Atividades</b><span class="reset-count">248</span></span><small>Logs e eventos processados.</small></span></span></label>
+              <label class="reset-category"><input type="checkbox" class="reset-category-check"><span class="reset-category-surface"><span class="reset-check-ui"></span><span class="reset-category-content"><span class="reset-category-topline"><b>Relatórios</b><span class="reset-count">104</span></span><small>Histórico de apostas e resultados.</small></span></span></label>
+            </div>
+            <button class="saas-primary reset-action">Revisar reset personalizado →</button>
+          </article>
+          <article class="saas-card reset-card reset-full">
+            <div class="reset-card-head"><span class="reset-mode-icon danger">↺</span><div><span class="saas-kicker">MODO 02</span><h2>Reset completo</h2><p>Zera todos os dados resetáveis da aplicação.</p></div></div>
+            <div class="reset-full-summary"><div><span>Itens identificados</span><strong>352</strong></div><div><span>Categorias incluídas</span><strong>8</strong></div><div><span>Proteções preservadas</span><strong>Login + auditoria</strong></div></div>
+            <div class="reset-danger-note"><b>O Reset Completo inclui:</b><p>histórico, regras, integrações, conexão Telegram, logs e cache.</p></div>
+            <button class="reset-danger-button">Iniciar reset completo</button>
+          </article>
+        </section>
+        <section class="saas-card reset-security-card"><div class="saas-card-head"><div><span class="saas-kicker">SEGUNDA CONFIRMAÇÃO</span><h2>Frase de segurança</h2><p>Autenticação adicional para ações destrutivas.</p></div><span class="reset-security-status ready">Configurada</span></div><form class="reset-phrase-form"><label>Frase atual<input type="password" value="secret"></label><label>Nova frase de segurança<input type="password" placeholder="Mínimo de 12 caracteres"></label><label>Confirmar nova frase<input type="password"></label><div class="reset-phrase-footer"><small>A frase é armazenada somente como hash.</small><button class="saas-primary">Atualizar frase</button></div></form></section>
       </section>
 
       <section class="visual-screen" data-screen="connect" hidden>
@@ -130,7 +146,7 @@ body{margin:0}
 </div>
 <nav class="tmr-mobile-navigation audit-mobile-nav"><a class="is-active">Início</a><a>Regras</a><a class="tmr-nav-create">+</a><a>Relatórios</a><details class="tmr-nav-more"><summary>Mais</summary></details></nav>
 <script>
-const wanted=new URLSearchParams(location.search).get('screen')||'dashboard';
+const wanted=new URLSearchParams(location.search).get('screen')||'dashboard';if(wanted==='connect')document.body.classList.add('audit-connect');
 document.querySelectorAll('.visual-screen').forEach(el=>el.hidden=el.dataset.screen!==wanted);
 document.querySelectorAll('.saas-nav a').forEach(a=>a.classList.remove('active'));
 </script>
