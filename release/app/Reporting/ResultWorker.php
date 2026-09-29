@@ -81,12 +81,12 @@ final class ResultWorker
                     $lookupStatus
                 );
 
-                if ($attempts >= 2) {
+                if ($attempts >= 3) {
                     $reason = match ($lookupStatus) {
-                        'ambiguous' => 'Mais de uma partida compatível permaneceu ambígua após duas tentativas espaçadas.',
-                        'invalid_match_name' => 'Nome da partida insuficiente para identificar o evento após duas tentativas.',
-                        'low_confidence' => 'Partida encontrada com confiança insuficiente após duas tentativas espaçadas.',
-                        default => 'Partida/horário oficial não identificado após duas consultas espaçadas.',
+                        'ambiguous' => 'Mais de uma partida compatível permaneceu ambígua após três tentativas controladas.',
+                        'invalid_match_name' => 'Nome da partida insuficiente para identificar o evento após três tentativas controladas.',
+                        'low_confidence' => 'Partida encontrada com confiança insuficiente após três tentativas controladas.',
+                        default => 'Partida/horário oficial não identificado após três tentativas controladas.',
                     };
 
                     Repository::settleLeg((int)$leg['id'], [
@@ -123,7 +123,8 @@ final class ResultWorker
 
                 $fixture = $api->fixture($fixtureId);
                 if ($fixture === []) {
-                    Repository::rescheduleFixtureAtNextSweep($fixtureId);
+                    error_log('TMR_REPORTING_FIXTURE_EMPTY_RETRY ' . $fixtureId);
+                    Repository::rescheduleFixture($fixtureId, 30);
                     continue;
                 }
 
@@ -136,8 +137,12 @@ final class ResultWorker
                 // - se ainda estiver em andamento, agenda UMA nova consulta para
                 //   aproximadamente 15 min após o término projetado;
                 // - estados indefinidos/adiados aguardam o sweep noturno.
-                if (in_array($short, ['PST','TBD','NS','BT','INT','SUSP'], true)) {
+                if (in_array($short, ['PST','TBD','NS','SUSP'], true)) {
                     Repository::rescheduleFixtureAtNextSweep($fixtureId);
+                    continue;
+                }
+                if (in_array($short, ['BT','INT'], true)) {
+                    Repository::rescheduleFixture($fixtureId, 30);
                     continue;
                 }
                 if (in_array($short, ['1H','HT','2H','ET'], true)) {
@@ -152,7 +157,8 @@ final class ResultWorker
                     continue;
                 }
                 if (!in_array($short, ['FT','AET','PEN'], true)) {
-                    Repository::rescheduleFixtureAtNextSweep($fixtureId);
+                    error_log('TMR_REPORTING_FIXTURE_STATUS_RETRY ' . $fixtureId . ' ' . $short);
+                    Repository::rescheduleFixture($fixtureId, 60);
                     continue;
                 }
 
@@ -172,7 +178,7 @@ final class ResultWorker
                 }
             } catch (\Throwable $e) {
                 error_log('TMR_REPORTING_SETTLEMENT_NON_FATAL ' . get_class($e) . ' ' . mb_substr($e->getMessage(), 0, 180));
-                Repository::rescheduleFixtureAtNextSweep($fixtureId);
+                Repository::rescheduleFixture($fixtureId, 60);
             }
         }
 

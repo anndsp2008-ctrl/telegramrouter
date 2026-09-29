@@ -8,6 +8,7 @@ use App\MatchNameFormatter;
 final class FixtureMatcher
 {
     private array $dateCache = [];
+    private array $dateFailureMessages = [];
     private array $teamDateCache = [];
     private array $teamResolveCache = [];
 
@@ -31,25 +32,9 @@ final class FixtureMatcher
             isset($leg['placed_at']) ? (string)$leg['placed_at'] : null
         );
 
-        // First choice: resolve both sides to stable API team IDs, then match fixture by IDs.
-        $teamA = $this->safeResolveTeam($wantedA);
-        $teamB = $this->safeResolveTeam($wantedB);
-        if (is_array($teamA) && is_array($teamB) && (int)$teamA['team_id'] !== (int)$teamB['team_id']) {
-            foreach ($dates as $date) {
-                $exact = $this->matchByTeamIds(
-                    (int)$teamA['team_id'],
-                    (int)$teamB['team_id'],
-                    $date
-                );
-                if ($exact !== null) {
-                    $exact['confidence'] = 1.0;
-                    $exact['match_method'] = 'team_ids';
-                    return ['status'=>'matched','match'=>$exact];
-                }
-            }
-        }
-
-        // Fallback: one date request + textual similarity.
+        // Primeira escolha: uma consulta de fixtures por data, reutilizada para
+        // todas as apostas do mesmo dia. Isso evita chamadas /teams?search
+        // quando os nomes oficiais já permitem um match confiável.
         $candidates = [];
         foreach ($dates as $date) {
             foreach ($this->fixtures($date) as $fixture) {
@@ -71,7 +56,6 @@ final class FixtureMatcher
                 $leagueActual = trim((string)($fixture['league']['name'] ?? ''));
                 if ($leagueWanted !== '' && $leagueActual !== '') {
                     $leagueScore = self::similarity($leagueWanted, $leagueActual);
-                    // League is confirmation only; do not let localization differences dominate.
                     $score = ($score * 0.97) + ($leagueScore * 0.03);
                 }
 
@@ -81,8 +65,35 @@ final class FixtureMatcher
                     'away_team' => $away,
                     'kickoff_at' => self::utcDate((string)($fixture['fixture']['date'] ?? '')),
                     'confidence' => round($score, 4),
-                    'match_method' => 'text_fallback',
+                    'match_method' => 'text_date_first',
                 ];
+            }
+        }
+
+        if ($candidates !== []) {
+            usort($candidates, static fn(array $a, array $b): int => $b['confidence'] <=> $a['confidence']);
+            $best = $candidates[0];
+            if ((float)$best['confidence'] >= 0.94) {
+                return ['status'=>'matched','match'=>$best];
+            }
+        }
+
+        // Só consulta /teams?search quando a comparação pelo calendário não foi
+        // conclusiva. O fixture por data já está em cache e é filtrado por IDs localmente.
+        $teamA = $this->safeResolveTeam($wantedA);
+        $teamB = $this->safeResolveTeam($wantedB);
+        if (is_array($teamA) && is_array($teamB) && (int)$teamA['team_id'] !== (int)$teamB['team_id']) {
+            foreach ($dates as $date) {
+                $exact = $this->matchByTeamIds(
+                    (int)$teamA['team_id'],
+                    (int)$teamB['team_id'],
+                    $date
+                );
+                if ($exact !== null) {
+                    $exact['confidence'] = 1.0;
+                    $exact['match_method'] = 'team_ids';
+                    return ['status'=>'matched','match'=>$exact];
+                }
             }
         }
 
@@ -95,7 +106,6 @@ final class FixtureMatcher
             ];
         }
 
-        usort($candidates, static fn(array $a, array $b): int => $b['confidence'] <=> $a['confidence']);
         $best = $candidates[0];
         $second = $candidates[1]['confidence'] ?? 0.0;
 
@@ -127,7 +137,11 @@ final class FixtureMatcher
         try {
             return $this->resolveTeam($input);
         } catch (\Throwable $e) {
-            error_log('TMR_REPORTING_TEAM_RESOLVE_NON_FATAL ' . get_class($e));
+            $cacheKey = self::key($input);
+            if ($cacheKey !== '') {
+                $this->teamResolveCache[$cacheKey] = null;
+            }
+            error_log('TMR_REPORTING_TEAM_RESOLVE_NON_FATAL ' . get_class($e) . ' ' . mb_substr($e->getMessage(), 0, 120));
             return null;
         }
     }
@@ -267,8 +281,17 @@ final class FixtureMatcher
 
     private function fixtures(string $date): array
     {
+        if (isset($this->dateFailureMessages[$date])) {
+            throw new \RuntimeException($this->dateFailureMessages[$date]);
+        }
         if (!array_key_exists($date, $this->dateCache)) {
-            $this->dateCache[$date] = $this->api->fixturesByDate($date);
+            try {
+                $this->dateCache[$date] = $this->api->fixturesByDate($date);
+            } catch (\Throwable $e) {
+                $message = trim($e->getMessage()) !== '' ? $e->getMessage() : 'Falha na consulta de fixtures por data.';
+                $this->dateFailureMessages[$date] = $message;
+                throw $e;
+            }
         }
         return $this->dateCache[$date];
     }

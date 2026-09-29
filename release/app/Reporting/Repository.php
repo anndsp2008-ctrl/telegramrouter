@@ -206,34 +206,58 @@ final class Repository
 
     public static function rescheduleUnmatchedLeg(int $legId, int $minutes = 60): void
     {
-        // Sparse API policy: an unmatched ticket is never polled every few minutes.
-        // Keep one overnight recovery window (00:15 America/Sao_Paulo), which also
-        // preserves the already-scheduled pending sweep requested for tonight.
-        $next = self::nextSparseLookupUtc();
-        $stmt = Database::pdo()->prepare(
+        $minutes = max(5, min(180, $minutes));
+        Database::pdo()->exec(
             'UPDATE reporting_legs
-             SET next_check_at=?
-             WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
+             SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$minutes.' MINUTE)
+             WHERE id='.(int)$legId.' AND fixture_id IS NULL AND status="PENDING"'
         );
-        $stmt->execute([$next, $legId]);
     }
 
     public static function recordLookupFailure(int $legId, string $reason, int $retryMinutes = 15): int
     {
         $reason = mb_substr(trim($reason), 0, 64);
-        $next = self::nextSparseLookupUtc();
-        $stmt = Database::pdo()->prepare(
+        $pdo = Database::pdo();
+
+        $stmt = $pdo->prepare(
             'UPDATE reporting_legs
              SET lookup_attempts=lookup_attempts+1,
-                 lookup_last_reason=?,
-                 next_check_at=?
+                 lookup_last_reason=?
              WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
         );
-        $stmt->execute([$reason, $next, $legId]);
+        $stmt->execute([$reason, $legId]);
 
-        $read = Database::pdo()->prepare('SELECT lookup_attempts FROM reporting_legs WHERE id=?');
+        $read = $pdo->prepare('SELECT lookup_attempts FROM reporting_legs WHERE id=?');
         $read->execute([$legId]);
-        return (int)$read->fetchColumn();
+        $attempts = (int)$read->fetchColumn();
+        if ($attempts <= 0) {
+            return 0;
+        }
+
+        if ($attempts === 1) {
+            $minutes = max(5, min(60, $retryMinutes));
+            $pdo->exec(
+                'UPDATE reporting_legs
+                 SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$minutes.' MINUTE)
+                 WHERE id='.(int)$legId.' AND fixture_id IS NULL AND status="PENDING"'
+            );
+        } elseif ($attempts === 2) {
+            $pdo->exec(
+                'UPDATE reporting_legs
+                 SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 MINUTE)
+                 WHERE id='.(int)$legId.' AND fixture_id IS NULL AND status="PENDING"'
+            );
+        } else {
+            $next = self::nextSparseLookupUtc();
+            $nextStmt = $pdo->prepare(
+                'UPDATE reporting_legs
+                 SET next_check_at=?
+                 WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
+            );
+            $nextStmt->execute([$next, $legId]);
+        }
+
+        return $attempts;
     }
 
     private static function nextSparseLookupUtc(): string
@@ -251,7 +275,7 @@ final class Repository
     public static function requeuePendingUnmatchedForRetryPolicyOnce(): int
     {
         Schema::migrate();
-        $stateKey = 'unmatched_retry_policy_v2';
+        $stateKey = 'unmatched_retry_policy_v3';
 
         $check = Database::pdo()->prepare(
             'SELECT state_value FROM reporting_runtime_state WHERE state_key=? LIMIT 1'
