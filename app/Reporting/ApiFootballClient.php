@@ -135,13 +135,52 @@ final class ApiFootballClient
         }
 
         if (!empty($data['errors'])) {
-            $keys = is_array($data['errors']) ? array_keys($data['errors']) : [];
+            $errors = self::safeErrors($data['errors']);
             error_log('TMR_API_FOOTBALL_APPLICATION_ERROR ' . json_encode([
-                'keys' => array_slice(array_map('strval', $keys), 0, 8),
+                'errors' => $errors,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-            throw new \RuntimeException('API de resultados retornou erro de aplicação.');
+            $primary = array_key_first($errors);
+            throw new \RuntimeException(
+                'API de resultados retornou erro de aplicação [' . ($primary !== null ? (string)$primary : 'unknown') . '].'
+            );
         }
 
         return $data;
+    }
+
+    private static function safeErrors(mixed $errors): array
+    {
+        if (!is_array($errors)) {
+            return ['unknown'=>self::safeErrorText($errors)];
+        }
+
+        $safe = [];
+        foreach ($errors as $key => $value) {
+            $safe[(string)$key] = self::safeErrorText($value);
+            if (count($safe) >= 8) {
+                break;
+            }
+        }
+        return $safe !== [] ? $safe : ['unknown'=>'Erro não detalhado pelo provedor.'];
+    }
+
+    private static function safeErrorText(mixed $value): string
+    {
+        if (is_scalar($value) || $value === null) {
+            $text = trim((string)$value);
+        } else {
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $text = is_string($encoded) ? $encoded : 'Erro não serializável.';
+        }
+
+        $text = preg_replace(
+            '/\b(api[-_ ]?key|token|secret)\s*[:=]\s*[^\s,;]+/iu',
+            '$1=[redacted]',
+            $text
+        ) ?? $text;
+        $text = preg_replace('/\b[A-Za-z0-9_-]{32,}\b/', '[redacted]', $text) ?? $text;
+        $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+
+        return mb_substr($text !== '' ? $text : 'Erro não detalhado pelo provedor.', 0, 180);
     }
 }

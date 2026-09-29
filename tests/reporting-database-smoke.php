@@ -184,10 +184,15 @@ $attempts=Repository::recordLookupFailure((int)$id,'not_found');
 ok($attempts===1,'falha de lookup contabilizada');
 $retryAt=(string)$pdo->query('SELECT next_check_at FROM reporting_legs LIMIT 1')->fetchColumn();
 $retryUtc=new DateTimeImmutable($retryAt,new DateTimeZone('UTC'));
-$retryLocal=$retryUtc->setTimezone(new DateTimeZone('America/Sao_Paulo'));
 $retrySeconds=$retryUtc->getTimestamp()-time();
-ok($retryLocal->format('H:i')==='00:15','retry economico fica no sweep de 00:15');
-ok($retrySeconds>0 && $retrySeconds<=86460,'retry economico ocorre apenas na proxima janela noturna');
+ok($retrySeconds>=13*60 && $retrySeconds<=17*60,'primeiro retry ocorre em aproximadamente 15 minutos');
+
+$attempts=Repository::recordLookupFailure((int)$id,'not_found');
+ok($attempts===2,'segunda falha de lookup contabilizada');
+$retryAt=(string)$pdo->query('SELECT next_check_at FROM reporting_legs LIMIT 1')->fetchColumn();
+$retryUtc=new DateTimeImmutable($retryAt,new DateTimeZone('UTC'));
+$retrySeconds=$retryUtc->getTimestamp()-time();
+ok($retrySeconds>=28*60 && $retrySeconds<=32*60,'segundo retry ocorre em aproximadamente 30 minutos');
 
 $pdo->exec(
     'UPDATE reporting_legs

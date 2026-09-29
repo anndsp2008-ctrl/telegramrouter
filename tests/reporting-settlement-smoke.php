@@ -102,6 +102,19 @@ assertTrue($postMatchRetry->invoke(null, 'ET', 110.0) === 25, 'prorrogacao agend
 $fixtureMatcherSource=(string)file_get_contents(__DIR__.'/../app/Reporting/FixtureMatcher.php');
 assertTrue(str_contains($fixtureMatcherSource,'foreach ($this->fixtures($date) as $fixture)'), 'matcher reutiliza consulta unica de fixtures por data');
 assertTrue(!str_contains($fixtureMatcherSource,'$this->api->fixturesByTeamDate($teamA, $date)'), 'matcher nao usa mais team+date que pode exigir season');
+$dateLookupPosition=strpos($fixtureMatcherSource,'foreach ($this->fixtures($date) as $fixture)');
+$teamLookupPosition=strpos($fixtureMatcherSource,'$teamA = $this->safeResolveTeam($wantedA);');
+assertTrue($dateLookupPosition!==false && $teamLookupPosition!==false && $dateLookupPosition<$teamLookupPosition, 'matcher consulta calendario antes de /teams?search');
+assertTrue(str_contains($fixtureMatcherSource,'private array $dateFailureMessages = [];'), 'matcher evita repetir falha da mesma data dentro do ciclo');
+
+$resultWorkerSource=(string)file_get_contents(__DIR__.'/../app/Reporting/ResultWorker.php');
+assertTrue(str_contains($resultWorkerSource,'if ($attempts >= 3)'), 'lookup permite dois retries controlados antes de revisao');
+assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 30);'), 'fixture vazio ou interrompido recebe retry curto');
+assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 60);'), 'erro transitorio de fixture recebe retry em uma hora');
+
+$apiFootballSource=(string)file_get_contents(__DIR__.'/../app/Reporting/ApiFootballClient.php');
+assertTrue(str_contains($apiFootballSource,'private static function safeErrors'), 'cliente registra detalhes sanitizados de erro da API');
+assertTrue(str_contains($apiFootballSource,"'errors' => $errors"), 'log da API preserva motivo sem expor credencial');
 
 $matchSides = new ReflectionMethod(\App\Reporting\FixtureMatcher::class, 'matchSides');
 $fixtureSides = $matchSides->invoke(null, 'Turquia – Itália');
