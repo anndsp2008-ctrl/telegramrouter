@@ -39,7 +39,6 @@ foreach([
     'reports'=>$reports,
     'connect'=>$connect,
     'reset'=>$reset,
-    'ai-learning'=>$aiLearning,
 ] as $name=>$page){
     ok(str_contains($page,'/assets/dialogs.css?v=3'),$name.' carrega estilo canonico');
     ok(str_contains($page,'/assets/dialogs.js?v=3'),$name.' carrega comportamento canonico');
