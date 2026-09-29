@@ -1,0 +1,94 @@
+/* Alternância global de tema. O modo escuro atual permanece como padrão. */
+.tmr-theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;min-width:40px;min-height:40px;padding:0;border:1px solid rgba(145,163,185,.13);border-radius:12px;background:#202c3b;color:#c9d6e4;box-shadow:none;cursor:pointer;line-height:1;flex-shrink:0;transition:background .16s ease,border-color .16s ease,color .16s ease,transform .12s ease}
+.tmr-theme-toggle:hover{background:#273649;border-color:rgba(121,233,190,.22);color:#eef7ff}
+.tmr-theme-toggle:active{transform:translateY(1px)}
+.tmr-theme-toggle:focus-visible{outline:2px solid #79e9be;outline-offset:2px}
+.tmr-theme-icon{display:block;width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tmr-theme-icon-moon{display:none}
+.tmr-theme-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+html[data-theme="light"] .tmr-theme-icon-sun{display:none}
+html[data-theme="light"] .tmr-theme-icon-moon{display:block}
+@media(max-width:1024px){.saas-topbar .saas-user .tmr-theme-toggle{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;margin-left:auto!important;padding:0!important;border-radius:11px!important}.saas-topbar .saas-user .tmr-theme-toggle+form{margin-left:0!important}}
+@media(max-width:520px){.saas-topbar .saas-user .tmr-theme-toggle{width:38px!important;height:38px!important}}
+html[data-theme="light"] body,html[data-theme="light"] .saas-shell,html[data-theme="light"] .saas-main{background:#f4f7fb!important;color:#243248!important}
+html[data-theme="light"] .saas-sidebar{background:#fff!important;border-right-color:#dfe6ee!important}
+html[data-theme="light"] .saas-brand b,html[data-theme="light"] .saas-topbar .saas-user,html[data-theme="light"] .tmr-app-brand-name b{color:#1f2a3a!important}
+html[data-theme="light"] .saas-brand small,html[data-theme="light"] .tmr-app-brand-name small,html[data-theme="light"] .saas-nav-label{color:#738197!important}
+html[data-theme="light"] .saas-nav a{color:#536176!important}
+html[data-theme="light"] .saas-nav a:hover{color:#172233!important;background:#f0f5f8!important}
+html[data-theme="light"] .saas-nav a.active{color:#0f6f68!important;background:linear-gradient(90deg,rgba(67,190,174,.15),rgba(67,190,174,.05))!important}
+html[data-theme="light"] .saas-nav .nav-icon{background:#eef3f7!important;color:#63758a!important}
+html[data-theme="light"] .saas-nav a.active .nav-icon,html[data-theme="light"] .saas-nav a:hover .nav-icon{background:#dff5f1!important;color:#198f83!important}
+html[data-theme="light"] .saas-bottom{border-top-color:#e1e7ef!important}
+html[data-theme="light"] .saas-status{color:#607086!important}
+html[data-theme="light"] .saas-topbar{background:#fff!important;border-bottom-color:#dfe6ee!important}
+html[data-theme="light"] .saas-topbar .saas-user{background:#f7f9fc!important;border-color:#dce4ed!important}
+html[data-theme="light"] .saas-topbar .saas-user>span:not(.saas-avatar):not(.connected-phone){color:#243248!important}
+html[data-theme="light"] .saas-avatar{background:#e7edf5!important;color:#31435b!important}
+html[data-theme="light"] .connected-phone{background:#eaf8f4!important;border-color:#c8e9df!important;color:#157f70!important}
+html[data-theme="light"] .tmr-app-header-brand .tmr-app-brand-symbol{background:#eef3f8!important;border-color:#dce5ee!important}
+html[data-theme="light"] .tmr-app-brand-name b span{color:#287fbd!important}
+html[data-theme="light"] .saas-logout,html[data-theme="light"] .tmr-theme-toggle{background:#eef2f6!important;border-color:#d8e0e8!important;color:#4f5e72!important}
+html[data-theme="light"] .saas-logout:hover,html[data-theme="light"] .tmr-theme-toggle:hover{background:#e2e9f0!important;border-color:#cbd6e1!important;color:#1f2b3a!important}
+html[data-theme="light"] .saas-heading h1,html[data-theme="light"] .saas-card h2,html[data-theme="light"] .overview-status h2,html[data-theme="light"] .routing-rule b,html[data-theme="light"] .activity-item-top b{color:#172233!important}
+html[data-theme="light"] .saas-heading p,html[data-theme="light"] .saas-card-head p,html[data-theme="light"] .overview-status p,html[data-theme="light"] .field-help,html[data-theme="light"] .form-note{color:#65758a!important}
+html[data-theme="light"] :is(.saas-card,.saas-metric,.overview-status,.routing-flow,.activity-summary>div,.overview-guide){background:#fff!important;border-color:#dfe6ee!important;box-shadow:0 1px 2px rgba(30,45,62,.03)!important}
+html[data-theme="light"] .overview-status.is-good{background:linear-gradient(105deg,#eefaf7,#fff)!important;border-color:#c8eade!important}
+html[data-theme="light"] .overview-status.is-alert{background:linear-gradient(105deg,#fff4f5,#fff)!important;border-color:#f2d3d8!important}
+html[data-theme="light"] .saas-metric-label,html[data-theme="light"] .saas-metric small,html[data-theme="light"] .activity-summary-label,html[data-theme="light"] .activity-summary small{color:#6f7f93!important}
+html[data-theme="light"] .saas-metric strong,html[data-theme="light"] .activity-summary strong{color:#172233!important}
+html[data-theme="light"] .saas-card input,html[data-theme="light"] .saas-card select,html[data-theme="light"] .saas-card textarea,html[data-theme="light"] .saas-content input,html[data-theme="light"] .saas-content select,html[data-theme="light"] .saas-content textarea{background:#fff!important;border-color:#cfd9e4!important;color:#1f2b3a!important}
+html[data-theme="light"] .saas-card input::placeholder,html[data-theme="light"] .saas-content input::placeholder,html[data-theme="light"] .saas-content textarea::placeholder{color:#98a5b5!important}
+html[data-theme="light"] .saas-table th{color:#68788d!important}
+html[data-theme="light"] .saas-table td{color:#425268!important;border-top-color:#e5eaf0!important}
+html[data-theme="light"] .saas-table td:first-child{color:#172233!important}
+html[data-theme="light"] .saas-secondary{background:#fff!important;border-color:#d2dbe5!important;color:#415269!important}
+html[data-theme="light"] .form-section-title,html[data-theme="light"] .saas-kicker{color:#147c72!important}
+html[data-theme="light"] .routing-rule,html[data-theme="light"] .saas-rule{border-top-color:#e4eaf0!important}
+html[data-theme="light"] .routing-path small,html[data-theme="light"] .routing-rule-details,html[data-theme="light"] .activity-details,html[data-theme="light"] .activity-route{color:#6a7a8f!important}
+html[data-theme="light"] .activity-list,html[data-theme="light"] .activity-item{border-color:#e4eaf0!important}
+html[data-theme="light"] .activity-item-top time{color:#738297!important}
+html[data-theme="light"] .activity-error{background:#fff2f3!important;border-left-color:#df6572!important;color:#9d5360!important}
+html[data-theme="light"] .tmr-mobile-navigation{background:#fff!important;border-color:#dce4ec!important;box-shadow:0 -8px 30px rgba(31,48,66,.08)!important}
+html[data-theme="light"] .tmr-mobile-navigation a,html[data-theme="light"] .tmr-mobile-navigation summary{color:#617187!important}
+html[data-theme="light"] .tmr-mobile-navigation .is-active,html[data-theme="light"] .tmr-mobile-navigation a.is-active{color:#147c72!important}
+html[data-theme="light"] .tmr-more-panel{background:#fff!important;border-color:#dbe3ec!important;box-shadow:0 18px 40px rgba(31,48,66,.14)!important}
+html[data-theme="light"] :is(.integrations-overview-v10,.integrations-connection){background:#fff!important;border-color:#dce4ed!important}
+html[data-theme="light"] .translation-provider-grid>*:has(.provider-form input[name="provider"]),html[data-theme="light"] .sports-api-provider-grid>*{background:#fff!important;border-color:#dce4ed!important;box-shadow:0 1px 2px rgba(31,48,66,.04)!important}
+html[data-theme="light"] .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-head,html[data-theme="light"] .translation-provider-grid>*:has(.provider-form input[name="provider"])>.saas-card-head{background:#f8fafc!important;border-bottom-color:#e2e8ef!important}
+html[data-theme="light"] .translation-provider-grid .provider-form input,html[data-theme="light"] .translation-provider-grid .provider-form select,html[data-theme="light"] .translation-provider-grid .provider-form textarea{background:#fff!important;border-color:#cfd9e4!important;color:#1f2b3a!important}
+html[data-theme="light"] .translation-provider-grid>*:has(.provider-form input[name="provider"])>.provider-test{background:#f6f9fb!important;border-color:#e0e6ed!important}
+html[data-theme="light"] .reporting-page :is(.reporting-subnav,.reporting-ops-strip,.reporting-setting-card,.reporting-rules-box,.reporting-savebar,.reporting-review-card,.reporting-review-decision-panel,.reporting-history-card){background:#fff!important;border-color:#dce4ed!important}
+html[data-theme="light"] .reporting-page .reporting-subnav a{color:#53657b!important}
+html[data-theme="light"] .reporting-page .reporting-subnav a:hover,html[data-theme="light"] .reporting-page .reporting-subnav a.is-active{color:#147c72!important;background:#eaf8f5!important}
+html[data-theme="light"] .reporting-page :is(.reporting-op-item,.reporting-choice,.reporting-switch-row,.reporting-rule-option,.reporting-review-meta-grid>div){background:#f8fafc!important;border-color:#dde5ed!important}
+html[data-theme="light"] .reporting-page .reporting-switch-row:hover,html[data-theme="light"] .reporting-page .reporting-rule-option:hover{background:#f0f5f8!important}
+html[data-theme="light"] .reporting-page .reporting-table tbody>.reporting-history-row-light>td{background:#fff!important}
+html[data-theme="light"] .reporting-page .reporting-table tbody>.reporting-history-row-dark>td{background:#eef3f7!important}
+html[data-theme="light"] .reporting-page .reporting-table tbody>.reporting-history-row-light:hover>td{background:#f5faf9!important}
+html[data-theme="light"] .reporting-page .reporting-table tbody>.reporting-history-row-dark:hover>td{background:#e5efef!important}
+html[data-theme="light"] .reporting-page .reporting-history-parent.reporting-history-row-light.is-expanded>td{background:linear-gradient(rgba(33,154,140,.04),rgba(33,154,140,.04)),#fff!important}
+html[data-theme="light"] .reporting-page .reporting-history-parent.reporting-history-row-dark.is-expanded>td{background:linear-gradient(rgba(33,154,140,.04),rgba(33,154,140,.04)),#eef3f7!important}
+html[data-theme="light"] .reporting-page .reporting-history-accordion-row>td{background:#f5f8fb!important}
+html[data-theme="light"] .reporting-page .reporting-history-accordion{background:linear-gradient(145deg,#fff,#f5f8fb)!important;border-color:#cfe5e0!important}
+html[data-theme="light"] .reporting-page .reporting-history-accordion-leg{background:#fff!important;border-color:#dde5ed!important}
+html[data-theme="light"] .reporting-page :is(.reporting-history-leg b,.reporting-history-summary>b,.reporting-history-accordion-field>b,.reporting-history-route-item>strong){color:#29384c!important}
+html[data-theme="light"] .reporting-page :is(.reporting-history-market small,.reporting-history-summary>small,.reporting-history-accordion-market>span,.reporting-history-route-item>span){color:#6c7c90!important}
+html[data-theme="light"] .reporting-status-editor-ticket,html[data-theme="light"] .reporting-status-editor-option>span{background:#f7f9fb!important;border-color:#dce4ed!important}
+html[data-theme="light"] .ai-learning-page :is(.ai-process,.ai-section,.ai-record,.ai-preview,.ai-optional){background:#fff!important;border-color:#dce4ed!important}
+html[data-theme="light"] .ai-learning-page .ai-field input,html[data-theme="light"] .ai-learning-page .ai-field textarea,html[data-theme="light"] .ai-learning-page .ai-field select{background:#fff!important;border-color:#cfd9e4!important;color:#1f2b3a!important}
+html[data-theme="light"] .ai-learning-page .ai-warning{background:#fff8e8!important;border-color:#ead9ad!important;color:#785d22!important}
+html[data-theme="light"] .reset-page :is(.reset-shield,.reset-warning-banner,.reset-card,.reset-custom,.reset-full,.reset-category-surface,.reset-full-summary>div,.reset-danger-note){background:#fff!important;border-color:#dce4ed!important}
+html[data-theme="light"] .reset-page .reset-warning-banner{background:#fff7f0!important;border-color:#efd6c2!important}
+html[data-theme="light"] .reset-page .reset-category:hover .reset-category-surface{background:#f6f9fb!important}
+html[data-theme="light"] .reset-page .reset-category input:checked+.reset-category-surface{background:#eef9f6!important;border-color:#a8ddd2!important}
+html[data-theme="light"] .reset-page .reset-phrase-form input,html[data-theme="light"] .reset-page .reset-secret-label input{background:#fff!important;border-color:#cfd9e4!important;color:#1f2b3a!important}
+html[data-theme="light"] .tmr-dialog,html[data-theme="light"] .dialog-box,html[data-theme="light"] .reset-dialog{background:#fff!important;border-color:#d8e1ea!important;color:#243248!important;box-shadow:0 24px 70px rgba(31,48,66,.18)!important}
+html[data-theme="light"] .tmr-dialog-overlay,html[data-theme="light"] .dialog-overlay{background:rgba(30,42,56,.34)!important}
+html[data-theme="light"] body:has(.connect-shell){background:#f4f7fb!important;color:#243248!important}
+html[data-theme="light"] .connect-shell .card,html[data-theme="light"] .connect-panel,html[data-theme="light"] .security-note{background:#fff!important;border-color:#dce4ed!important;box-shadow:0 12px 34px rgba(31,48,66,.07)!important}
+html[data-theme="light"] .connect-shell :is(h1,h2,.progress-head){color:#172233!important}
+html[data-theme="light"] .connect-shell :is(p,.form-intro p,.progress-caption,.progress-hint){color:#66778c!important}
+html[data-theme="light"] .connect-shell input{background:#fff!important;border-color:#cfd9e4!important;color:#1f2b3a!important}
+html[data-theme="light"] .connect-top a{color:#356079!important}
+html[data-theme="light"] .connect-progress{background:#f7fafb!important;border-color:#cfe5e0!important}
