@@ -25,6 +25,6 @@ ok(str_contains($css,'row-gap:12px!important'),'worker e escopo possuem separaca
 ok(str_contains($css,'@media(max-width:820px)'),'tablet e mobile possuem layout proprio');
 ok(str_contains($css,'grid-row:2!important'),'metadados ocupam linha exclusiva no responsivo');
 ok(str_contains($css,'border-top:1px solid #ffffff0d'),'bloco inferior possui separacao visual');
-ok(str_contains($page,'/assets/reporting.css?v=11'),'pagina invalida cache do CSS v11');
+ok(str_contains($page,'/assets/reporting.css?v=12'),'pagina invalida cache do CSS v12');
 
 echo "REPORTING_OVERVIEW_STATUS_SMOKE_PASSED\n";
