@@ -35,6 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ? $queued . ' aposta' . ($queued === 1 ? '' : 's') . ' pendente' . ($queued === 1 ? '' : 's') . ' enviada' . ($queued === 1 ? '' : 's') . ' para verificação.'
                     : 'Não há apostas pendentes para verificar.';
             }
+        } elseif ($action === 'history_status_update') {
+            Repository::manualSetTicketStatus(
+                (int)($_POST['ticket_id'] ?? 0),
+                strtoupper(trim((string)($_POST['manual_status'] ?? '')))
+            );
+            $notice = 'Status da aposta atualizado manualmente.';
         } elseif ($action === 'review_reprocess') {
             Repository::reprocessReviewLeg((int)($_POST['leg_id'] ?? 0));
             $notice = 'Aposta enviada para reprocessamento.';
@@ -190,7 +196,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=9">
+<link rel="stylesheet" href="/assets/reporting.css?v=10">
 <link rel="stylesheet" href="/assets/dialogs.css?v=3">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -658,7 +664,17 @@ function rdate(mixed $value): string
                                         <?php endif; ?>
                                     </td>
                                     <td><?=rh($ticket['total_odds'] ?? '—')?></td>
-                                    <td><span class="reporting-status-badge <?=$statusClass?>"><?=$statusLabel?></span></td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            class="reporting-status-badge reporting-status-edit <?=$statusClass?>"
+                                            data-ticket-id="<?=rh($ticket['id'])?>"
+                                            data-ticket-status="<?=rh(strtoupper((string)$ticket['status']))?>"
+                                            data-ticket-label="#<?=rh($ticket['id'])?> · <?=rh(strtoupper((string)$ticket['bet_kind']))?>"
+                                            title="Clique para alterar o status"
+                                            aria-label="Alterar status da aposta #<?=rh($ticket['id'])?>. Status atual: <?=rh($statusLabel)?>"
+                                        ><?=$statusLabel?><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></button>
+                                    </td>
                                     <td class="<?=$ticketProfit<0?'reporting-negative':'reporting-positive'?>"><?=($ticketProfit>0?'+':'')?><?=rh(number_format($ticketProfit,2,',','.'))?> un.</td>
                                     <td><?=rh(rdate($ticket['placed_at']))?></td>
                                 </tr>
@@ -711,6 +727,54 @@ function rdate(mixed $value): string
             </section>
         </main>
     </div>
+</div>
+
+<div id="reporting-status-editor" class="tmr-dialog-overlay reporting-status-editor-overlay" hidden>
+    <section class="tmr-dialog reporting-status-editor-dialog" data-tone="primary" role="dialog" aria-modal="true" aria-labelledby="reporting-status-editor-title">
+        <div class="tmr-dialog-head">
+            <div class="tmr-dialog-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 12h16M12 4v16"/></svg>
+            </div>
+            <div class="tmr-dialog-copy">
+                <span class="tmr-dialog-kicker">STATUS MANUAL</span>
+                <h2 class="tmr-dialog-title" id="reporting-status-editor-title">Alterar status da aposta</h2>
+            </div>
+            <button type="button" class="tmr-dialog-close reporting-status-editor-close" aria-label="Fechar">×</button>
+        </div>
+        <form method="post" class="reporting-status-editor-form">
+            <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+            <input type="hidden" name="action" value="history_status_update">
+            <input type="hidden" name="ticket_id" id="reporting-status-ticket-id" value="">
+            <div class="tmr-dialog-body">
+                <p class="tmr-dialog-message">Escolha o novo status. A alteração manual passa a prevalecer sobre a liquidação automática até você reabrir a aposta como Pendente.</p>
+                <div class="reporting-status-editor-ticket" id="reporting-status-ticket-label"></div>
+                <div class="reporting-status-editor-options" role="radiogroup" aria-label="Novo status">
+                    <?php foreach ([
+                        'PENDING'=>['Pendente','pending'],
+                        'GREEN'=>['Green','green'],
+                        'RED'=>['Red','red'],
+                        'VOID'=>['Void','void'],
+                        'HALF_GREEN'=>['Half Green','half-green'],
+                        'HALF_RED'=>['Half Red','half-red'],
+                        'REVIEW'=>['Revisão','review'],
+                    ] as $editorStatus=>$editorMeta): ?>
+                        <label class="reporting-status-editor-option">
+                            <input type="radio" name="manual_status" value="<?=rh($editorStatus)?>" required>
+                            <span class="reporting-status-badge <?=$editorMeta[1]?>"><?=$editorMeta[0]?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <div class="tmr-dialog-note reporting-status-editor-note">
+                    <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><circle cx="12" cy="12" r="9"/></svg>
+                    <span>Ao escolher Pendente, a aposta volta para a fila automática de verificação.</span>
+                </div>
+            </div>
+            <div class="tmr-dialog-actions">
+                <button type="button" class="tmr-dialog-cancel reporting-status-editor-cancel">Cancelar</button>
+                <button type="submit" class="tmr-dialog-confirm">Salvar status</button>
+            </div>
+        </form>
+    </section>
 </div>
 
 <script>
@@ -780,8 +844,62 @@ function rdate(mixed $value): string
         }
     });
 
+    const statusEditor=document.getElementById('reporting-status-editor');
+    const statusTicketId=document.getElementById('reporting-status-ticket-id');
+    const statusTicketLabel=document.getElementById('reporting-status-ticket-label');
+
+    const closeStatusEditor=()=>{
+        if(!(statusEditor instanceof HTMLElement)) return;
+        statusEditor.hidden=true;
+        document.body.classList.remove('tmr-dialog-lock');
+    };
+
+    const openStatusEditor=(button)=>{
+        if(!(statusEditor instanceof HTMLElement) || !(statusTicketId instanceof HTMLInputElement)) return;
+
+        const ticketId=button.dataset.ticketId||'';
+        const current=(button.dataset.ticketStatus||'PENDING').toUpperCase();
+        statusTicketId.value=ticketId;
+        if(statusTicketLabel) statusTicketLabel.textContent=button.dataset.ticketLabel||('#'+ticketId);
+
+        statusEditor.querySelectorAll('input[name="manual_status"]').forEach(input=>{
+            if(input instanceof HTMLInputElement) input.checked=input.value===current;
+        });
+
+        statusEditor.hidden=false;
+        document.body.classList.add('tmr-dialog-lock');
+        requestAnimationFrame(()=>{
+            const checked=statusEditor.querySelector('input[name="manual_status"]:checked');
+            if(checked instanceof HTMLInputElement) checked.focus();
+        });
+    };
+
+    document.addEventListener('keydown',(event)=>{
+        if(event.key==='Escape' && statusEditor instanceof HTMLElement && !statusEditor.hidden){
+            event.preventDefault();
+            closeStatusEditor();
+        }
+    });
+
+    statusEditor?.addEventListener('click',(event)=>{
+        const target=event.target;
+        if(target===statusEditor || (target instanceof Element && target.closest('.reporting-status-editor-close,.reporting-status-editor-cancel'))){
+            closeStatusEditor();
+        }
+    });
+
+    statusEditor?.querySelector('.reporting-status-editor-form')?.addEventListener('submit',()=>{
+        closeStatusEditor();
+    });
+
     document.addEventListener('click',(event)=>{
         const target=event.target;
+
+        const statusButton=target instanceof Element ? target.closest('.reporting-status-edit') : null;
+        if(statusButton instanceof HTMLButtonElement){
+            openStatusEditor(statusButton);
+            return;
+        }
 
         const historyToggle=target instanceof Element ? target.closest('.reporting-history-toggle') : null;
         if(historyToggle instanceof HTMLButtonElement){
@@ -842,7 +960,7 @@ function rdate(mixed $value): string
 })();
 </script>
 <script src="/assets/dialogs.js?v=3" defer></script>
-<script src="/assets/live.js?v=2" defer></script>
+<script src="/assets/live.js?v=3" defer></script>
 <script src="/assets/toast.js" defer></script>
 </body>
 </html>

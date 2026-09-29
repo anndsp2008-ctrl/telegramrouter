@@ -643,6 +643,26 @@ final class Repository
 
         $stake = (float)$ticket['stake_units'];
         $totalOdds = is_numeric($ticket['total_odds']) ? (float)$ticket['total_odds'] : null;
+
+        $manualOverride = strtoupper(trim((string)($ticket['manual_status_override'] ?? '')));
+        if (in_array($manualOverride, [
+            SettlementEngine::GREEN,
+            SettlementEngine::RED,
+            SettlementEngine::VOID,
+            SettlementEngine::HALF_GREEN,
+            SettlementEngine::HALF_RED,
+            SettlementEngine::REVIEW,
+        ], true)) {
+            $manualProfit = self::manualTicketProfit($manualOverride, $stake, $totalOdds);
+            $manualUpdate = $pdo->prepare(
+                'UPDATE reporting_tickets
+                 SET status=?,profit_units=?,settled_at=COALESCE(settled_at,UTC_TIMESTAMP())
+                 WHERE id=?'
+            );
+            $manualUpdate->execute([$manualOverride, $manualProfit, $ticketId]);
+            return;
+        }
+
         $kind = (string)$ticket['bet_kind'];
         $statuses = array_map(static fn(array $leg): string => (string)$leg['status'], $legs);
 
@@ -712,6 +732,21 @@ final class Repository
             $terminal ? gmdate('Y-m-d H:i:s') : null,
             $ticketId,
         ]);
+    }
+
+    private static function manualTicketProfit(string $status, float $stake, ?float $odds): float
+    {
+        return match ($status) {
+            SettlementEngine::GREEN => $odds !== null && $odds > 1
+                ? round($stake * ($odds - 1), 4)
+                : 0.0,
+            SettlementEngine::RED => -$stake,
+            SettlementEngine::HALF_GREEN => $odds !== null && $odds > 1
+                ? round(($stake / 2) * ($odds - 1), 4)
+                : 0.0,
+            SettlementEngine::HALF_RED => -round($stake / 2, 4),
+            default => 0.0,
+        };
     }
 
     private static function singleFinancialResult(string $status, float $stake, ?float $odds): array
@@ -931,6 +966,109 @@ final class Repository
             LIMIT {$limit}
         ";
         return Database::pdo()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function manualSetTicketStatus(int $ticketId, string $status): void
+    {
+        Schema::migrate();
+
+        $status = strtoupper(trim($status));
+        $allowed = [
+            SettlementEngine::PENDING,
+            SettlementEngine::GREEN,
+            SettlementEngine::RED,
+            SettlementEngine::VOID,
+            SettlementEngine::HALF_GREEN,
+            SettlementEngine::HALF_RED,
+            SettlementEngine::REVIEW,
+        ];
+        if (!in_array($status, $allowed, true)) {
+            throw new \InvalidArgumentException('Status manual inválido.');
+        }
+
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $ticketStmt = $pdo->prepare(
+                'SELECT id,stake_units,total_odds
+                 FROM reporting_tickets
+                 WHERE id=?
+                 FOR UPDATE'
+            );
+            $ticketStmt->execute([$ticketId]);
+            $ticket = $ticketStmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($ticket)) {
+                throw new \RuntimeException('Aposta não encontrada.');
+            }
+
+            $stake = (float)($ticket['stake_units'] ?? 0);
+            $odds = is_numeric($ticket['total_odds'] ?? null)
+                ? (float)$ticket['total_odds']
+                : null;
+            $profit = self::manualTicketProfit($status, $stake, $odds);
+            $now = gmdate('Y-m-d H:i:s');
+
+            $details = json_encode([
+                'manual'=>true,
+                'manual_ticket_status'=>$status,
+                'updated_at'=>gmdate('c'),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+            if ($status === SettlementEngine::PENDING) {
+                $legs = $pdo->prepare(
+                    'UPDATE reporting_legs
+                     SET status="PENDING",
+                         settlement_details=?,
+                         settled_at=NULL,
+                         next_check_at=UTC_TIMESTAMP(),
+                         lookup_attempts=0,
+                         lookup_last_reason="manual_status_pending"
+                     WHERE ticket_id=?'
+                );
+                $legs->execute([$details, $ticketId]);
+
+                $ticketUpdate = $pdo->prepare(
+                    'UPDATE reporting_tickets
+                     SET status="PENDING",
+                         profit_units=0,
+                         settled_at=NULL,
+                         manual_status_override=NULL,
+                         manual_status_updated_at=?
+                     WHERE id=?'
+                );
+                $ticketUpdate->execute([$now, $ticketId]);
+            } else {
+                $legs = $pdo->prepare(
+                    'UPDATE reporting_legs
+                     SET status=?,
+                         settlement_details=?,
+                         settled_at=UTC_TIMESTAMP(),
+                         next_check_at=NULL,
+                         lookup_attempts=0,
+                         lookup_last_reason="manual_ticket_status"
+                     WHERE ticket_id=?'
+                );
+                $legs->execute([$status, $details, $ticketId]);
+
+                $ticketUpdate = $pdo->prepare(
+                    'UPDATE reporting_tickets
+                     SET status=?,
+                         profit_units=?,
+                         settled_at=UTC_TIMESTAMP(),
+                         manual_status_override=?,
+                         manual_status_updated_at=?
+                     WHERE id=?'
+                );
+                $ticketUpdate->execute([$status, $profit, $status, $now, $ticketId]);
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     public static function manualResolveLeg(int $legId, string $status): void

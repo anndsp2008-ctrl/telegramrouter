@@ -57,6 +57,8 @@ final class Schema
                 stake_units DECIMAL(10,2) NOT NULL DEFAULT 10.00,
                 status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
                 profit_units DECIMAL(12,4) NOT NULL DEFAULT 0,
+                manual_status_override VARCHAR(32) NULL,
+                manual_status_updated_at DATETIME NULL,
                 placed_at DATETIME NOT NULL,
                 settled_at DATETIME NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -66,6 +68,9 @@ final class Schema
                 KEY idx_reporting_ticket_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+
+        self::ensureColumn($pdo, 'reporting_tickets', 'manual_status_override', "VARCHAR(32) NULL");
+        self::ensureColumn($pdo, 'reporting_tickets', 'manual_status_updated_at', "DATETIME NULL");
 
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS reporting_legs (

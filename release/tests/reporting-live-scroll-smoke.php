@@ -20,6 +20,7 @@ ok(str_contains($live,'.reporting-history-toggle[aria-expanded="true"]'),'accord
 ok(str_contains($live,"toggle.setAttribute('aria-expanded', 'true')"),'accordion aberto e restaurado');
 ok(str_contains($live,"if (!shouldPause()) replaceMain(html);"),'resposta nao redesenha tabela se interacao iniciou durante fetch');
 ok(str_contains($live,"['pointerdown', 'pointermove', 'touchstart', 'touchmove', 'wheel']"),'toque arrasto e roda pausam atualizacao');
-ok(str_contains($reports,'/assets/live.js?v=2'),'relatorios invalidam cache do live js');
+ok(str_contains($live,"document.body.classList.contains('tmr-dialog-lock')"),'live refresh pausa enquanto dialogo esta aberto');
+ok(str_contains($reports,'/assets/live.js?v=3'),'relatorios invalidam cache do live js v3');
 
 echo "REPORTING_LIVE_SCROLL_SMOKE_PASSED\n";
