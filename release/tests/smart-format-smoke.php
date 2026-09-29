@@ -246,8 +246,8 @@ foreach([[],['stake'=>''],['stake'=>'2'],['stake'=>'6/10'],['stake'=>'999']] as 
             throw new RuntimeException('Fixed stake missing or original stake was forwarded');
     }
     $view=SmartFormatting::cardView($fixture);
-    if(($view['stake']??'')!=='10' || ($view['match']??'')!==$bet['match'])
-        throw new RuntimeException('Card view did not apply fixed Stake 10');
+    if(($view['stake']??'')!=='10' || ($view['match']??'')!=='Venezia vs Lazio')
+        throw new RuntimeException('Card view did not apply fixed Stake 10 or global vs format');
 }
 $moneyFixture=array_merge($bet,['stake'=>'3','stake_amount'=>'R$ 200,00',
     'potential_return'=>'R$ 400,00','odd'=>'2,00']);
