@@ -25,7 +25,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $action = (string)($_POST['action'] ?? '');
-        if ($action === 'review_reprocess') {
+        if ($action === 'force_pending_check') {
+            $currentSettings = Repository::settings();
+            if (empty($currentSettings['enabled']) || empty($currentSettings['check_results'])) {
+                $error = 'Ative o módulo e a verificação automática antes de reprocessar as pendentes.';
+            } else {
+                $queued = Repository::requestManualPendingCheck();
+                $notice = $queued > 0
+                    ? $queued . ' aposta' . ($queued === 1 ? '' : 's') . ' pendente' . ($queued === 1 ? '' : 's') . ' enviada' . ($queued === 1 ? '' : 's') . ' para verificação.'
+                    : 'Não há apostas pendentes para verificar.';
+            }
+        } elseif ($action === 'review_reprocess') {
             Repository::reprocessReviewLeg((int)($_POST['leg_id'] ?? 0));
             $notice = 'Aposta enviada para reprocessamento.';
         } elseif ($action === 'review_resolve') {
@@ -96,6 +106,9 @@ $schedulerStatus = strtolower((string)($state['scheduler_status']['state_value']
 $systemEnabled = !empty($settings['enabled']);
 $scopeSelected = (($settings['scope'] ?? 'all') === 'selected');
 $selectedCount = $scopeSelected ? count($selectedRules) : count($rules);
+$manualPendingStatus = strtolower((string)($state['manual_pending_check_status']['state_value'] ?? ''));
+$manualPendingBusy = in_array($manualPendingStatus, ['queued','running'], true);
+$pendingTicketCount = (int)($overview['pending'] ?? 0);
 
 function rh(mixed $value): string
 {
@@ -177,7 +190,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=8">
+<link rel="stylesheet" href="/assets/reporting.css?v=9">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -529,13 +542,40 @@ function rdate(mixed $value): string
             <?php endif; ?>
 
             <section id="reporting-history" class="saas-card reporting-history-card">
-                <div class="saas-card-head">
+                <div class="saas-card-head reporting-history-head">
                     <div>
                         <span class="saas-kicker">HISTÓRICO</span>
                         <h2>Últimas apostas acompanhadas</h2>
                         <p>Os 50 registros mais recentes capturados pelo sistema de resultados.</p>
                     </div>
-                    <span class="reporting-history-count"><?=rh(count($tickets))?> exibidas</span>
+                    <div class="reporting-history-actions">
+                        <span class="reporting-pending-count"><i></i><?=rh($pendingTicketCount)?> pendente<?=$pendingTicketCount===1?'':'s'?></span>
+                        <form
+                            method="post"
+                            class="reporting-force-pending-form"
+                            data-dialog-confirm
+                            data-dialog-tone="warning"
+                            data-dialog-title="Reverificar todas as pendentes?"
+                            data-dialog-message="Todas as apostas pendentes serão colocadas na fila de verificação imediatamente."
+                            data-dialog-detail="A ação pode consumir consultas da API-Football. Jogos futuros continuam respeitando a janela pós-jogo configurada."
+                            data-dialog-confirm-text="Reverificar agora"
+                        >
+                            <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
+                            <input type="hidden" name="action" value="force_pending_check">
+                            <button
+                                type="submit"
+                                class="reporting-force-pending-btn"
+                                <?=($pendingTicketCount<=0 || $manualPendingBusy || !$systemEnabled || empty($settings['check_results']))?'disabled':''?>
+                                aria-label="Reverificar todas as apostas pendentes"
+                            >
+                                <svg viewBox="0 0 20 20" aria-hidden="true">
+                                    <path d="M15.7 6.2A6.5 6.5 0 1 0 16.4 12M15.7 2.8v3.8h-3.8"/>
+                                </svg>
+                                <span><?=$manualPendingBusy?'Verificando…':'Reverificar pendentes'?></span>
+                            </button>
+                        </form>
+                        <span class="reporting-history-count"><?=rh(count($tickets))?> exibidas</span>
+                    </div>
                 </div>
 
                 <?php if ($tickets === []): ?>

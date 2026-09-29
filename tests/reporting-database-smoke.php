@@ -150,6 +150,18 @@ ok($forcedDue===1,'pendencia fica vencida para verificacao imediata');
 
 $pdo->exec(
     'UPDATE reporting_legs
+     SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 3 HOUR)
+     WHERE id='.(int)$id
+);
+$manualQueued=Repository::requestManualPendingCheck();
+ok($manualQueued===1,'botao manual enfileira todas as apostas pendentes');
+$manualDue=(int)$pdo->query('SELECT next_check_at<=UTC_TIMESTAMP() FROM reporting_legs LIMIT 1')->fetchColumn();
+ok($manualDue===1,'botao manual deixa pendencia pronta para verificacao');
+ok(Repository::consumeManualPendingCheckRequest()===true,'worker consome solicitacao manual');
+ok(Repository::consumeManualPendingCheckRequest()===false,'solicitacao manual e consumida uma unica vez');
+
+$pdo->exec(
+    'UPDATE reporting_legs
      SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 3 HOUR),
          lookup_attempts=1,
          lookup_last_reason="not_found"

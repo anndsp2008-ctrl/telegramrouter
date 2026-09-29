@@ -1204,6 +1204,56 @@ final class Repository
         return $count;
     }
 
+    public static function requestManualPendingCheck(): int
+    {
+        Schema::migrate();
+        $pdo = Database::pdo();
+
+        $count = (int)$pdo->query(
+            'SELECT COUNT(DISTINCT ticket_id)
+             FROM reporting_legs
+             WHERE status="PENDING"'
+        )->fetchColumn();
+
+        if ($count <= 0) {
+            return 0;
+        }
+
+        $pdo->exec(
+            'UPDATE reporting_legs
+             SET next_check_at=UTC_TIMESTAMP()
+             WHERE status="PENDING"'
+        );
+
+        Schema::setState('manual_pending_check_requested_at', gmdate('Y-m-d H:i:s'));
+        Schema::setState('manual_pending_check_status', 'queued');
+        Schema::setState('manual_pending_check_count', (string)$count);
+
+        return $count;
+    }
+
+    public static function consumeManualPendingCheckRequest(): bool
+    {
+        Schema::migrate();
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare(
+            'SELECT state_value
+             FROM reporting_runtime_state
+             WHERE state_key="manual_pending_check_requested_at"
+             LIMIT 1'
+        );
+        $stmt->execute();
+        $requestedAt = trim((string)$stmt->fetchColumn());
+
+        if ($requestedAt === '') {
+            return false;
+        }
+
+        Schema::setState('manual_pending_check_requested_at', null);
+        Schema::setState('manual_pending_check_status', 'running');
+        return true;
+    }
+
     public static function pendingQueueSummary(): array
     {
         Schema::migrate();

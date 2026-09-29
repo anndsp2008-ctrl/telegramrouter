@@ -33,12 +33,22 @@ Repository::setState('scheduler_started_at', gmdate('Y-m-d H:i:s'));
 while (true) {
     $now = time();
 
-    if (($now - $lastSettlement) >= 300) {
+    $manualPendingCheck = Repository::consumeManualPendingCheckRequest();
+
+    if (($now - $lastSettlement) >= 300 || $manualPendingCheck) {
         try {
             ResultWorker::runOnce();
+            if ($manualPendingCheck) {
+                Repository::setState('manual_pending_check_status', 'done');
+                Repository::setState('manual_pending_check_completed_at', gmdate('Y-m-d H:i:s'));
+                error_log('TMR_REPORTING_MANUAL_PENDING_DONE');
+            }
         } catch (Throwable $e) {
             Repository::setState('worker_status', 'error');
             Repository::setState('worker_last_error', get_class($e));
+            if ($manualPendingCheck) {
+                Repository::setState('manual_pending_check_status', 'error');
+            }
             error_log('TMR_REPORTING_WORKER_NON_FATAL ' . get_class($e));
         }
         $lastSettlement = $now;
