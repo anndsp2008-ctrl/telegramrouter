@@ -1176,6 +1176,34 @@ final class Repository
         return $changed;
     }
 
+    public static function forcePendingChecksOnce(string $stateKey): int
+    {
+        Schema::migrate();
+        $stateKey = trim($stateKey);
+        if ($stateKey === '') {
+            throw new \InvalidArgumentException('stateKey vazio');
+        }
+
+        $check = Database::pdo()->prepare(
+            'SELECT state_value FROM reporting_runtime_state WHERE state_key=? LIMIT 1'
+        );
+        $check->execute([$stateKey]);
+        if ((string)$check->fetchColumn() === 'done') {
+            return 0;
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'UPDATE reporting_legs
+             SET next_check_at=UTC_TIMESTAMP()
+             WHERE status="PENDING"'
+        );
+        $stmt->execute();
+        $count = $stmt->rowCount();
+
+        Schema::setState($stateKey, 'done');
+        return $count;
+    }
+
     public static function pendingQueueSummary(): array
     {
         Schema::migrate();
