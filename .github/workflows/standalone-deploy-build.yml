@@ -30,6 +30,9 @@ on:
       - 'assets/dialogs.css'
       - 'runtime-dialog-system.php'
       - 'tests/project-dialogs-smoke.php'
+      - 'tests/light-theme-smoke.php'
+      - 'assets/brand/theme.css'
+      - 'runtime-theme.php'
       - 'tests/routing-exclusion-smoke.php'
       - 'release/tests/routing-exclusion-smoke.php'
       - 'runtime-routing-exclusion.php'
@@ -134,6 +137,7 @@ jobs:
           php tests/reporting-manual-pending-smoke.php
           php tests/reporting-clickable-status-smoke.php
           php tests/project-dialogs-smoke.php
+          php tests/light-theme-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php
           ! grep -Fq 'lastStructuredBet' app/SmartFormatting.php
