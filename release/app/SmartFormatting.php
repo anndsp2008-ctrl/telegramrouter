@@ -380,7 +380,7 @@ final class SmartFormatting
         $fields=['sport','status','live_evidence','match','league','market','selection','odd','time','day','stake','bookmaker','stake_amount','potential_return','analysis',
             'bet_kind','selections_count','multiple_details',
             'visual_bet_kind','visual_selections_count','visual_multiple_evidence','visual_multiple_details',
-            'visual_market_evidence','visual_selection_evidence','double_legs','card_legs'];
+            'visual_match_evidence','visual_market_evidence','visual_selection_evidence','double_legs','card_legs'];
         // Opt-in: approved examples are context only; raw source and renderer remain unchanged.
         $memoryExamples=AiLearningMemory::contextFor($sourceText,(int)($rule['id']??0));
         // Use the EXACT primary/fallback resolution from the translation rule.
@@ -422,6 +422,16 @@ final class SmartFormatting
                 }
                 if(!is_array($json)){
                     self::diag('SMART_PROVIDER_FAILED_'.$provider);
+                    self::recordProviderAttempt(
+                        $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
+                    if($logicalAttempt<$maxLogicalAttempts){
+                        self::diag('SMART_PROVIDER_RETRY_'.$provider);
+                        usleep(350000);
+                    }
+                    continue;
+                }
+                if(self::spanishWinnerVerbMisread($json,$sourceText)){
+                    self::diag('SPANISH_GANA_VERB_MISREAD');
                     self::recordProviderAttempt(
                         $provider,$attemptStarted,$attemptFailureOffset,false,$logicalAttempt);
                     if($logicalAttempt<$maxLogicalAttempts){
@@ -1234,6 +1244,39 @@ final class SmartFormatting
      * attempts; provider-level fallback is still handled by TranslationService.
      * @param list<string> $fields
      */
+    private static function spanishWinnerVerbInstruction(bool $hasImage): string
+    {
+        return "REGRA DE DESAMBIGUAÇÃO DO ESPANHOL: a palavra 'Gana' em frases como 'Gana Finlandia el partido', 'Gana Real Madrid el partido' ou 'Gana X' é o VERBO espanhol ganhar/vence, e NUNCA o nome de uma equipe. O país/equipe Ghana é escrito Ghana. Portanto, 'Gana Finlandia el partido' significa que a seleção é Finlandia para vencer; jamais crie um confronto 'Gana vs Finlandia'. O confronto deve vir somente do confronto explícito do texto ou do cabeçalho visual do comprovante. ".
+            ($hasImage
+                ? "Quando houver imagem, copie em visual_match_evidence exatamente as duas equipes do confronto visto no comprovante, em ordem, sem transformar palavras da frase de seleção em equipes. Exemplo: se a imagem mostra 'Finlandia 18:00 Bielorrusia' e o texto diz 'Gana Finlandia el partido', match deve representar Finlandia vs Bielorrusia e a seleção deve ser vitória da Finlandia. "
+                : "");
+    }
+
+    private static function spanishWinnerVerbMisread(array $json,string $sourceText): bool
+    {
+        if(preg_match('/\bgana\s+[^\r\n]{1,100}?\s+el\s+partido\b/iu',$sourceText)!==1
+            && preg_match('/\bgana\s+[\p{L}\p{M}][^\r\n]{0,80}$/iu',trim($sourceText))!==1){
+            return false;
+        }
+
+        $matches=[trim((string)($json['match']??''))];
+        foreach((array)($json['card_legs']??[]) as $leg){
+            if(is_array($leg))$matches[]=trim((string)($leg['match']??''));
+        }
+        foreach((array)($json['double_legs']??[]) as $leg){
+            if(is_array($leg))$matches[]=trim((string)($leg['match']??''));
+        }
+
+        foreach($matches as $match){
+            if($match==='' )continue;
+            if(preg_match('/^\s*gana\s+(?:vs\.?|x|×|[-–—])\s+/iu',$match)===1
+                || preg_match('/\s+(?:vs\.?|x|×|[-–—])\s+gana\s*$/iu',$match)===1){
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static function requestOpenAI(string $text,?string $image,string $language,array $fields,string $memoryExamples=''): ?array
     {
         if(!OpenAIProvider::enabled()){
@@ -1244,14 +1287,14 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().AdaptiveVipCardRenderer::extractionInstruction().
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete. Uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade como string numérica. ".
             "Se for multiple, preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção. Não resuma duas ou mais condições em uma única seleção. ".
             "Para multiple_details transcreva com fidelidade o comprovante visual e traduza as descrições para o idioma solicitado. Preserve nomes próprios, números e odds. Nunca invente pernas, odds ou resultados. ".
             "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
             "MERCADO é o tipo/categoria da aposta. SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado. Nunca troque os dois campos. ".
-            "Quando houver imagem, copie em visual_market_evidence exatamente o rótulo de mercado visto no comprovante e em visual_selection_evidence exatamente a seleção vista no comprovante, sem traduzir esses dois campos de evidência. ".
+            "Quando houver imagem, copie em visual_match_evidence exatamente o confronto/equipes visto no comprovante; copie em visual_market_evidence exatamente o rótulo de mercado visto no comprovante e em visual_selection_evidence exatamente a seleção vista no comprovante, sem traduzir esses dois campos de evidência. ".
             "No campo analysis, siga obrigatoriamente a política global de análise informada acima. Preserve análise existente; quando precisar gerar uma nova análise, fale diretamente como tipster sobre a aposta e nunca mencione origem, comprovante, bilhete, mensagem ou falta de dados. Não inclua stake, unidades, valor apostado, banca, retorno financeiro ou lucro na análise. ".
             "Para status AO VIVO, live_evidence deve conter evidência explícita de que a partida está em andamento. Não deduza ao vivo por horário, data, estado do bilhete ou fuso horário. ".
             "Identifique esporte e campeonato quando inequívocos; se ausente deixe vazio. ".
@@ -1297,7 +1340,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().AdaptiveVipCardRenderer::extractionInstruction().
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
@@ -1305,7 +1348,7 @@ final class SmartFormatting
             "Para multiple_details transcreva com fidelidade o comprovante visual e traduza todas as descrições para o idioma solicitado, inclusive qualquer texto de análise da mensagem; preserve nomes, números e linhas originais. Nunca invente pernas, odds ou resultados. ".
             "Se for single, deixe multiple_details vazio. Nunca use o rótulo Simple sozinho como prova de aposta simples. ".
             "MERCADO é o tipo/categoria da aposta (ex.: Total de escanteios, Handicap Asiático, Vencedor da partida). ".
-            "Quando houver imagem, copie em visual_market_evidence exatamente o rótulo de mercado visto no comprovante e em visual_selection_evidence exatamente a seleção vista no comprovante, SEM traduzir esses dois campos de evidência. ".
+            "Quando houver imagem, copie em visual_match_evidence exatamente o confronto/equipes visto no comprovante; copie em visual_market_evidence exatamente o rótulo de mercado visto no comprovante e em visual_selection_evidence exatamente a seleção vista no comprovante, SEM traduzir esses dois campos de evidência. ".
             "Os campos finais market e selection, porém, DEVEM obedecer ao idioma solicitado. Se o idioma alvo for pt-BR, traduza os rótulos do comprovante para português brasileiro mantendo nomes próprios, números e odds. ".
             "SELEÇÃO é o resultado efetivamente escolhido dentro desse mercado (ex.: Mais de 8,5 escanteios, Time A +0,5, Vitória do Time A). ".
             "Nunca troque Mercado e Seleção. Se o comprovante trouxer rótulos próprios, respeite a relação mostrada; se houver dúvida real, deixe o campo duvidoso vazio em vez de adivinhar. ".
@@ -1420,7 +1463,7 @@ final class SmartFormatting
         $prompt="Você interpreta dicas de apostas, SEM CRIAR OU ALTERAR DADOS. ".
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
-            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().AdaptiveVipCardRenderer::extractionInstruction().
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
