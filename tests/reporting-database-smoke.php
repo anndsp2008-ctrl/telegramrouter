@@ -131,6 +131,8 @@ ok((int)$pdo->query('SELECT COUNT(*) FROM reporting_legs')->fetchColumn()===1,'l
 
 $recentTickets=Repository::recentTickets(50);
 ok(count($recentTickets)===1,'historico retorna ticket capturado');
+ok(($recentTickets[0]['source_chat']??'')==='-100sourceA','historico retorna canal de origem');
+ok(($recentTickets[0]['destination_chat']??'')==='-100destA','historico retorna canal de destino');
 ok(count((array)($recentTickets[0]['legs']??[]))===1,'historico retorna pernas do ticket');
 ok(($recentTickets[0]['legs'][0]['match_name']??'')==='Manchester City vs Arsenal','historico inclui jogo padronizado com vs');
 ok(($recentTickets[0]['legs'][0]['market_text']??'')==='Total de escanteios','historico inclui mercado');
