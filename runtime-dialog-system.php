@@ -52,9 +52,10 @@ try{
     }
 
     if(!str_contains($pages['reports'],'/assets/dialogs.css?v=3')){
-        $reportingCssAnchor=str_contains($pages['reports'],'/assets/reporting.css?v=7')
-            ? '<link rel="stylesheet" href="/assets/reporting.css?v=7">'
-            : '<link rel="stylesheet" href="/assets/reporting.css?v=6">';
+        if(preg_match('/<link rel="stylesheet" href="\\/assets\\/reporting\\.css\\?v=\\d+">/',$pages['reports'],$reportingCssMatch)!==1){
+            throw new RuntimeException('TMR_DIALOG_ANCHOR_REPORTS_CSS');
+        }
+        $reportingCssAnchor=$reportingCssMatch[0];
         $pages['reports']=$replaceOnce(
             $pages['reports'],
             $reportingCssAnchor,
