@@ -235,12 +235,10 @@ final class FixtureMatcher
 
     private function matchByTeamIds(int $teamA, int $teamB, string $date): ?array
     {
-        $key = $teamA . ':' . $date;
-        if (!array_key_exists($key, $this->teamDateCache)) {
-            $this->teamDateCache[$key] = $this->api->fixturesByTeamDate($teamA, $date);
-        }
-
-        foreach ($this->teamDateCache[$key] as $fixture) {
+        // Use the date-wide fixture cache and filter by stable team IDs locally.
+        // This avoids API-Football validation of team+date combinations that can
+        // require a season, and one daily request can serve every pending ticket.
+        foreach ($this->fixtures($date) as $fixture) {
             if (!is_array($fixture)) {
                 continue;
             }
