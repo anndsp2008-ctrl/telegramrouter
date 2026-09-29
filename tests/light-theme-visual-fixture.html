@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Light Theme Visual Audit</title>
+<link rel="stylesheet" href="/assets/saas.css">
+<link rel="stylesheet" href="/assets/brand/navigation-shell.css?v=1">
+<link rel="stylesheet" href="/assets/responsive.css?v=4">
+<link rel="stylesheet" href="/assets/dialogs.css?v=3">
+<link rel="stylesheet" href="/assets/brand/brand.css?v=2">
+<link rel="stylesheet" href="/assets/brand/mobile-shell.css?v=2">
+<link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=9">
+<link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=4">
+<link rel="stylesheet" href="/assets/brand/mobile-visual-audit.css?v=17">
+<link rel="stylesheet" href="/assets/brand/mobile-bottom-navigation.css?v=2">
+<link rel="stylesheet" href="/assets/reporting.css?v=12">
+<link rel="stylesheet" href="/assets/ai-learning.css?v=1">
+<link rel="stylesheet" href="/assets/reset.css?v=6">
+<link rel="stylesheet" href="/assets/brand/theme.css?v=3">
+<style>
+body{margin:0}
+.visual-screen[hidden]{display:none!important}
+.audit-spacer{height:22px}
+.audit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.audit-stack{display:grid;gap:14px}
+.audit-actions{display:flex;gap:9px;flex-wrap:wrap}
+.audit-table{width:100%;border-collapse:collapse}
+.audit-table th,.audit-table td{padding:11px;border-bottom:1px solid #e2e8f0;text-align:left}
+.audit-mobile-nav{display:none}
+@media(max-width:1024px){.audit-grid{grid-template-columns:1fr}.audit-mobile-nav{display:block}}
+</style>
+</head>
+<body>
+<div class="saas-shell">
+  <aside class="saas-sidebar">
+    <div class="saas-brand"><span class="saas-logo brand-mark">⚡</span><div><b>Telegram Router</b><small>Automação inteligente</small></div></div>
+    <span class="saas-nav-label">PAINEL</span>
+    <nav class="saas-nav">
+      <a class="active"><span class="nav-icon">⌂</span>Visão geral</a>
+      <a><span class="nav-icon">↕</span>Regras de roteamento</a>
+      <a><span class="nav-icon">✦</span>Aprendizado da IA</a>
+      <a><span class="nav-icon">◷</span>Atividade</a>
+      <a><span class="nav-icon">⌁</span>Integrações</a>
+      <a><span class="nav-icon">➤</span>Telegram</a>
+      <a><span class="nav-icon">▥</span>Relatórios</a>
+      <a><span class="nav-icon">↶</span>Reset de dados</a>
+    </nav>
+  </aside>
+  <div class="saas-main">
+    <header class="saas-topbar"><div class="saas-user"><span class="saas-avatar">AN</span><span>Boa noite, Anderson</span><span class="connected-phone">Telegram: +55 11 99999-9999</span><button class="tmr-theme-toggle" type="button">☾</button><button class="saas-logout" type="button">↪</button></div></header>
+    <main class="saas-content">
+
+      <section class="visual-screen" data-screen="dashboard">
+        <div class="saas-heading"><div><span class="saas-kicker">CENTRAL DE OPERAÇÃO</span><h1>Visão geral</h1><p>Acompanhe a conexão, as regras e cada tentativa de encaminhamento.</p></div><div class="saas-heading-actions audit-actions"><a class="saas-secondary">Ver atividade</a><a class="saas-primary">+ Nova regra</a></div></div>
+        <section class="overview-status is-good"><div class="overview-status-icon"><i></i></div><div><span class="saas-kicker">ESTADO DO SERVIÇO</span><h2>Conectado</h2><p>A conexão está ativa e pronta para receber novas mensagens.</p></div><div class="overview-status-meta"><span>Última verificação</span><b>há 12 segundos</b><a>Gerenciar conexão →</a></div></section>
+        <div class="audit-spacer"></div>
+        <section class="saas-metrics overview-metrics audit-grid">
+          <div class="saas-metric"><span class="saas-metric-label">REGRAS ATIVAS</span><strong>12</strong><small>fluxos em operação</small></div>
+          <div class="saas-metric"><span class="saas-metric-label">ENCAMINHADAS</span><strong>184</strong><small>últimas 24 horas</small></div>
+          <div class="saas-metric"><span class="saas-metric-label">FALHAS</span><strong class="activity-bad">2</strong><small>necessitam atenção</small></div>
+        </section>
+        <div class="audit-spacer"></div>
+        <section class="overview-guide"><div><span class="saas-kicker">FLUXO RECOMENDADO</span><h2>Automação sob controle</h2><p>Configure regras, acompanhe a atividade e consulte os relatórios.</p></div><div class="guide-points"><span><i>1</i>Configure</span><span><i>2</i>Valide</span><span><i>3</i>Acompanhe</span></div></section>
+      </section>
+
+      <section class="visual-screen" data-screen="rules" hidden>
+        <div class="saas-heading"><div><span class="saas-kicker">AUTOMAÇÃO</span><h1>Regras de roteamento</h1><p>Defina exatamente quando uma mensagem deve ser tratada e para onde será enviada.</p></div><div class="saas-heading-actions audit-actions"><a class="saas-secondary">← Visão geral</a><a class="saas-primary">+ Criar regra</a></div></div>
+        <section class="routing-flow"><div><span class="flow-number">01</span><b>Origem</b><small>Onde a mensagem chega</small></div><span class="flow-arrow">→</span><div><span class="flow-number">02</span><b>Gatilho</b><small>O que ativa a regra</small></div><span class="flow-arrow">→</span><div><span class="flow-number">03</span><b>Destino</b><small>Para onde enviar</small></div></section>
+        <div class="audit-spacer"></div>
+        <div class="rules-columns">
+          <section class="saas-card saas-form-card routing-form"><div class="saas-card-head"><div><span class="saas-kicker">NOVA CONFIGURAÇÃO</span><h2>Quando esta regra for acionada</h2><p>Os campos serão avaliados em tempo real.</p></div><span class="form-status">Pronta para ativar</span></div><div class="saas-form-grid"><label>Canal de origem<input value="Canal VIP"></label><label>Canal de destino<select><option>Cards Bets</option></select></label><label class="field-wide">Gatilho<input value="Este es mi pronóstico"></label></div><div class="treatment-block"><div class="treatment-block-head"><b>Tratamento da mensagem</b><small>Normalização antes do envio.</small></div><div class="treatment-checks"><label><input type="checkbox" checked> Remover links</label><label><input type="checkbox"> Remover emojis</label></div></div><div class="saas-actions"><span class="form-note">Salva com segurança no banco.</span><button class="saas-primary">Salvar e ativar regra →</button></div></section>
+          <section class="saas-card routing-list rules-panel"><div class="saas-card-head"><div><span class="saas-kicker">REGRAS CONFIGURADAS</span><h2>Fluxos em operação</h2><p>12 regras configuradas.</p></div></div><article class="rule-card"><div class="rule-card-top"><div><span class="rule-id">#12</span><b>VIP Principal → Cards Bets</b></div><span class="rule-state">ATIVA</span></div><div class="rule-route"><div><small>ORIGEM</small><b>VIP Principal</b></div><span class="rule-route-arrow">→</span><div><small>DESTINO</small><b>Cards Bets</b></div></div><div class="rule-card-bottom"><div class="rule-tags"><span>Stake 10</span><span>Traduzir PT-BR</span></div><div class="rule-actions"><button class="saas-secondary">Editar</button><button class="saas-danger">Excluir</button></div></div></article></section>
+        </div>
+      </section>
+
+      <section class="visual-screen" data-screen="activity" hidden>
+        <div class="saas-heading"><div><span class="saas-kicker">CENTRAL DE ACOMPANHAMENTO</span><h1>Atividades</h1><p>Veja o que o trabalhador recebeu, processou e encaminhou.</p></div><div class="saas-heading-actions audit-actions"><a class="saas-secondary">← Visão geral</a><a class="saas-primary">Gerenciar regras →</a></div></div>
+        <section class="activity-summary audit-grid"><div><span class="activity-summary-label">EVENTOS</span><strong>248</strong><small>20 por página</small></div><div><span class="activity-summary-label">ENCAMINHADAS</span><strong class="activity-good">231</strong><small>concluídas</small></div><div><span class="activity-summary-label">COM FALHA</span><strong class="activity-bad">3</strong><small>verifique detalhes</small></div></section>
+        <div class="audit-spacer"></div>
+        <section class="saas-card activity-card"><div class="saas-card-head activity-card-head"><div><span class="saas-kicker">REGISTRO OPERACIONAL</span><h2>Histórico de processamento</h2><p>Cada linha representa uma tentativa.</p></div><div class="activity-legend">Últimos eventos</div></div><div class="activity-list">
+          <article class="activity-item"><div class="activity-main"><div class="activity-item-top"><b>Mensagem encaminhada</b><time>20:04:12</time></div><div class="activity-route"><strong>VIP Principal</strong> → Cards Bets</div><div class="activity-details">Card gerado em português · Stake 10</div></div><span class="activity-badge forwarded">Encaminhada</span></article>
+          <article class="activity-item"><div class="activity-main"><div class="activity-item-top"><b>Tip ignorada</b><time>19:58:43</time></div><div class="activity-route"><strong>Canal Teste</strong> → —</div><div class="activity-details">Nenhuma regra compatível.</div></div><span class="activity-badge skipped">Ignorada</span></article>
+          <article class="activity-item"><div class="activity-main"><div class="activity-item-top"><b>Falha temporária</b><time>19:45:01</time></div><div class="activity-error"><b>Provider indisponível</b> Nova tentativa agendada.</div></div><span class="activity-badge failed">Falha</span></article>
+        </div></section>
+      </section>
+
+      <section class="visual-screen" data-screen="integrations" hidden>
+        <div class="saas-heading"><div><span class="saas-kicker">SERVIÇOS EXTERNOS</span><h1>Integrações</h1><p>Gerencie conexões, tradutores e APIs esportivas.</p></div><div class="saas-heading-actions"><a class="saas-secondary">← Visão geral</a></div></div>
+        <section class="integrations-overview-v10"><div class="integrations-overview-v10-copy"><span>CENTRAL DE INTEGRAÇÕES</span><strong>Serviços externos do Telegram Router</strong><small>Configure credenciais, valide conexões e acompanhe o estado de cada provedor.</small></div><div class="integrations-overview-v10-status"><span class="is-good">● Chaves 6/6</span><span class="is-good">● Telegram online</span></div></section>
+        <section class="saas-card integrations-connection"><div><span class="saas-kicker">CONEXÃO</span><h2>Telegram</h2><p>Gerencie a conta usada para receber e encaminhar mensagens.</p></div><a class="saas-secondary">Gerenciar conexão →</a></section>
+        <div class="integrations-section-heading"><span class="saas-kicker">APIS ESPORTIVAS</span><h2>Validação e resultados</h2><p>Valide odds e consulte partidas e resultados.</p></div>
+        <div class="translation-provider-grid sports-api-provider-grid">
+          <section class="saas-card translation-provider-card sports-api-card"><div class="provider-head"><div><span class="saas-kicker">STAKE SPORTS DATA</span><h2>Stake</h2><p>Validação de evento, mercado, linha e odd.</p></div><span class="provider-badge is-configured">Configurado</span></div><form class="provider-form"><div class="saas-form-grid"><label class="field-wide">API Key<span class="field-help">Chave armazenada com segurança.</span><input type="password" value="••••••••••••"></label></div><div class="provider-actions"><button class="saas-primary">Salvar</button><button class="saas-secondary" name="action" value="test_sports_api_provider">Testar conexão</button></div></form><div class="provider-test ok"><b>Último teste</b><span>Conexão válida</span><small>20:03 · 209 ms</small></div></section>
+          <section class="saas-card translation-provider-card openai-provider-card is-expanded"><div class="provider-head"><div><span class="saas-kicker">OPENAI</span><h2>OpenAI</h2><p>Interpretação multimodal e tradução dos cards.</p></div><span class="provider-badge is-configured">Configurado</span></div><form class="provider-form"><fieldset class="openai-models"><legend>Modelo principal</legend><label><input type="radio" checked><span><b>GPT-5.6 Sol</b><small>Modelo avançado para interpretação complexa.</small></span></label><label><input type="radio"><span><b>GPT-5.6 Luna</b><small>Rápido e econômico.</small></span></label></fieldset><div class="provider-actions"><button class="saas-primary">Salvar</button><button class="saas-secondary" name="action" value="test_translation_provider">Testar conexão</button></div></form><div class="provider-test ok"><b>Último teste</b><span>Conexão válida</span><small>20:01 · 411 ms</small></div></section>
+        </div>
+      </section>
+
+      <section class="visual-screen reporting-page" data-screen="reports" hidden>
+        <div class="saas-heading reporting-heading"><div><span class="saas-kicker">RESULTADOS</span><h1>Relatórios</h1><p>Acompanhe desempenho, pendências e histórico de apostas.</p></div><div class="saas-heading-actions"><a class="saas-secondary">← Visão geral</a></div></div>
+        <nav class="reporting-subnav"><a class="is-active">Histórico</a><a>Configurações</a><a>Revisão</a></nav>
+        <section class="reporting-overview-status"><div class="reporting-overview-copy"><span class="saas-kicker">LIQUIDAÇÃO AUTOMÁTICA</span><h2>Operação normal</h2><p>API-Football conectada e verificações ativas.</p></div></section>
+        <div class="audit-spacer"></div>
+        <section class="saas-metrics reporting-metrics audit-grid"><div class="saas-metric"><span class="saas-metric-label">GREEN</span><strong class="reporting-positive">42</strong><small>último período</small></div><div class="saas-metric"><span class="saas-metric-label">RED</span><strong class="reporting-negative">21</strong><small>último período</small></div><div class="saas-metric"><span class="saas-metric-label">PENDENTES</span><strong>3</strong><small>aguardando resultado</small></div></section>
+        <section class="reporting-history-card"><div class="saas-card-head reporting-history-head"><div><span class="saas-kicker">HISTÓRICO</span><h2>Apostas registradas</h2><p>Zebrado preservado para conferência.</p></div><div class="reporting-history-actions"><span class="reporting-pending-count">● 3 pendentes</span><button class="reporting-force-pending-btn">Verificar pendentes</button></div></div><div class="saas-table-wrap"><table class="saas-table reporting-table"><thead><tr><th>#</th><th>Data</th><th>Tipo</th><th>Jogo</th><th>Mercado</th><th>Odd</th><th>Status</th></tr></thead><tbody><tr class="reporting-history-row reporting-history-row-light"><td>104</td><td>29/09 18:10</td><td>Única</td><td>Arsenal x Chelsea</td><td>Mais de 2.5 gols</td><td>1.88</td><td><span class="reporting-status-badge green">Green</span></td></tr><tr class="reporting-history-row reporting-history-row-dark"><td>103</td><td>29/09 17:35</td><td>Múltipla</td><td>Real Madrid x Sevilla</td><td>Escanteios O8.5</td><td>1.74</td><td><span class="reporting-status-badge pending">Pendente</span></td></tr><tr class="reporting-history-row reporting-history-row-light"><td>102</td><td>29/09 16:12</td><td>Única</td><td>Inter x Milan</td><td>Ambas marcam</td><td>1.92</td><td><span class="reporting-status-badge red">Red</span></td></tr></tbody></table></div></section>
+      </section>
+
+      <section class="visual-screen ai-learning-page" data-screen="ai" hidden>
+        <div class="saas-heading ai-learning-heading"><div><span class="saas-kicker">INTELIGÊNCIA ADAPTATIVA</span><h1>Aprendizado da IA</h1><p>Registre exemplos corretos para melhorar a interpretação.</p></div><div class="saas-heading-actions"><a class="saas-secondary">← Visão geral</a></div></div>
+        <section class="saas-metrics ai-learning-metrics audit-grid"><div class="saas-metric"><span class="saas-metric-label">APROVADOS</span><strong class="ai-approved">28</strong><small>exemplos úteis</small></div><div class="saas-metric"><span class="saas-metric-label">PENDENTES</span><strong class="ai-pending">4</strong><small>para revisão</small></div><div class="saas-metric"><span class="saas-metric-label">REJEITADOS</span><strong class="ai-rejected">2</strong><small>descartados</small></div></section>
+        <div class="audit-spacer"></div>
+        <section class="ai-process"><span>1. Receber exemplo</span><span class="ai-arrow">→</span><span>2. Revisar</span><span class="ai-arrow">→</span><span>3. Aplicar ao aprendizado</span></section>
+        <section class="ai-section"><div class="ai-section-head"><div><span class="saas-kicker">NOVO EXEMPLO</span><h2>Ensinar uma correção</h2><p>Informe o conteúdo esperado pela IA.</p></div></div><div class="ai-grid"><label class="ai-field">Texto original<textarea>Tip original do canal...</textarea><small>Conteúdo recebido.</small></label><label class="ai-field">Resultado correto<textarea>Mercado normalizado em português...</textarea><small>Resultado desejado.</small></label></div><div class="ai-form-actions"><span class="ai-hint">O exemplo ficará pendente até aprovação.</span><button class="saas-primary">Salvar exemplo</button></div></section>
+        <section class="ai-section"><div class="ai-section-head"><div><span class="saas-kicker">MEMÓRIA</span><h2>Exemplos recentes</h2></div><div class="ai-filters"><a class="ai-filter" aria-current="page">Todos</a><a class="ai-filter">Aprovados</a><a class="ai-filter">Pendentes</a></div></div><details class="ai-record"><summary><div class="ai-thumb">AI</div><div class="ai-rec-main"><strong>Correção de mercado de escanteios</strong><small>29/09/2026 · 19:20</small></div><span class="ai-pill is-approved">Aprovado</span></summary></details></section>
+      </section>
+
+      <section class="visual-screen reset-page" data-screen="reset" hidden>
+        <div class="saas-heading reset-heading"><div><span class="saas-kicker">MANUTENÇÃO</span><h1>Reset de dados</h1><p>Limpe dados operacionais sem comprometer a configuração do sistema.</p></div></div>
+        <section class="reset-warning-banner"><div class="reset-warning-icon">!</div><div><b>Ação sensível</b><p>Revise cuidadosamente os itens antes de confirmar.</p></div></section>
+        <div class="audit-spacer"></div>
+        <div class="reset-grid"><section class="reset-card reset-custom"><div class="reset-card-head"><div class="reset-mode-icon">✓</div><div><h2>Limpeza personalizada</h2><p>Escolha apenas os grupos que deseja remover.</p></div></div><div class="reset-category-list"><label class="reset-category"><input type="checkbox" checked><span class="reset-category-surface"><span class="reset-category-topline"><b>Atividades</b><span class="reset-count">248</span></span><span class="reset-category-content"><small>Logs e eventos processados.</small></span></span></label><label class="reset-category"><input type="checkbox"><span class="reset-category-surface"><span class="reset-category-topline"><b>Relatórios</b><span class="reset-count">104</span></span><span class="reset-category-content"><small>Histórico de apostas e resultados.</small></span></span></label></div><button class="saas-primary">Continuar</button></section><section class="reset-card reset-full"><div class="reset-card-head"><div class="reset-mode-icon">!</div><div><h2>Reset completo</h2><p>Remove todos os dados operacionais selecionados.</p></div></div><div class="reset-danger-note"><b>Irreversível</b><p>Esta ação exige confirmação adicional.</p></div><button class="reset-danger-button">Preparar reset completo</button></section></div>
+      </section>
+
+      <section class="visual-screen" data-screen="connect" hidden>
+        <div class="connect-shell"><div class="connect-top"><a>← Voltar ao painel</a><span class="connection-status online">● Conta conectada</span></div><section class="connect-hero"><span class="hero-symbol">➤</span><span class="eyebrow">CONEXÃO PROTEGIDA</span><h1>Conecte sua conta Telegram</h1><p>Configure a conta uma única vez. A sessão será mantida automaticamente.</p></section><section class="card connect-panel"><div class="steps"><span class="step current"><b>01</b> Dados da aplicação</span><span class="line"></span><span class="step"><b>02</b> Código recebido</span><span class="line"></span><span class="step"><b>03</b> Verificação</span></div><div class="form-intro"><h2>Dados da aplicação Telegram</h2><p>Informe as credenciais da sua aplicação Telegram.</p></div><form><div class="form-grid two"><label>Identificador da aplicação<input value="12345678"></label><label>Chave da aplicação<input type="password" value="secret"></label></div><label>Número de telefone<input value="+55 11 99999-9999"></label><button>Enviar código pelo Telegram →</button></form></section><div class="security-note"><span>✓</span><div><b>Seus dados permanecem protegidos</b><p>A sessão é cifrada e não é exibida novamente.</p></div></div></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+<nav class="tmr-mobile-navigation audit-mobile-nav"><a class="is-active">Início</a><a>Regras</a><a class="tmr-nav-create">+</a><a>Relatórios</a><details class="tmr-nav-more"><summary>Mais</summary></details></nav>
+<script>
+const wanted=new URLSearchParams(location.search).get('screen')||'dashboard';
+document.querySelectorAll('.visual-screen').forEach(el=>el.hidden=el.dataset.screen!==wanted);
+document.querySelectorAll('.saas-nav a').forEach(a=>a.classList.remove('active'));
+</script>
+</body>
+</html>
