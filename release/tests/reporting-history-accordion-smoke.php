@@ -27,6 +27,10 @@ $checks=[
     'history alternating tone'=>str_contains($reports,"reporting-history-row-light':'reporting-history-row-dark"),
     'history zebra light style'=>str_contains($css,'.reporting-table tbody>.reporting-history-row-light>td{'),
     'history zebra dark style'=>str_contains($css,'.reporting-table tbody>.reporting-history-row-dark>td{'),
+    'history zebra visible light contrast'=>str_contains($css,'background:rgba(255,255,255,.052)!important;'),
+    'history zebra visible dark contrast'=>str_contains($css,'background:rgba(2,8,14,.38)!important;'),
+    'history zebra hover contrast'=>str_contains($css,'background:rgba(10,23,33,.72)!important;'),
+    'reporting css cache bumped'=>str_contains($reports,'/assets/reporting.css?v=12'),
     'accordion keeps row tone'=>str_contains($reports,'reporting-history-accordion-row <?=$rowTone?>'),
 ];
 
