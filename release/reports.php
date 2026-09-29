@@ -178,6 +178,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
 <link rel="stylesheet" href="/assets/reporting.css?v=6">
+<link rel="stylesheet" href="/assets/dialogs.css?v=3">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -491,7 +492,7 @@ function rdate(mixed $value): string
                                         <p>Escolha uma ação para esta seleção.</p>
                                     </div>
 
-                                    <form method="post" class="reporting-review-resolve-form" onsubmit="return confirm('Confirmar resultado manual desta seleção?');">
+                                    <form method="post" class="reporting-review-resolve-form" data-dialog-confirm data-dialog-tone="warning">
                                         <input type="hidden" name="csrf" value="<?=rh(Auth::csrf())?>">
                                         <input type="hidden" name="action" value="review_resolve">
                                         <input type="hidden" name="leg_id" value="<?=rh($review['id'])?>">
@@ -795,6 +796,7 @@ function rdate(mixed $value): string
     window.addEventListener('painel-atualizado',init);
 })();
 </script>
+<script src="/assets/dialogs.js?v=3" defer></script>
 <script src="/assets/live.js?v=2" defer></script>
 <script src="/assets/toast.js" defer></script>
 </body>
