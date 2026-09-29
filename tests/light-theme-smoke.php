@@ -36,6 +36,7 @@ $pages=[
 ];
 
 ltOk(str_contains($css,'TMR_LIGHT_THEME_AUDIT_V2'),'auditoria clara v2 presente');
+ltOk(str_contains($css,'TMR_LIGHT_THEME_VISUAL_V3'),'passagem visual clara v3 presente');
 ltOk(str_contains($css,'.integrations-overview-v10-copy strong'),'cabecalho de integracoes possui contraste claro');
 ltOk(str_contains($css,'.integrations-section-heading h2'),'titulo de secao de integracoes possui contraste claro');
 ltOk(str_contains($css,'.provider-head p'),'descricao de provider possui contraste claro');
@@ -57,10 +58,10 @@ ltOk(str_contains($css,'.reporting-switch-row>input'),'switches de relatorios po
 ltOk(str_contains($css,'.reporting-choice>input'),'radios de relatorios possuem tema claro');
 ltOk(str_contains($css,'.reporting-status-badge.green'),'status do relatorio possui cores semanticas claras');
 ltOk(str_contains($css,'.reporting-history-row-dark>td'),'zebrado claro permanece coberto');
-ltOk(str_contains($runtime,'/assets/brand/theme.css?v=2'),'runtime injeta CSS claro v2');
+ltOk(str_contains($runtime,'/assets/brand/theme.css?v=3'),'runtime injeta CSS claro v2');
 
 foreach($pages as $name=>$page){
-    ltOk(str_contains($page,'/assets/brand/theme.css?v=2'),$name.' invalida cache do tema claro');
+    ltOk(str_contains($page,'/assets/brand/theme.css?v=3'),$name.' invalida cache do tema claro');
 }
 
 foreach([
