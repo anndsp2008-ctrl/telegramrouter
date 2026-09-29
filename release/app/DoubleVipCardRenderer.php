@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace App;
+require_once __DIR__.'/MatchNameFormatter.php';
 
 final class DoubleVipCardRenderer
 {
@@ -10,7 +11,7 @@ final class DoubleVipCardRenderer
 
     public static function extractionInstruction(): string
     {
-        return 'DUPLAS: Doble também é cabeçalho de aposta dupla. Para exatamente 2 seleções de jogos distintos, preencha double_legs como STRING contendo um array JSON de exatamente 2 objetos, na ordem do bilhete. Cada objeto tem strings match, market, selection, odd, market_evidence, selection_evidence, promotion. Use apenas os jogos e odds visíveis na imagem quando houver imagem; a legenda não adiciona seleções. Traduza match/market/selection conforme o idioma solicitado, mas copie as evidências sem tradução. promotion deve ser betano_early_payout_2 somente quando o selo promocional +2 estiver claramente visível em Resultado da partida da Betano; caso contrário use string vazia. O selo +2 da Betano é pagamento antecipado, NUNCA handicap: a seleção é o time vencer, não vencer/empatar/perder por um gol. Handicap real deve manter sua linha quando o MERCADO indicar handicap. odd no nível principal é a odd total EXIBIDA, nunca a recalcule. Não invente odds ausentes. Para simples, mais de 2 seleções ou Bet Builder do mesmo jogo, double_legs deve ser vazio. Para duplas sem análise do autor, analysis deve seguir a política global de análise e ser gerada normalmente. ';
+        return 'DUPLAS: Doble também é cabeçalho de aposta dupla. Para exatamente 2 seleções de jogos distintos, preencha double_legs como STRING contendo um array JSON de exatamente 2 objetos, na ordem do bilhete. Cada objeto tem strings match, market, selection, odd, market_evidence, selection_evidence, promotion. Use apenas os jogos e odds visíveis na imagem quando houver imagem; a legenda não adiciona seleções. Traduza match/market/selection conforme o idioma solicitado, mas copie as evidências sem tradução. Todo confronto deve usar exatamente o formato Time A vs Time B; x, X, ×, v e traços são aceitos somente na entrada. promotion deve ser betano_early_payout_2 somente quando o selo promocional +2 estiver claramente visível em Resultado da partida da Betano; caso contrário use string vazia. O selo +2 da Betano é pagamento antecipado, NUNCA handicap: a seleção é o time vencer, não vencer/empatar/perder por um gol. Handicap real deve manter sua linha quando o MERCADO indicar handicap. odd no nível principal é a odd total EXIBIDA, nunca a recalcule. Não invente odds ausentes. Para simples, mais de 2 seleções ou Bet Builder do mesmo jogo, double_legs deve ser vazio. Para duplas sem análise do autor, analysis deve seguir a política global de análise e ser gerada normalmente. ';
     }
 
     public static function isDouble(array $data,bool $hasImage): bool
@@ -35,6 +36,7 @@ final class DoubleVipCardRenderer
                 $leg[$field]=trim($leg[$field]??'');
                 if(mb_strlen($leg[$field],'UTF-8')>300)return null;
             }
+            $leg['match']=MatchNameFormatter::normalize($leg['match']);
             foreach(['match','market','selection'] as $field)if($leg[$field]==='')return null;
             if($hasImage && ($leg['market_evidence']===''||$leg['selection_evidence']===''))return null;
             if($leg['odd']!=='' && !self::validOdd($leg['odd']))return null;
@@ -69,7 +71,7 @@ final class DoubleVipCardRenderer
     {
         $lines=['🏆 DUPLA • 2 seleções',''];
         foreach($bet['legs'] as $index=>$leg){
-            $lines[]='⚽ '.($index+1).'. '.$leg['match'];
+            $lines[]='⚽ '.($index+1).'. '.MatchNameFormatter::normalize((string)$leg['match']);
             $lines[]='🎯 Mercado: '.$leg['market'];
             $lines[]='✅ Seleção: '.$leg['selection'];
             $lines[]='📈 Odd: '.self::odd($leg['odd']);
@@ -99,7 +101,7 @@ final class DoubleVipCardRenderer
     {
         $rows=[];$y=255;
         foreach($bet['legs'] as $index=>$leg){
-            $match=self::wrap($leg['match'],$bold,27,635);
+            $match=self::wrap(MatchNameFormatter::normalize((string)$leg['match']),$bold,27,635);
             $market=self::wrap(mb_strtoupper($leg['market'],'UTF-8'),$font,17,635);
             $selection=self::wrap($leg['selection'],$bold,30,635);
             if($match===null||$market===null||$selection===null)return null;
