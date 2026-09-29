@@ -31,6 +31,8 @@ on:
       - 'runtime-dialog-system.php'
       - 'tests/project-dialogs-smoke.php'
       - 'tests/light-theme-smoke.php'
+      - 'tests/light-theme-visual-fixture.html'
+      - 'scripts/capture-light-theme-visuals.sh'
       - 'assets/brand/theme.css'
       - 'runtime-theme.php'
       - 'tests/routing-exclusion-smoke.php'
@@ -145,6 +147,17 @@ jobs:
           test "$(grep -o 'href="/reports.php"' index.php | wc -l)" -eq 2
           test "$(grep -o 'href="/results.php"' index.php | wc -l)" -eq 0
           echo STANDALONE_ROUTING_TESTS_PASSED
+      - name: Capture light theme visual audit
+        run: |
+          chmod +x scripts/capture-light-theme-visuals.sh
+          scripts/capture-light-theme-visuals.sh
+      - name: Upload light theme visual audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: light-theme-visual-audit
+          path: .visual-audit/light-theme/*.png
+          if-no-files-found: error
+          retention-days: 3
       - name: Report non-secret runtime code hashes for comparison
         run: |
           echo RELEASE_ROUTER_SHA256_12=$(sha256sum release/app/TelegramRouter.php | cut -c1-12)
