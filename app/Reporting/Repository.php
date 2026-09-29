@@ -206,30 +206,46 @@ final class Repository
 
     public static function rescheduleUnmatchedLeg(int $legId, int $minutes = 60): void
     {
-        $minutes = max(15, min(360, $minutes));
-        Database::pdo()->exec(
+        // Sparse API policy: an unmatched ticket is never polled every few minutes.
+        // Keep one overnight recovery window (00:15 America/Sao_Paulo), which also
+        // preserves the already-scheduled pending sweep requested for tonight.
+        $next = self::nextSparseLookupUtc();
+        $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
-             SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$minutes.' MINUTE)
-             WHERE id='.(int)$legId.' AND fixture_id IS NULL AND status="PENDING"'
+             SET next_check_at=?
+             WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
         );
+        $stmt->execute([$next, $legId]);
     }
 
     public static function recordLookupFailure(int $legId, string $reason, int $retryMinutes = 15): int
     {
-        $retryMinutes = max(15, min(180, $retryMinutes));
         $reason = mb_substr(trim($reason), 0, 64);
+        $next = self::nextSparseLookupUtc();
         $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
              SET lookup_attempts=lookup_attempts+1,
                  lookup_last_reason=?,
-                 next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$retryMinutes.' MINUTE)
+                 next_check_at=?
              WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
         );
-        $stmt->execute([$reason, $legId]);
+        $stmt->execute([$reason, $next, $legId]);
 
         $read = Database::pdo()->prepare('SELECT lookup_attempts FROM reporting_legs WHERE id=?');
         $read->execute([$legId]);
         return (int)$read->fetchColumn();
+    }
+
+    private static function nextSparseLookupUtc(): string
+    {
+        $localTz = new \DateTimeZone('America/Sao_Paulo');
+        $utcTz = new \DateTimeZone('UTC');
+        $now = new \DateTimeImmutable('now', $localTz);
+        $candidate = $now->setTime(0, 15, 0);
+        if ($candidate <= $now) {
+            $candidate = $candidate->modify('+1 day');
+        }
+        return $candidate->setTimezone($utcTz)->format('Y-m-d H:i:s');
     }
 
     public static function requeuePendingUnmatchedForRetryPolicyOnce(): int
@@ -453,9 +469,10 @@ final class Repository
         $next = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         if ($kickoff !== '') {
             try {
-                // Primeira consulta de resultado somente após a janela normal da partida:
-                // 90 min de jogo + intervalo + acréscimos/margem operacional.
-                // Até esse instante o worker não consulta novamente a API para este fixture.
+                // Sparse API policy: depois de identificar o fixture/horário oficial,
+                // não existe polling durante a partida. A próxima chamada fica para
+                // 15 min após o término estimado (90 min + intervalo/acréscimos = 110;
+                // margem pós-jogo = 15; total = kickoff + 125 min).
                 $candidate = (new \DateTimeImmutable($kickoff, new \DateTimeZone('UTC')))->modify('+125 minutes');
                 if ($candidate > $next) {
                     $next = $candidate;
@@ -533,6 +550,17 @@ final class Repository
              SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$minutes.' MINUTE)
              WHERE fixture_id='.(int)$fixtureId.' AND status="PENDING"'
         );
+    }
+
+    public static function rescheduleFixtureAtNextSweep(int $fixtureId): void
+    {
+        $next = self::nextSparseLookupUtc();
+        $stmt = Database::pdo()->prepare(
+            'UPDATE reporting_legs
+             SET next_check_at=?
+             WHERE fixture_id=? AND status="PENDING"'
+        );
+        $stmt->execute([$next, $fixtureId]);
     }
 
     public static function settleLeg(int $legId, array $result, array $details): void

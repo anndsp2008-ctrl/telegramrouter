@@ -3,9 +3,11 @@
 require __DIR__ . '/../app/Reporting/TicketNormalizer.php';
 require __DIR__ . '/../app/Reporting/SettlementEngine.php';
 require __DIR__ . '/../app/Reporting/FixtureMatcher.php';
+require __DIR__ . '/../app/Reporting/ResultWorker.php';
 
 use App\Reporting\SettlementEngine;
 use App\Reporting\TicketNormalizer;
+use App\Reporting\ResultWorker;
 
 function assertTrue(bool $condition, string $label): void
 {
@@ -84,6 +86,18 @@ foreach([
     ]);
     assertTrue(($normalized['legs'][0]['match'] ?? '') === 'Time A vs Time B', 'regra global vs: '.$legacyMatch);
 }
+
+$needsStatistics = new ReflectionMethod(ResultWorker::class, 'needsStatistics');
+$needsStatistics->setAccessible(true);
+assertTrue($needsStatistics->invoke(null, [['market_key'=>'match_result']]) === false, 'resultado nao consome endpoint de estatisticas');
+assertTrue($needsStatistics->invoke(null, [['market_key'=>'goals_total']]) === false, 'gols nao consomem endpoint de estatisticas');
+assertTrue($needsStatistics->invoke(null, [['market_key'=>'corners_total']]) === true, 'escanteios consultam estatisticas somente na liquidacao');
+
+$postMatchRetry = new ReflectionMethod(ResultWorker::class, 'postMatchRetryMinutes');
+$postMatchRetry->setAccessible(true);
+assertTrue($postMatchRetry->invoke(null, '2H', 80.0) === 25, '2H agenda unica consulta 15 min apos fim projetado');
+assertTrue($postMatchRetry->invoke(null, 'HT', null) === 60, 'intervalo agenda somente consulta pos-jogo');
+assertTrue($postMatchRetry->invoke(null, 'ET', 110.0) === 25, 'prorrogacao agenda consulta pos-fim projetado');
 
 $matchSides = new ReflectionMethod(\App\Reporting\FixtureMatcher::class, 'matchSides');
 $fixtureSides = $matchSides->invoke(null, 'Turquia – Itália');
