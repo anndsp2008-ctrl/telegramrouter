@@ -821,21 +821,21 @@
 .reporting-table th,.reporting-table td{padding-left:6px;padding-right:6px}
 .reporting-table td{vertical-align:middle}
 .reporting-table td:first-child{color:#73dccc}
-/* leitura do histórico: linhas alternadas sem interferir no accordion */
+/* leitura do histórico: zebrado visível e estável para conferência rápida */
 .reporting-table tbody>.reporting-history-row-light>td{
-  background:rgba(255,255,255,.032);
+  background:rgba(255,255,255,.052)!important;
 }
 .reporting-table tbody>.reporting-history-row-dark>td{
-  background:rgba(3,9,15,.22);
+  background:rgba(2,8,14,.38)!important;
 }
 .reporting-table tbody>.reporting-history-row>td{
   transition:background .16s ease;
 }
 .reporting-table tbody>.reporting-history-row-light:hover>td{
-  background:rgba(255,255,255,.047);
+  background:rgba(255,255,255,.075)!important;
 }
 .reporting-table tbody>.reporting-history-row-dark:hover>td{
-  background:rgba(10,23,33,.62);
+  background:rgba(10,23,33,.72)!important;
 }
 .reporting-table th:nth-child(1),.reporting-table td:nth-child(1){width:44px}
 .reporting-table th:nth-child(2),.reporting-table td:nth-child(2){width:136px}
@@ -955,10 +955,10 @@
   border-bottom-color:transparent!important
 }
 .reporting-history-parent.reporting-history-row-light.is-expanded>td{
-  background:linear-gradient(rgba(97,223,203,.018),rgba(97,223,203,.018)),rgba(255,255,255,.032);
+  background:linear-gradient(rgba(97,223,203,.025),rgba(97,223,203,.025)),rgba(255,255,255,.052)!important;
 }
 .reporting-history-parent.reporting-history-row-dark.is-expanded>td{
-  background:linear-gradient(rgba(97,223,203,.018),rgba(97,223,203,.018)),rgba(3,9,15,.22);
+  background:linear-gradient(rgba(97,223,203,.025),rgba(97,223,203,.025)),rgba(2,8,14,.38)!important;
 }
 .reporting-history-accordion-row>td{
   padding:0!important;
