@@ -552,6 +552,17 @@ final class Repository
         );
     }
 
+    public static function rescheduleFixtureAtNextSweep(int $fixtureId): void
+    {
+        $next = self::nextSparseLookupUtc();
+        $stmt = Database::pdo()->prepare(
+            'UPDATE reporting_legs
+             SET next_check_at=?
+             WHERE fixture_id=? AND status="PENDING"'
+        );
+        $stmt->execute([$next, $fixtureId]);
+    }
+
     public static function settleLeg(int $legId, array $result, array $details): void
     {
         $payload = $details;
