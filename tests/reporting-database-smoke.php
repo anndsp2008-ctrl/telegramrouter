@@ -147,11 +147,14 @@ ok((int)($retryRow['lookup_attempts']??-1)===0,'reagendamento zera tentativas an
 ok(($retryRow['lookup_last_reason']??'')==='retry_policy_requeue','reagendamento registra motivo');
 ok((int)($retryRow['due_now']??0)===1,'reagendamento deixa consulta vencida agora');
 
-$attempts=Repository::recordLookupFailure((int)$id,'not_found',15);
+$attempts=Repository::recordLookupFailure((int)$id,'not_found');
 ok($attempts===1,'falha de lookup contabilizada');
 $retryAt=(string)$pdo->query('SELECT next_check_at FROM reporting_legs LIMIT 1')->fetchColumn();
-$retrySeconds=(new DateTimeImmutable($retryAt,new DateTimeZone('UTC')))->getTimestamp()-time();
-ok($retrySeconds>=840 && $retrySeconds<=960,'nova tentativa fica em aproximadamente 15 minutos');
+$retryUtc=new DateTimeImmutable($retryAt,new DateTimeZone('UTC'));
+$retryLocal=$retryUtc->setTimezone(new DateTimeZone('America/Sao_Paulo'));
+$retrySeconds=$retryUtc->getTimestamp()-time();
+ok($retryLocal->format('H:i')==='00:15','retry economico fica no sweep de 00:15');
+ok($retrySeconds>0 && $retrySeconds<=86460,'retry economico ocorre apenas na proxima janela noturna');
 
 $pdo->exec(
     'UPDATE reporting_legs
