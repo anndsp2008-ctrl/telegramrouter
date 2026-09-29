@@ -177,7 +177,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=7">
+<link rel="stylesheet" href="/assets/reporting.css?v=8">
 <link rel="stylesheet" href="/assets/dialogs.css?v=3">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -234,19 +234,24 @@ function rdate(mixed $value): string
                 <a href="#reporting-history">Histórico</a>
             </nav>
 
-            <section id="reporting-overview" class="overview-status <?=$systemEnabled?'is-good':'is-alert'?>">
+            <section id="reporting-overview" class="overview-status reporting-overview-status <?=$systemEnabled?'is-good':'is-alert'?>">
                 <div class="overview-status-icon"><i></i></div>
-                <div>
+                <div class="reporting-overview-copy">
                     <span class="saas-kicker">ESTADO DO MÓDULO</span>
                     <h2><?=$systemEnabled?'Relatórios ativos':'Relatórios desativados'?></h2>
                     <p><?=$systemEnabled
                         ? ($scopeSelected ? 'Acompanhando somente as regras selecionadas.' : 'Acompanhando todas as regras de roteamento.')
                         : 'O Router continua funcionando normalmente; apenas o acompanhamento de resultados está desligado.'?></p>
                 </div>
-                <div class="overview-status-meta">
-                    <span>Worker de resultados</span>
-                    <b><?=rh(rstateLabel($workerStatus))?></b>
-                    <span class="reporting-status-detail"><?=$scopeSelected?rh($selectedCount).' regras selecionadas':'Todos os canais'?></span>
+                <div class="reporting-overview-meta" aria-label="Estado operacional dos relatórios">
+                    <div class="reporting-overview-meta-item">
+                        <span>Worker de resultados</span>
+                        <strong><?=rh(rstateLabel($workerStatus))?></strong>
+                    </div>
+                    <div class="reporting-overview-meta-item">
+                        <span>Escopo monitorado</span>
+                        <strong class="reporting-overview-meta-accent"><?=$scopeSelected?rh($selectedCount).' regras selecionadas':'Todos os canais'?></strong>
+                    </div>
                 </div>
             </section>
 
