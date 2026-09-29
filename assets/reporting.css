@@ -971,6 +971,84 @@
 .reporting-status-badge.half-red{color:#f1bb79;background:#e6a95e12}
 .reporting-status-badge.review{color:#f2c974;background:#eac55d14}
 .reporting-status-badge.pending{color:#75d7e8;background:#55b9d512}
+.reporting-status-edit{
+  border:0;
+  cursor:pointer;
+  font:inherit;
+  line-height:1;
+  transition:transform .14s ease,filter .14s ease,box-shadow .14s ease;
+}
+.reporting-status-edit svg{
+  width:11px;
+  height:11px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.reporting-status-edit:hover,
+.reporting-status-edit:focus-visible{
+  filter:brightness(1.14);
+  box-shadow:0 0 0 2px rgba(115,226,208,.08);
+  outline:none;
+}
+.reporting-status-edit:active{transform:translateY(1px)}
+
+.reporting-status-editor-overlay[hidden]{display:none!important}
+.reporting-status-editor-dialog{width:min(560px,100%)}
+.reporting-status-editor-ticket{
+  margin-top:14px;
+  padding:10px 12px;
+  border:1px solid #ffffff0d;
+  border-radius:10px;
+  background:#ffffff04;
+  color:#8fe7d8;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.03em;
+}
+.reporting-status-editor-options{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  margin-top:14px;
+}
+.reporting-status-editor-option{
+  min-width:0;
+  cursor:pointer;
+}
+.reporting-status-editor-option input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+.reporting-status-editor-option>span{
+  width:100%;
+  min-height:42px;
+  justify-content:flex-start;
+  border:1px solid #ffffff0d;
+  padding:9px 11px;
+  transition:border-color .14s ease,background .14s ease,box-shadow .14s ease,transform .14s ease;
+}
+.reporting-status-editor-option:hover>span{
+  border-color:#ffffff18;
+  transform:translateY(-1px);
+}
+.reporting-status-editor-option input:focus-visible+span{
+  outline:2px solid rgba(115,226,208,.24);
+  outline-offset:2px;
+}
+.reporting-status-editor-option input:checked+span{
+  border-color:rgba(115,226,208,.42);
+  box-shadow:inset 0 0 0 1px rgba(115,226,208,.10),0 0 0 3px rgba(115,226,208,.045);
+}
+.reporting-status-editor-note{margin-top:14px}
+@media(max-width:520px){
+  .reporting-status-editor-options{grid-template-columns:1fr}
+  .reporting-status-editor-option>span{min-height:40px}
+}
+
 
 .reporting-empty{
   text-align:center;
