@@ -745,7 +745,7 @@ function rdate(mixed $value): string
             <input type="hidden" name="action" value="history_status_update">
             <input type="hidden" name="ticket_id" id="reporting-status-ticket-id" value="">
             <div class="tmr-dialog-body">
-                <p class="tmr-dialog-message">Escolha o novo status. A alteração manual é provisória enquanto a aposta ainda aguarda liquidação; quando a API-Football retornar um resultado definitivo, o resultado automático terá prioridade.</p>
+                <p class="tmr-dialog-message">Escolha o novo status. Qualquer status diferente de Pendente encerra esta aposta para a fila automática. A API-Football só voltará a consultar quando você definir o status como Pendente.</p>
                 <div class="reporting-status-editor-ticket" id="reporting-status-ticket-label"></div>
                 <div class="reporting-status-editor-options" role="radiogroup" aria-label="Novo status">
                     <?php foreach ([
@@ -765,7 +765,7 @@ function rdate(mixed $value): string
                 </div>
                 <div class="tmr-dialog-note reporting-status-editor-note">
                     <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><circle cx="12" cy="12" r="9"/></svg>
-                    <span>Status manual não cancela consultas já programadas. Ao escolher Pendente, a aposta é reaberta e volta imediatamente para a fila automática.</span>
+                    <span>Pendente mantém a liquidação automática como prioridade. Qualquer outro status é tratado como definição manual e remove a aposta da fila de consultas.</span>
                 </div>
             </div>
             <div class="tmr-dialog-actions">
