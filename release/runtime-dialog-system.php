@@ -52,10 +52,13 @@ try{
     }
 
     if(!str_contains($pages['reports'],'/assets/dialogs.css?v=3')){
+        $reportingCssAnchor=str_contains($pages['reports'],'/assets/reporting.css?v=7')
+            ? '<link rel="stylesheet" href="/assets/reporting.css?v=7">'
+            : '<link rel="stylesheet" href="/assets/reporting.css?v=6">';
         $pages['reports']=$replaceOnce(
             $pages['reports'],
-            '<link rel="stylesheet" href="/assets/reporting.css?v=6">',
-            '<link rel="stylesheet" href="/assets/reporting.css?v=6">'."\n".'<link rel="stylesheet" href="/assets/dialogs.css?v=3">',
+            $reportingCssAnchor,
+            $reportingCssAnchor."\n".'<link rel="stylesheet" href="/assets/dialogs.css?v=3">',
             'REPORTS_CSS'
         );
     }
