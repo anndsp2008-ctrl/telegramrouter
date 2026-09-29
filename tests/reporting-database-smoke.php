@@ -62,6 +62,8 @@ $pdo=Database::pdo();
 
 $excludeColumn=$pdo->query("SHOW COLUMNS FROM router_rules LIKE 'exclude_text'")->fetch(PDO::FETCH_ASSOC);
 ok(is_array($excludeColumn),'migracao cria coluna de exclusao nas regras');
+$manualStatusColumn=$pdo->query("SHOW COLUMNS FROM reporting_tickets LIKE 'manual_status_override'")->fetch(PDO::FETCH_ASSOC);
+ok(is_array($manualStatusColumn),'migracao cria override manual de status no ticket');
 
 foreach(['result_tracking_settings','result_tracking_bets','result_tracking_daily_reports','result_tracking_rules'] as $legacy){
     $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?");
@@ -233,5 +235,26 @@ Repository::markOutboxSent((int)$outbox['id'],12345);
 $status=$pdo->query('SELECT status FROM reporting_daily_reports LIMIT 1')->fetchColumn();
 ok($status==='SENT','relatorio marcado enviado');
 ok((int)$pdo->query('SELECT COUNT(*) FROM reporting_outbox WHERE status="SENT"')->fetchColumn()===1,'outbox marcada enviada');
+
+Repository::manualSetTicketStatus((int)$id,'RED');
+$manualRed=$pdo->query('SELECT status,profit_units,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
+ok(($manualRed['status']??'')==='RED','status do historico pode ser alterado manualmente para red');
+ok(abs((float)($manualRed['profit_units']??0)+10.0)<0.0001,'red manual recalcula resultado financeiro');
+ok(($manualRed['manual_status_override']??'')==='RED','override manual fica persistido');
+ok((string)$pdo->query('SELECT status FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()==='RED','alteracao manual encerra legs e evita nova consulta');
+
+Repository::recomputeTicket((int)$id);
+ok((string)$pdo->query('SELECT status FROM reporting_tickets WHERE id='.(int)$id)->fetchColumn()==='RED','recalculo automatico respeita override manual');
+
+Repository::manualSetTicketStatus((int)$id,'PENDING');
+$manualPending=$pdo->query('SELECT status,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
+ok(($manualPending['status']??'')==='PENDING','status manual pode reabrir aposta como pendente');
+ok(($manualPending['manual_status_override']??null)===null,'reabrir pendente devolve controle para automacao');
+ok((int)$pdo->query('SELECT next_check_at<=UTC_TIMESTAMP() FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()===1,'reabrir pendente coloca aposta novamente na fila');
+
+Repository::manualSetTicketStatus((int)$id,'HALF_RED');
+$manualHalfRed=$pdo->query('SELECT status,profit_units FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
+ok(($manualHalfRed['status']??'')==='HALF_RED','status pode ser alterado novamente a qualquer momento');
+ok(abs((float)($manualHalfRed['profit_units']??0)+5.0)<0.0001,'half red manual recalcula metade da stake');
 
 echo "REPORTING_DATABASE_SMOKE_PASSED\n";
