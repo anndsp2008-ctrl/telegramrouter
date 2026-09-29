@@ -15,6 +15,8 @@
   };
 
   const shouldPause = () => {
+    if (document.body.classList.contains('tmr-dialog-lock')) return true;
+
     const active = document.activeElement;
     const reportsDirty = document.querySelector('#reporting-settings-form[data-dirty="1"]');
     const reportingInteractionActive = isReportingPage() && Date.now() < reportingInteractionUntil;
