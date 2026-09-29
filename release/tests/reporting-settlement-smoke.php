@@ -114,6 +114,10 @@ $teamLookupPosition=strpos($fixtureMatcherSource,'$teamA = $this->safeResolveTea
 assertTrue($dateLookupPosition!==false && $teamLookupPosition!==false && $dateLookupPosition<$teamLookupPosition, 'matcher consulta calendario antes de /teams?search');
 assertTrue(str_contains($fixtureMatcherSource,'private array $dateFailureMessages = [];'), 'matcher evita repetir falha da mesma data dentro do ciclo');
 
+$reportingRepositorySource=(string)file_get_contents(__DIR__.'/../app/Reporting/Repository.php');
+assertTrue(str_contains($reportingRepositorySource, '$candidate = $now->setTime(23, 59, 0);'), 'sweep noturno fica em 23:59 America/Sao_Paulo');
+assertTrue(!str_contains($reportingRepositorySource, '$candidate = $now->setTime(0, 15, 0);'), 'sweep antigo de 00:15 foi removido');
+
 $resultWorkerSource=(string)file_get_contents(__DIR__.'/../app/Reporting/ResultWorker.php');
 assertTrue(str_contains($resultWorkerSource,'if ($attempts >= 3)'), 'lookup permite dois retries controlados antes de revisao');
 assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 30);'), 'fixture vazio ou interrompido recebe retry curto');

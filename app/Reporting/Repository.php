@@ -265,7 +265,7 @@ final class Repository
         $localTz = new \DateTimeZone('America/Sao_Paulo');
         $utcTz = new \DateTimeZone('UTC');
         $now = new \DateTimeImmutable('now', $localTz);
-        $candidate = $now->setTime(0, 15, 0);
+        $candidate = $now->setTime(23, 59, 0);
         if ($candidate <= $now) {
             $candidate = $candidate->modify('+1 day');
         }
