@@ -2,7 +2,10 @@
 
 namespace App\Reporting;
 
+require_once dirname(__DIR__).'/MatchNameFormatter.php';
+
 use App\Database;
+use App\MatchNameFormatter;
 use PDO;
 use Throwable;
 
@@ -1094,6 +1097,43 @@ final class Repository
         unset($ticket);
 
         return $tickets;
+    }
+
+    public static function normalizeStoredMatchNamesOnce(): int
+    {
+        Schema::migrate();
+        $stateKey = 'global_match_vs_v1';
+
+        $check = Database::pdo()->prepare(
+            'SELECT state_value FROM reporting_runtime_state WHERE state_key=? LIMIT 1'
+        );
+        $check->execute([$stateKey]);
+        if ((string)$check->fetchColumn() === 'done') {
+            return 0;
+        }
+
+        $pdo = Database::pdo();
+        $rows = $pdo->query(
+            'SELECT id,match_name FROM reporting_legs ORDER BY id'
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $update = $pdo->prepare(
+            'UPDATE reporting_legs SET match_name=? WHERE id=?'
+        );
+        $changed = 0;
+
+        foreach ($rows as $row) {
+            $current = (string)($row['match_name'] ?? '');
+            $normalized = MatchNameFormatter::normalize($current);
+            if ($normalized === '' || $normalized === $current) {
+                continue;
+            }
+            $update->execute([$normalized, (int)$row['id']]);
+            $changed += $update->rowCount();
+        }
+
+        Schema::setState($stateKey, 'done');
+        return $changed;
     }
 
     public static function pendingQueueSummary(): array

@@ -63,6 +63,15 @@ foreach($fixtures as $fixture){
     if($bet===null)throw new RuntimeException('Fixture extraction failed: '.$fixture['expected']);
     if(($bet['kind']??'')!==$fixture['expected'])throw new RuntimeException('Wrong type: '.$fixture['expected']);
     if(($bet['stake']??'')!=='10')throw new RuntimeException('Stake normalization failed');
+    foreach((array)($bet['legs']??[]) as $leg){
+        $match=(string)($leg['match']??'');
+        if(preg_match('/\s+(?:x|×|v|[-–—−])\s+/iu',$match)){
+            throw new RuntimeException('Global vs matchup format failed: '.$match);
+        }
+        if(preg_match('/\s+vs\s+/iu',$match)===1 && !str_contains($match,' vs ')){
+            throw new RuntimeException('Global vs casing/spacing failed: '.$match);
+        }
+    }
     if($fixture['expected']==='simple' && ($bet['odd']??'')!=='1.82'){
         throw new RuntimeException('Odd decimal point normalization failed');
     }
@@ -86,7 +95,7 @@ foreach($fixtures as $fixture){
         }
         if(str_contains($caption,'📈 Odd:'))throw new RuntimeException('Bet Builder caption exposed per-selection odd');
         if(substr_count($caption,'Odd total:')!==1)throw new RuntimeException('Bet Builder must expose one total odd only');
-        if(substr_count($caption,'⚽ Inglaterra x Espanha')!==1)throw new RuntimeException('Bet Builder event must be shown once');
+        if(substr_count($caption,'⚽ Inglaterra vs Espanha')!==1)throw new RuntimeException('Bet Builder event must be shown once');
         if(str_contains($caption,'⚽ 1.')||str_contains($caption,'⚽ 2.'))throw new RuntimeException('Bet Builder caption looks like separate bets');
         if(!str_contains($caption,'🧩 Seleções (2) da mesma aposta:'))throw new RuntimeException('Bet Builder single-wager wording missing');
     }

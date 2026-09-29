@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace App;
+require_once __DIR__.'/MatchNameFormatter.php';
 require_once __DIR__.'/StakeOddsProvider.php';
 require_once __DIR__.'/SportsApiIntegration.php';
 
@@ -26,7 +27,7 @@ final class AdaptiveVipCardRenderer
             .'Não invente jogos, mercados, seleções, datas ou odds. odd no nível principal é a odd total exibida no bilhete; não recalcule. REGRA GLOBAL DE ODDS: toda odd decimal deve usar ponto como separador (ex.: 1.50, 1.65, 2.10), nunca vírgula. '
             .'Em analysis, preserve a análise do autor quando existir; quando não existir, siga a política global e gere a análise profissional também para simples, dupla, múltipla e Bet Builder. '
             .'REGRA SEMÂNTICA DE BET BUILDER: Bet Builder é UMA ÚNICA APOSTA composta por duas ou mais condições/seleções do MESMO JOGO. Na análise, nunca descreva essas condições como duas apostas, duas entradas, apostas separadas ou apostas independentes. Use termos como "uma única aposta", "duas condições da mesma aposta" ou "seleções combinadas no mesmo Bet Builder". '
-            .'O card nunca deve exibir horário do jogo. ';
+            .'Todo confronto deve sair no formato Time A vs Time B, nunca com x, X, × ou traços entre os times. O card nunca deve exibir horário do jogo. ';
     }
 
     public static function extract(array $data,string $sourceText='',bool $hasImage=false): ?array
@@ -39,7 +40,7 @@ final class AdaptiveVipCardRenderer
         }
 
         if($legs===[]){
-            $match=trim((string)($data['match']??''));
+            $match=MatchNameFormatter::normalize(trim((string)($data['match']??'')));
             $market=trim((string)($data['market']??''));
             $selection=trim((string)($data['selection']??''));
             if($match!==''&&$market!==''&&$selection!==''){
@@ -104,7 +105,7 @@ final class AdaptiveVipCardRenderer
         foreach($decoded as $row){
             if(!is_array($row))return [];
             $sport=self::cleanText($row['sport']??'',80);
-            $match=self::cleanText($row['match']??'',240);
+            $match=MatchNameFormatter::normalize(self::cleanText($row['match']??'',240));
             $league=self::cleanText($row['league']??'',180);
             $date=self::dateOnly((string)($row['date']??''));
             $market=self::cleanText($row['market']??'',220);

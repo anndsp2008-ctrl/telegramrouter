@@ -4,6 +4,7 @@ require __DIR__ . '/bootstrap.php';
 
 use App\Auth;
 use App\Database;
+use App\MatchNameFormatter;
 use App\Repository as RouterRepository;
 use App\Reporting\Repository;
 use App\Reporting\Schema;
@@ -468,7 +469,7 @@ function rdate(mixed $value): string
 
                                     <div class="reporting-review-event">
                                         <span>Evento</span>
-                                        <strong><?=rh($review['match_name'])?></strong>
+                                        <strong><?=rh(MatchNameFormatter::normalize((string)$review['match_name']))?></strong>
                                     </div>
 
                                     <div class="reporting-review-meta-grid">
@@ -572,7 +573,7 @@ function rdate(mixed $value): string
                                             <span class="reporting-history-empty-value">—</span>
                                         <?php elseif($expandable): ?>
                                             <div class="reporting-history-summary">
-                                                <b><?=rh($firstLeg['match_name']??'—')?></b>
+                                                <b><?=rh(MatchNameFormatter::normalize((string)($firstLeg['match_name']??'—')))?></b>
                                                 <small><?=rh(count($historyLegs))?> jogos neste bilhete</small>
                                                 <button
                                                     type="button"
@@ -588,7 +589,7 @@ function rdate(mixed $value): string
                                         <?php else: ?>
                                             <?php foreach($historyLegs as $leg): ?>
                                                 <div class="reporting-history-leg">
-                                                    <b><?=rh($leg['match_name'])?></b>
+                                                    <b><?=rh(MatchNameFormatter::normalize((string)$leg['match_name']))?></b>
                                                 </div>
                                             <?php endforeach; ?>
                                         <?php endif; ?>

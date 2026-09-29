@@ -2,6 +2,9 @@
 
 namespace App\Reporting;
 
+require_once dirname(__DIR__).'/MatchNameFormatter.php';
+use App\MatchNameFormatter;
+
 final class TicketNormalizer
 {
     public static function fromModel(array $model): ?array
@@ -62,7 +65,7 @@ final class TicketNormalizer
     private static function normalizeLeg(array $raw, int $position): ?array
     {
         $sport = trim((string)($raw['sport'] ?? ''));
-        $match = trim((string)($raw['match'] ?? ''));
+        $match = MatchNameFormatter::normalize(trim((string)($raw['match'] ?? '')));
         $league = trim((string)($raw['league'] ?? ''));
         $market = trim((string)($raw['market'] ?? ''));
         $selection = trim((string)($raw['selection'] ?? ''));

@@ -67,7 +67,7 @@ $bet=['match'=>'Venezia × Lazio','league'=>'Itália • Série A',
   'odd'=>'2,00','time'=>'19h45','day'=>'Sábado',
   'analysis'=>'A Lazio chega invicta para enfrentar o Venezia, último colocado, buscando manter seu bom início de temporada.'];
 $text=SmartFormatting::asText($bet,true);
-foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $required){
+foreach(['Venezia vs Lazio','Vitória da Lazio','A Lazio chega invicta'] as $required){
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
@@ -171,7 +171,7 @@ $lowerTip=array_merge($bet,[
 $lowerOriginal=$lowerTip;
 $lowerCard=SmartFormatting::cardView($lowerTip);
 $lowerText=SmartFormatting::asText($lowerCard,true);
-foreach(['Real madrid x barcelona','Resultado final. Vitória ou empate',
+foreach(['Real madrid vs barcelona','Resultado final. Vitória ou empate',
     'Vitória do real madrid','O time chega motivado. A odd é 1.75',
     "\nNovo parágrafo.",'Odd: 1.75','Stake: 10'] as $fragment){
     if(!str_contains($lowerText,$fragment))
@@ -246,8 +246,8 @@ foreach([[],['stake'=>''],['stake'=>'2'],['stake'=>'6/10'],['stake'=>'999']] as 
             throw new RuntimeException('Fixed stake missing or original stake was forwarded');
     }
     $view=SmartFormatting::cardView($fixture);
-    if(($view['stake']??'')!=='10' || ($view['match']??'')!==$bet['match'])
-        throw new RuntimeException('Card view did not apply fixed Stake 10');
+    if(($view['stake']??'')!=='10' || ($view['match']??'')!=='Venezia vs Lazio')
+        throw new RuntimeException('Card view did not apply fixed Stake 10 or global vs format');
 }
 $moneyFixture=array_merge($bet,['stake'=>'3','stake_amount'=>'R$ 200,00',
     'potential_return'=>'R$ 400,00','odd'=>'2,00']);
@@ -342,7 +342,7 @@ $cardFixture['bookmaker']='WINAMAX';
 $cardFixture['day']='Sábado';
 $cardView=SmartFormatting::cardView($cardFixture);
 $cardText=SmartFormatting::asText($cardView,true);
-foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1.60','Stake: 10',
+foreach(['Athletic Bilbao vs Alavés','Vitória do Athletic Bilbao','1.60','Stake: 10',
          'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
     if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
 }
