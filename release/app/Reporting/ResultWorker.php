@@ -144,9 +144,13 @@ final class ResultWorker
                     continue;
                 }
 
-                $stats = self::buildStats($fixture, $api->statistics($fixtureId));
+                $pendingLegs = Repository::pendingLegsForFixture($fixtureId);
+                $statistics = self::needsStatistics($pendingLegs)
+                    ? $api->statistics($fixtureId)
+                    : [];
+                $stats = self::buildStats($fixture, $statistics);
                 $stats['fixture_status']=$short;
-                foreach (Repository::pendingLegsForFixture($fixtureId) as $leg) {
+                foreach ($pendingLegs as $leg) {
                     $result = SettlementEngine::settle($leg, $stats);
                     Repository::settleLeg((int)$leg['id'], $result, [
                         'fixture_id'=>$fixtureId,
@@ -163,6 +167,17 @@ final class ResultWorker
         Repository::setState('worker_status', 'ok');
         Repository::setState('worker_last_run_at', gmdate('Y-m-d H:i:s'));
         error_log('TMR_REPORTING_RUN_DONE');
+    }
+
+    private static function needsStatistics(array $legs): bool
+    {
+        foreach ($legs as $leg) {
+            $marketKey = (string)($leg['market_key'] ?? '');
+            if (preg_match('/(?:corners|fouls|cards)/', $marketKey) === 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function postMatchRetryMinutes(string $status, ?float $elapsed): int
