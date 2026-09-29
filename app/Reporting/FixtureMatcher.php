@@ -2,6 +2,9 @@
 
 namespace App\Reporting;
 
+require_once dirname(__DIR__).'/MatchNameFormatter.php';
+use App\MatchNameFormatter;
+
 final class FixtureMatcher
 {
     private array $dateCache = [];
@@ -292,22 +295,7 @@ final class FixtureMatcher
 
     private static function matchSides(string $match): array
     {
-        foreach ([
-            '/\s+[x×]\s+/iu',
-            '/\s+vs\.?\s+/iu',
-            '/\s+v\s+/iu',
-            '/\s+[-\x{2013}\x{2014}\x{2212}]\s+/u',
-        ] as $pattern) {
-            $parts = preg_split($pattern, trim($match), 2);
-            if (is_array($parts) && count($parts) === 2) {
-                $a = trim((string)$parts[0]);
-                $b = trim((string)$parts[1]);
-                if ($a !== '' && $b !== '') {
-                    return [$a, $b];
-                }
-            }
-        }
-        return [null, null];
+        return MatchNameFormatter::split($match);
     }
 
     private static function similarity(string $a, string $b): float
