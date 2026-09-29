@@ -720,6 +720,100 @@
   font-size:9px;
   white-space:nowrap;
 }
+.reporting-history-head{gap:16px}
+.reporting-history-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.reporting-pending-count{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:30px;
+  padding:6px 10px;
+  border:1px solid rgba(85,185,213,.20);
+  border-radius:999px;
+  background:rgba(85,185,213,.07);
+  color:#83dbea;
+  font-size:9px;
+  font-weight:750;
+  white-space:nowrap;
+}
+.reporting-pending-count i{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#75d7e8;
+  box-shadow:0 0 0 4px rgba(117,215,232,.08);
+}
+.reporting-force-pending-form{margin:0}
+.reporting-force-pending-btn{
+  min-height:30px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:6px 11px;
+  border:1px solid rgba(97,223,203,.25);
+  border-radius:9px;
+  background:linear-gradient(180deg,rgba(97,223,203,.10),rgba(97,223,203,.04));
+  color:#8ff3e3;
+  font:750 9px/1.1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:border-color .16s ease,background .16s ease,color .16s ease,opacity .16s ease;
+}
+.reporting-force-pending-btn svg{
+  width:14px;
+  height:14px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.reporting-force-pending-btn:hover:not(:disabled),
+.reporting-force-pending-btn:focus-visible:not(:disabled){
+  border-color:rgba(97,223,203,.48);
+  background:linear-gradient(180deg,rgba(97,223,203,.16),rgba(97,223,203,.07));
+  color:#dffdfa;
+  outline:none;
+}
+.reporting-force-pending-btn:disabled{
+  opacity:.48;
+  cursor:not-allowed;
+}
+@media(max-width:700px){
+  .reporting-history-head{
+    align-items:flex-start!important;
+    flex-direction:column;
+  }
+  .reporting-history-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+}
+@media(max-width:480px){
+  .reporting-history-actions{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    gap:8px;
+  }
+  .reporting-force-pending-form{
+    min-width:0;
+  }
+  .reporting-force-pending-btn{
+    width:100%;
+    min-height:34px;
+  }
+  .reporting-history-count{
+    grid-column:1/-1;
+    justify-self:start;
+  }
+}
 .reporting-table{
   min-width:900px;
   table-layout:fixed;
