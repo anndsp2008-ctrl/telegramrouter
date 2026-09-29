@@ -73,8 +73,7 @@ final class ResultWorker
 
                 $attempts = Repository::recordLookupFailure(
                     (int)$leg['id'],
-                    $lookupStatus,
-                    15
+                    $lookupStatus
                 );
 
                 if ($attempts >= 2) {
@@ -102,7 +101,7 @@ final class ResultWorker
                 }
             } catch (\Throwable $e) {
                 error_log('TMR_REPORTING_FIXTURE_MATCH_NON_FATAL ' . get_class($e) . ' ' . mb_substr($e->getMessage(), 0, 180));
-                Repository::rescheduleUnmatchedLeg((int)($leg['id'] ?? 0), 60);
+                Repository::rescheduleUnmatchedLeg((int)($leg['id'] ?? 0));
             }
         }
 
@@ -112,20 +111,28 @@ final class ResultWorker
             try {
                 $fixture = $api->fixture($fixtureId);
                 if ($fixture === []) {
-                    Repository::rescheduleFixture($fixtureId, 60);
+                    Repository::rescheduleFixtureAtNextSweep($fixtureId);
                     continue;
                 }
 
                 $short = strtoupper(trim((string)($fixture['fixture']['status']['short'] ?? '')));
+                $elapsed = self::number($fixture['fixture']['status']['elapsed'] ?? null);
 
-                // Depois da primeira janela pós-jogo, só consultas pontuais:
-                // não iniciado/adiado = espera longa; em andamento = espera curta.
-                if (in_array($short, ['PST','TBD','NS'], true)) {
-                    Repository::rescheduleFixture($fixtureId, 60);
+                // Sparse API policy:
+                // - nenhuma consulta periódica durante a partida;
+                // - a chamada normal ocorre em kickoff + 125 min;
+                // - se ainda estiver em andamento, agenda UMA nova consulta para
+                //   aproximadamente 15 min após o término projetado;
+                // - estados indefinidos/adiados aguardam o sweep noturno.
+                if (in_array($short, ['PST','TBD','NS','BT','INT','SUSP'], true)) {
+                    Repository::rescheduleFixtureAtNextSweep($fixtureId);
                     continue;
                 }
-                if (in_array($short, ['1H','HT','2H','ET','BT','INT','SUSP'], true)) {
-                    Repository::rescheduleFixture($fixtureId, 15);
+                if (in_array($short, ['1H','HT','2H','ET'], true)) {
+                    Repository::rescheduleFixture(
+                        $fixtureId,
+                        self::postMatchRetryMinutes($short, $elapsed)
+                    );
                     continue;
                 }
                 if (in_array($short, ['CANC','ABD','AWD','WO'], true)) {
@@ -133,7 +140,7 @@ final class ResultWorker
                     continue;
                 }
                 if (!in_array($short, ['FT','AET','PEN'], true)) {
-                    Repository::rescheduleFixture($fixtureId, 60);
+                    Repository::rescheduleFixtureAtNextSweep($fixtureId);
                     continue;
                 }
 
@@ -149,13 +156,26 @@ final class ResultWorker
                 }
             } catch (\Throwable $e) {
                 error_log('TMR_REPORTING_SETTLEMENT_NON_FATAL ' . get_class($e) . ' ' . mb_substr($e->getMessage(), 0, 180));
-                Repository::rescheduleFixture($fixtureId, 30);
+                Repository::rescheduleFixtureAtNextSweep($fixtureId);
             }
         }
 
         Repository::setState('worker_status', 'ok');
         Repository::setState('worker_last_run_at', gmdate('Y-m-d H:i:s'));
         error_log('TMR_REPORTING_RUN_DONE');
+    }
+
+    private static function postMatchRetryMinutes(string $status, ?float $elapsed): int
+    {
+        $elapsed = $elapsed !== null ? max(0.0, $elapsed) : null;
+
+        return match ($status) {
+            '1H' => max(30, (int)ceil(120 - ($elapsed ?? 45))),
+            'HT' => 60,
+            '2H' => max(15, (int)ceil(105 - ($elapsed ?? 75))),
+            'ET' => max(15, (int)ceil(135 - ($elapsed ?? 105))),
+            default => 60,
+        };
     }
 
     private static function buildStats(array $fixture, array $statistics): array
