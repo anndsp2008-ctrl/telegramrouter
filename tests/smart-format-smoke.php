@@ -67,7 +67,7 @@ $bet=['match'=>'Venezia × Lazio','league'=>'Itália • Série A',
   'odd'=>'2,00','time'=>'19h45','day'=>'Sábado',
   'analysis'=>'A Lazio chega invicta para enfrentar o Venezia, último colocado, buscando manter seu bom início de temporada.'];
 $text=SmartFormatting::asText($bet,true);
-foreach(['Venezia × Lazio','Vitória da Lazio','A Lazio chega invicta'] as $required){
+foreach(['Venezia vs Lazio','Vitória da Lazio','A Lazio chega invicta'] as $required){
   if(!str_contains($text,$required))throw new RuntimeException('Missing original detail: '.$required);
 }
 if(!str_contains(SmartFormatting::signature(),'⚡ TelegramRouter • Aposta encaminhada'))throw new RuntimeException('Signature mismatch');
