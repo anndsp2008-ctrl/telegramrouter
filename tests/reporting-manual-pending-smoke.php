@@ -17,7 +17,7 @@ ok(str_contains($page,'name="action" value="force_pending_check"'),'historico po
 ok(str_contains($page,'class="reporting-pending-count"'),'historico exibe selo de pendentes');
 ok(str_contains($page,'class="reporting-force-pending-btn"'),'historico possui botao ao lado do selo');
 ok(str_contains($page,'data-dialog-title="Reverificar todas as pendentes?"'),'acao manual possui confirmacao padronizada');
-ok(str_contains($page,'/assets/reporting.css?v=11'),'pagina invalida cache do novo estilo');
+ok(str_contains($page,'/assets/reporting.css?v=12'),'pagina invalida cache do novo estilo');
 
 ok(str_contains($css,'.reporting-history-actions{'),'acoes do historico possuem layout proprio');
 ok(str_contains($css,'.reporting-force-pending-btn{'),'botao manual segue estilo do projeto');
