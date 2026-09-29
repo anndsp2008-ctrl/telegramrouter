@@ -46,6 +46,15 @@ final class TelegramRouter extends SimpleEventHandler
         $identifiers=ChatMatcher::identifiers($source,$peerInfo);
         foreach(Repository::allRules() as $rule) {
             if(!(int)$rule['enabled'] || !$this->matches($identifiers,(string)$rule['source_chat'],$text,(string)$rule['trigger_text'])) continue;
+
+            // Negative trigger is a hard veto for this matched rule. Evaluate it
+            // before translation, AI, media download or any other paid processing.
+            $excluded=self::exclusionMatch($text,(string)($rule['exclude_text']??''));
+            if($excluded!==null){
+                $this->recordExcluded($source,(int)$message->id,$rule,$excluded);
+                break;
+            }
+
             $this->process($message,$source,$rule);
             break;
         }
@@ -74,6 +83,48 @@ final class TelegramRouter extends SimpleEventHandler
             if($term==='' || mb_stripos($text,$term,0,'UTF-8')===false) return false;
         }
         return true;
+    }
+
+    // Uma exclusão por linha. Linhas são OR entre si; dentro da linha,
+    // "termo 1 + termo 2" preserva a mesma semântica AND do gatilho positivo.
+    private static function exclusionMatch(string $text,string $exclude): ?string
+    {
+        $exclude=trim($exclude);
+        if($exclude==='') return null;
+
+        $rules=preg_split('/\R+/u',$exclude);
+        if(!is_array($rules)) return null;
+
+        foreach($rules as $rule){
+            $rule=trim($rule);
+            if($rule!=='' && self::triggerMatches($text,$rule)) return $rule;
+        }
+        return null;
+    }
+
+    private function recordExcluded(string $source,int $messageId,array $rule,string $matched): void
+    {
+        $matched=mb_substr(trim($matched),0,240,'UTF-8');
+        $details='Mensagem ignorada: condição de exclusão encontrada: '.$matched
+            .' | Nenhum encaminhamento, tradução ou IA foi executado.';
+        try {
+            $stmt=Database::pdo()->prepare(
+                "INSERT INTO router_events(source_chat,message_id,destination_chat,trigger_text,status,details)
+                 VALUES(?,?,?,?, 'skipped',?)"
+            );
+            $stmt->execute([
+                $source,
+                $messageId,
+                (string)($rule['destination_chat']??''),
+                (string)($rule['trigger_text']??''),
+                $details,
+            ]);
+        } catch(\PDOException $e) {
+            if((int)($e->errorInfo[1]??0)===1062) return;
+            error_log('TMR_ROUTING_EXCLUSION_LOG_FAILED '.get_class($e));
+        } catch(\Throwable $e) {
+            error_log('TMR_ROUTING_EXCLUSION_LOG_FAILED '.get_class($e));
+        }
     }
 
     private function process(Message $message,string $source,array $rule): void

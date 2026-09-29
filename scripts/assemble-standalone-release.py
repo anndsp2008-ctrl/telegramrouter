@@ -113,6 +113,7 @@ def main() -> None:
         "runtime-card-models.php",
         "runtime-reporting.php",
         "runtime-ai-learning.php",
+        "runtime-routing-exclusion.php",
     ]:
         if (TARGET / installer).is_file():
             run("php", installer, env=env)

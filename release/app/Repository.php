@@ -44,9 +44,9 @@ final class Repository
     public static function saveRule(array $in): void
     {
         $provider=self::normalizeProvider($in);
-        $sql='INSERT INTO router_rules (source_chat,trigger_text,destination_chat,media_mode,remove_links,remove_emojis,custom_removals,translation_enabled,translation_provider,translation_source_language,translation_target_language,translation_fallback_original,enabled) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)';
+        $sql='INSERT INTO router_rules (source_chat,trigger_text,exclude_text,destination_chat,media_mode,remove_links,remove_emojis,custom_removals,translation_enabled,translation_provider,translation_source_language,translation_target_language,translation_fallback_original,enabled) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
         Database::pdo()->prepare($sql)->execute([
-            (string)$in['source_chat'],(string)($in['trigger_text']??''),(string)$in['destination_chat'],(string)$in['media_mode'],
+            (string)$in['source_chat'],(string)($in['trigger_text']??''),trim((string)($in['exclude_text']??'')),(string)$in['destination_chat'],(string)$in['media_mode'],
             (int)!empty($in['remove_links']),(int)!empty($in['remove_emojis']),trim((string)($in['custom_removals']??'')," \t\r\n"),
             (int)!empty($in['translation_enabled']),$provider,(string)($in['translation_source_language']??'auto'),
             (string)($in['translation_target_language']??'pt-BR'),(int)!empty($in['translation_fallback_original']),(int)!empty($in['enabled'])
@@ -56,9 +56,9 @@ final class Repository
     public static function updateRule(int $id, array $in): void
     {
         $provider=self::normalizeProvider($in);
-        $sql='UPDATE router_rules SET source_chat=?,trigger_text=?,destination_chat=?,media_mode=?,remove_links=?,remove_emojis=?,custom_removals=?,translation_enabled=?,translation_provider=?,translation_source_language=?,translation_target_language=?,translation_fallback_original=?,enabled=? WHERE id=?';
+        $sql='UPDATE router_rules SET source_chat=?,trigger_text=?,exclude_text=?,destination_chat=?,media_mode=?,remove_links=?,remove_emojis=?,custom_removals=?,translation_enabled=?,translation_provider=?,translation_source_language=?,translation_target_language=?,translation_fallback_original=?,enabled=? WHERE id=?';
         Database::pdo()->prepare($sql)->execute([
-            (string)$in['source_chat'],(string)($in['trigger_text']??''),(string)$in['destination_chat'],(string)$in['media_mode'],
+            (string)$in['source_chat'],(string)($in['trigger_text']??''),trim((string)($in['exclude_text']??'')),(string)$in['destination_chat'],(string)$in['media_mode'],
             (int)!empty($in['remove_links']),(int)!empty($in['remove_emojis']),trim((string)($in['custom_removals']??'')," \t\r\n"),
             (int)!empty($in['translation_enabled']),$provider,(string)($in['translation_source_language']??'auto'),
             (string)($in['translation_target_language']??'pt-BR'),(int)!empty($in['translation_fallback_original']),(int)!empty($in['enabled']),$id

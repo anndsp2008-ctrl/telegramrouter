@@ -21,6 +21,15 @@ on:
       - 'tests/reporting-settlement-smoke.php'
       - 'tests/reporting-database-smoke.php'
       - 'tests/reporting-history-accordion-smoke.php'
+      - 'tests/routing-exclusion-smoke.php'
+      - 'release/tests/routing-exclusion-smoke.php'
+      - 'runtime-routing-exclusion.php'
+      - 'release/app/Database.php'
+      - 'release/app/Repository.php'
+      - 'release/app/TelegramRouter.php'
+      - 'release/database/schema.sql'
+      - 'release/index.php'
+      - 'index.php'
       - 'runtime-smart-format.php'
       - 'app/VipCardRenderer.php'
       - 'app/PurePngVipCardRenderer.php'
@@ -81,6 +90,10 @@ jobs:
           cd release
           composer install --no-interaction --no-scripts --optimize-autoloader --prefer-dist
           php -r 'require "vendor/autoload.php"; echo "STANDALONE_VENDOR_AUTOLOAD_PASSED\n";'
+      - name: Check routing negative triggers
+        run: |
+          cd release
+          php tests/routing-exclusion-smoke.php
       - name: Check reporting persistence against MySQL
         env:
           APP_KEY: test-app-key

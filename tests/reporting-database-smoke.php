@@ -60,6 +60,9 @@ function ok(bool $condition,string $label): void {
 Schema::migrate();
 $pdo=Database::pdo();
 
+$excludeColumn=$pdo->query("SHOW COLUMNS FROM router_rules LIKE 'exclude_text'")->fetch(PDO::FETCH_ASSOC);
+ok(is_array($excludeColumn),'migracao cria coluna de exclusao nas regras');
+
 foreach(['result_tracking_settings','result_tracking_bets','result_tracking_daily_reports','result_tracking_rules'] as $legacy){
     $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?");
     $q->execute([$legacy]);
