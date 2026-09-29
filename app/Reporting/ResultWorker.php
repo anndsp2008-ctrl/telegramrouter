@@ -109,6 +109,13 @@ final class ResultWorker
         error_log('TMR_REPORTING_FIXTURES_DUE ' . count($dueFixtureIds));
         foreach ($dueFixtureIds as $fixtureId) {
             try {
+                // Hard stop: se outra execução já liquidou este fixture depois
+                // da montagem da fila, não faça nova chamada à API-Football.
+                if (!Repository::fixtureHasPendingLegs($fixtureId)) {
+                    error_log('TMR_REPORTING_FIXTURE_SKIP_SETTLED ' . $fixtureId);
+                    continue;
+                }
+
                 $fixture = $api->fixture($fixtureId);
                 if ($fixture === []) {
                     Repository::rescheduleFixtureAtNextSweep($fixtureId);

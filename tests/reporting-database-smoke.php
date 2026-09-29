@@ -158,11 +158,14 @@ ok($retrySeconds>0 && $retrySeconds<=86460,'retry economico ocorre apenas na pro
 
 $pdo->exec(
     'UPDATE reporting_legs
-     SET next_check_at=UTC_TIMESTAMP(),
+     SET fixture_id=12345,
+         next_check_at=UTC_TIMESTAMP(),
          lookup_attempts=0,
          lookup_last_reason=NULL
      WHERE id='.(int)$id
 );
+ok(Repository::fixtureHasPendingLegs(12345)===true,'fixture pendente permanece elegivel para consulta');
+ok(in_array(12345,Repository::dueFixtureIds(),true),'fixture pendente entra na fila antes da liquidacao');
 
 $leg=$pdo->query('SELECT * FROM reporting_legs LIMIT 1')->fetch(PDO::FETCH_ASSOC);
 $result=SettlementEngine::settle($leg,[
@@ -173,6 +176,8 @@ $result=SettlementEngine::settle($leg,[
 ]);
 ok(($result['status']??'')===SettlementEngine::GREEN,'settlement green');
 Repository::settleLeg((int)$leg['id'],$result,['test'=>true]);
+ok(Repository::fixtureHasPendingLegs((int)($leg['fixture_id']??0))===false,'fixture liquidado nao permanece pendente');
+ok(Repository::dueFixtureIds()===[],'fixture liquidado sai definitivamente da fila de consulta');
 
 $stored=$pdo->query('SELECT status,profit_units FROM reporting_tickets LIMIT 1')->fetch(PDO::FETCH_ASSOC);
 ok(($stored['status']??'')==='GREEN','ticket consolidado green');
