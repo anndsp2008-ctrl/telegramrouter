@@ -34,6 +34,11 @@ final class ResultWorker
 
         // Garante que tickets já existentes também aguardem a janela pós-jogo,
         // sem consumir a API antes do horário esperado de término.
+        $normalizedMatches = Repository::normalizeStoredMatchNamesOnce();
+        if ($normalizedMatches > 0) {
+            error_log('TMR_REPORTING_MATCHES_NORMALIZED ' . $normalizedMatches);
+        }
+
         Repository::deferPendingFixtureChecksToPostMatchWindow();
         Repository::restoreImmediateUnsupportedReviews();
         Repository::reopenLegacyConfidenceReviewsOnce();
