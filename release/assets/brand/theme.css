@@ -92,3 +92,10 @@ html[data-theme="light"] .connect-shell :is(p,.form-intro p,.progress-caption,.p
 html[data-theme="light"] .connect-shell input{background:#fff!important;border-color:#cfd9e4!important;color:#1f2b3a!important}
 html[data-theme="light"] .connect-top a{color:#356079!important}
 html[data-theme="light"] .connect-progress{background:#f7fafb!important;border-color:#cfe5e0!important}
+
+html[data-theme="light"] .translation-provider-grid .provider-head :is(h2,h3,b,strong),
+html[data-theme="light"] .translation-provider-grid .saas-card-head :is(h2,h3,b,strong){color:#243248!important}
+html[data-theme="light"] .translation-provider-grid .provider-form label{color:#58697f!important}
+html[data-theme="light"] .connect-shell label,
+html[data-theme="light"] .connect-shell .step,
+html[data-theme="light"] .connect-shell .security-note b{color:#42536a!important}

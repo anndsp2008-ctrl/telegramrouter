@@ -32,7 +32,9 @@
   }
   applyTheme(storedTheme(),false);
   document.addEventListener('DOMContentLoaded',()=>{
-    syncButtons(document.documentElement.dataset.theme||DARK);
+    const activeTheme=document.documentElement.dataset.theme||DARK;
+    setMetaColor(activeTheme);
+    syncButtons(activeTheme);
     document.addEventListener('click',event=>{
       const button=event.target.closest('[data-theme-toggle]');
       if(!button) return;
