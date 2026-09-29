@@ -196,7 +196,7 @@ function rdate(mixed $value): string
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
 <link rel="stylesheet" href="/assets/brand/orchestration-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/reporting.css?v=10">
+<link rel="stylesheet" href="/assets/reporting.css?v=11">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -596,7 +596,7 @@ function rdate(mixed $value): string
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Destino</th>
+                                    <th>Canais</th>
                                     <th>Tipo</th>
                                     <th>Jogo</th>
                                     <th>Mercado</th>
@@ -617,7 +617,18 @@ function rdate(mixed $value): string
                                 <?php $accordionId='reporting-ticket-'.(int)$ticket['id']; ?>
                                 <tr class="<?=$expandable?'reporting-history-parent':''?>" data-ticket-id="<?=rh($ticket['id'])?>">
                                     <td>#<?=rh($ticket['id'])?></td>
-                                    <td><?=rh($ticket['destination_chat'])?></td>
+                                    <td class="reporting-history-route">
+                                        <div class="reporting-history-route-stack">
+                                            <div class="reporting-history-route-item is-source">
+                                                <span>Origem</span>
+                                                <strong><?=rh((string)($ticket['source_chat']??'—'))?></strong>
+                                            </div>
+                                            <div class="reporting-history-route-item is-destination">
+                                                <span>Destino</span>
+                                                <strong><?=rh((string)($ticket['destination_chat']??'—'))?></strong>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td><span class="reporting-kind"><?=rh(strtoupper((string)$ticket['bet_kind']))?></span></td>
                                     <td class="reporting-history-games">
                                         <?php if($historyLegs===[]): ?>
