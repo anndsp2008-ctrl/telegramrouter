@@ -173,6 +173,8 @@ $result=SettlementEngine::settle($leg,[
 ]);
 ok(($result['status']??'')===SettlementEngine::GREEN,'settlement green');
 Repository::settleLeg((int)$leg['id'],$result,['test'=>true]);
+ok(Repository::fixtureHasPendingLegs((int)($leg['fixture_id']??0))===false,'fixture liquidado nao permanece pendente');
+ok(Repository::dueFixtureIds()===[],'fixture liquidado sai definitivamente da fila de consulta');
 
 $stored=$pdo->query('SELECT status,profit_units FROM reporting_tickets LIMIT 1')->fetch(PDO::FETCH_ASSOC);
 ok(($stored['status']??'')==='GREEN','ticket consolidado green');
