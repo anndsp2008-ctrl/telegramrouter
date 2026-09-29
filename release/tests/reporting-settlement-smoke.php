@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 
 require __DIR__ . '/../app/Reporting/TicketNormalizer.php';
+require __DIR__ . '/../app/Reporting/ApiFootballClient.php';
 require __DIR__ . '/../app/Reporting/SettlementEngine.php';
 require __DIR__ . '/../app/Reporting/FixtureMatcher.php';
 require __DIR__ . '/../app/Reporting/ResultWorker.php';
@@ -23,6 +24,12 @@ function settle(array $leg, array $stats, string $status, string $label): void
     $result = SettlementEngine::settle($leg, $stats);
     assertTrue(($result['status'] ?? '') === $status, $label . ' status=' . ($result['status'] ?? ''));
 }
+
+$searchTerm = new ReflectionMethod(\App\Reporting\ApiFootballClient::class, 'searchTerm');
+$searchTerm->setAccessible(true);
+assertTrue($searchTerm->invoke(null, 'Atlético-MG (BRA)') === 'Atletico MG BRA', 'normaliza acentos, hifen e parenteses para /teams?search');
+assertTrue($searchTerm->invoke(null, "Paris Saint-Germain FC") === 'Paris Saint Germain FC', 'normaliza pontuacao no nome do time');
+assertTrue($searchTerm->invoke(null, 'São Paulo') === 'Sao Paulo', 'normaliza caracteres unicode para busca da API');
 
 $ticket = TicketNormalizer::fromModel([
     'kind'=>'simple',
