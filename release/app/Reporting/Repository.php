@@ -645,6 +645,25 @@ final class Repository
         $totalOdds = is_numeric($ticket['total_odds']) ? (float)$ticket['total_odds'] : null;
 
         $manualOverride = strtoupper(trim((string)($ticket['manual_status_override'] ?? '')));
+        if (in_array($manualOverride, [
+            SettlementEngine::GREEN,
+            SettlementEngine::RED,
+            SettlementEngine::VOID,
+            SettlementEngine::HALF_GREEN,
+            SettlementEngine::HALF_RED,
+            SettlementEngine::REVIEW,
+        ], true)) {
+            $manualProfit = self::manualTicketProfit($manualOverride, $stake, $totalOdds);
+            $manualUpdate = $pdo->prepare(
+                'UPDATE reporting_tickets
+                 SET status=?,
+                     profit_units=?,
+                     settled_at=CASE WHEN ?="REVIEW" THEN NULL ELSE COALESCE(settled_at,UTC_TIMESTAMP()) END
+                 WHERE id=?'
+            );
+            $manualUpdate->execute([$manualOverride, $manualProfit, $manualOverride, $ticketId]);
+            return;
+        }
 
         $kind = (string)$ticket['bet_kind'];
         $statuses = array_map(static fn(array $leg): string => (string)$leg['status'], $legs);
@@ -703,56 +722,12 @@ final class Repository
             }
         }
 
-        $automaticSettled = in_array($status, [
-            SettlementEngine::GREEN,
-            SettlementEngine::RED,
-            SettlementEngine::VOID,
-            SettlementEngine::HALF_GREEN,
-            SettlementEngine::HALF_RED,
-        ], true);
-
-        $manualAllowed = in_array($manualOverride, [
-            SettlementEngine::GREEN,
-            SettlementEngine::RED,
-            SettlementEngine::VOID,
-            SettlementEngine::HALF_GREEN,
-            SettlementEngine::HALF_RED,
-            SettlementEngine::REVIEW,
-        ], true);
-
-        if (!$automaticSettled && $manualAllowed) {
-            // Enquanto a API ainda não liquidou de forma definitiva, o status
-            // manual pode ser exibido. A fila automática das legs permanece ativa.
-            $manualProfit = self::manualTicketProfit($manualOverride, $stake, $totalOdds);
-            $manualUpdate = $pdo->prepare(
-                'UPDATE reporting_tickets
-                 SET status=?,
-                     profit_units=?,
-                     settled_at=?,
-                     manual_status_override=?
-                 WHERE id=?'
-            );
-            $manualUpdate->execute([
-                $manualOverride,
-                $manualProfit,
-                $manualOverride === SettlementEngine::REVIEW
-                    ? null
-                    : (($ticket['manual_status_updated_at'] ?? null) ?: gmdate('Y-m-d H:i:s')),
-                $manualOverride,
-                $ticketId,
-            ]);
-            return;
-        }
-
-        // Resultado definitivo calculado pelas legs/API sempre tem prioridade.
-        // Ao chegar, remove qualquer correção manual anterior.
         $terminal = $status !== SettlementEngine::PENDING;
         $stmt = $pdo->prepare(
             'UPDATE reporting_tickets
              SET status=?,
                  profit_units=?,
-                 settled_at=?,
-                 manual_status_override=NULL
+                 settled_at=?
              WHERE id=?'
         );
         $stmt->execute([
@@ -1063,8 +1038,27 @@ final class Repository
                 );
                 $ticketUpdate->execute([$now, $ticketId]);
             } else {
-                // Status manual é apenas uma correção visual/financeira provisória.
-                // Nunca encerra legs PENDING nem cancela a agenda da API-Football.
+                // Qualquer status manual diferente de PENDING encerra a aposta
+                // para a fila automática. A API-Football só volta a consultar
+                // este ticket se o usuário reabrir explicitamente como PENDING.
+                $details = json_encode([
+                    'manual'=>true,
+                    'manual_ticket_status'=>$status,
+                    'updated_at'=>gmdate('c'),
+                ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+                $legs = $pdo->prepare(
+                    'UPDATE reporting_legs
+                     SET status=?,
+                         settlement_details=?,
+                         settled_at=UTC_TIMESTAMP(),
+                         next_check_at=NULL,
+                         lookup_attempts=0,
+                         lookup_last_reason="manual_ticket_status"
+                     WHERE ticket_id=?'
+                );
+                $legs->execute([$status, $details, $ticketId]);
+
                 $ticketUpdate = $pdo->prepare(
                     'UPDATE reporting_tickets
                      SET status=?,

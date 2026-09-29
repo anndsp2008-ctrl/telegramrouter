@@ -241,35 +241,28 @@ $manualRed=$pdo->query('SELECT status,profit_units,manual_status_override FROM r
 ok(($manualRed['status']??'')==='RED','status do historico pode ser alterado manualmente para red');
 ok(abs((float)($manualRed['profit_units']??0)+10.0)<0.0001,'red manual recalcula resultado financeiro');
 ok(($manualRed['manual_status_override']??'')==='RED','override manual fica registrado');
+ok((string)$pdo->query('SELECT status FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()==='RED','status manual terminal encerra a leg');
+ok($pdo->query('SELECT next_check_at FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()===null,'status manual terminal cancela proxima consulta');
+ok(Repository::fixtureHasPendingLegs(12345)===false,'status manual terminal remove fixture da fila da API');
+
+Repository::recomputeTicket((int)$id);
+$manualStillRed=$pdo->query('SELECT status,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
+ok(($manualStillRed['status']??'')==='RED','recalculo interno respeita definicao manual terminal');
+ok(($manualStillRed['manual_status_override']??'')==='RED','override manual continua ativo fora da fila');
 
 Repository::manualSetTicketStatus((int)$id,'PENDING');
 $manualPending=$pdo->query('SELECT status,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
 ok(($manualPending['status']??'')==='PENDING','status manual pode reabrir aposta como pendente');
 ok(($manualPending['manual_status_override']??null)===null,'reabrir pendente devolve controle para automacao');
+ok((string)$pdo->query('SELECT status FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()==='PENDING','reabrir pendente reativa a leg');
 ok((int)$pdo->query('SELECT next_check_at<=UTC_TIMESTAMP() FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()===1,'reabrir pendente coloca aposta novamente na fila');
+ok(Repository::fixtureHasPendingLegs(12345)===true,'API so volta a consultar depois de definir pendente');
 
 Repository::manualSetTicketStatus((int)$id,'HALF_RED');
 $manualHalfRed=$pdo->query('SELECT status,profit_units,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
 ok(($manualHalfRed['status']??'')==='HALF_RED','status pode ser alterado novamente a qualquer momento');
 ok(abs((float)($manualHalfRed['profit_units']??0)+5.0)<0.0001,'half red manual recalcula metade da stake');
-ok(($manualHalfRed['manual_status_override']??'')==='HALF_RED','correcao manual permanece provisoria');
-ok((string)$pdo->query('SELECT status FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()==='PENDING','status manual nao encerra a leg pendente');
-ok(Repository::fixtureHasPendingLegs(12345)===true,'API continua elegivel mesmo com status manual terminal');
-
-$pendingLeg=$pdo->query('SELECT * FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetch(PDO::FETCH_ASSOC);
-$apiResult=SettlementEngine::settle($pendingLeg,[
-    'home_team'=>'Manchester City',
-    'away_team'=>'Arsenal',
-    'corners_home'=>6,
-    'corners_away'=>4,
-]);
-ok(($apiResult['status']??'')===SettlementEngine::GREEN,'API retorna liquidacao definitiva green');
-Repository::settleLeg((int)$pendingLeg['id'],$apiResult,['source'=>'api-priority-test']);
-
-$apiPriority=$pdo->query('SELECT status,profit_units,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
-ok(($apiPriority['status']??'')==='GREEN','liquidacao automatica sobrescreve status manual');
-ok(abs((float)($apiPriority['profit_units']??0)-6.0)<0.0001,'liquidacao automatica restaura resultado financeiro correto');
-ok(($apiPriority['manual_status_override']??null)===null,'liquidacao automatica limpa override manual');
-ok(Repository::fixtureHasPendingLegs(12345)===false,'apos liquidacao automatica fixture sai da fila');
+ok(($manualHalfRed['manual_status_override']??'')==='HALF_RED','novo status manual fica persistido');
+ok(Repository::fixtureHasPendingLegs(12345)===false,'novo status manual terminal remove novamente da fila');
 
 echo "REPORTING_DATABASE_SMOKE_PASSED\n";
