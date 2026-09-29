@@ -795,7 +795,7 @@ function rdate(mixed $value): string
     window.addEventListener('painel-atualizado',init);
 })();
 </script>
-<script src="/assets/live.js" defer></script>
+<script src="/assets/live.js?v=2" defer></script>
 <script src="/assets/toast.js" defer></script>
 </body>
 </html>
