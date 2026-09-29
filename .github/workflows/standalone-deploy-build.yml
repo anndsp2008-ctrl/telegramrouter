@@ -23,6 +23,7 @@ on:
       - 'tests/reporting-history-accordion-smoke.php'
       - 'tests/routing-exclusion-smoke.php'
       - 'release/tests/routing-exclusion-smoke.php'
+      - 'runtime-routing-exclusion.php'
       - 'release/app/Database.php'
       - 'release/app/Repository.php'
       - 'release/app/TelegramRouter.php'
