@@ -50,6 +50,11 @@ ltOk(str_contains($css,'.reset-danger-button'),'botao destrutivo do reset possui
 ltOk(str_contains($css,'.tmr-dialog-cancel'),'botoes de dialogo possuem tema claro');
 ltOk(str_contains($css,'.connect-shell button:not(.disconnect-button)'),'botoes da conexao possuem tema claro');
 ltOk(str_contains($css,'.activity-badge.forwarded'),'atividade possui cores semanticas claras');
+ltOk(str_contains($css,'.openai-provider-card .provider-form .openai-models'),'seletor OpenAI possui tema claro');
+ltOk(str_contains($css,'.workers-ai-provider-card > .provider-head > .form-status.provider-badge'),'status Workers AI possui tema claro');
+ltOk(str_contains($css,'.translation-routing-form label'),'prioridade e fallback possuem tema claro');
+ltOk(str_contains($css,'.reporting-switch-row>input'),'switches de relatorios possuem tema claro');
+ltOk(str_contains($css,'.reporting-choice>input'),'radios de relatorios possuem tema claro');
 ltOk(str_contains($css,'.reporting-status-badge.green'),'status do relatorio possui cores semanticas claras');
 ltOk(str_contains($css,'.reporting-history-row-dark>td'),'zebrado claro permanece coberto');
 ltOk(str_contains($runtime,'/assets/brand/theme.css?v=2'),'runtime injeta CSS claro v2');
