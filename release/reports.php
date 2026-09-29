@@ -608,7 +608,7 @@ function rdate(mixed $value): string
                                 </tr>
                             </thead>
                             <tbody>
-                            <?php foreach ($tickets as $ticket): ?>
+                            <?php foreach ($tickets as $historyIndex=>$ticket): ?>
                                 <?php [$statusLabel,$statusClass]=rstatus((string)$ticket['status']); ?>
                                 <?php $ticketProfit=(float)$ticket['profit_units']; ?>
                                 <?php $historyLegs=is_array($ticket['legs']??null)?$ticket['legs']:[]; ?>
@@ -616,7 +616,8 @@ function rdate(mixed $value): string
                                 <?php $expandable=in_array($betKind,['double','triple','multiple'],true)&&count($historyLegs)>1; ?>
                                 <?php $firstLeg=$historyLegs[0]??null; ?>
                                 <?php $accordionId='reporting-ticket-'.(int)$ticket['id']; ?>
-                                <tr class="<?=$expandable?'reporting-history-parent':''?>" data-ticket-id="<?=rh($ticket['id'])?>">
+                                <?php $rowTone=((int)$historyIndex%2===0)?'reporting-history-row-light':'reporting-history-row-dark'; ?>
+                                <tr class="reporting-history-row <?=$rowTone?> <?=$expandable?'reporting-history-parent':''?>" data-ticket-id="<?=rh($ticket['id'])?>">
                                     <td>#<?=rh($ticket['id'])?></td>
                                     <td class="reporting-history-route">
                                         <div class="reporting-history-route-stack">
@@ -691,7 +692,7 @@ function rdate(mixed $value): string
                                 </tr>
 
                                 <?php if($expandable): ?>
-                                    <tr id="<?=rh($accordionId)?>" class="reporting-history-accordion-row" hidden>
+                                    <tr id="<?=rh($accordionId)?>" class="reporting-history-accordion-row <?=$rowTone?>" hidden>
                                         <td colspan="9">
                                             <div class="reporting-history-accordion">
                                                 <div class="reporting-history-accordion-head">
