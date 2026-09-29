@@ -38,7 +38,7 @@ $ticket = TicketNormalizer::fromModel([
 ]);
 
 assertTrue(is_array($ticket), 'normaliza aposta simples');
-assertTrue(($ticket['legs'][0]['match_name'] ?? '') === 'Manchester City vs Arsenal', 'padroniza confronto simples com vs');
+assertTrue(($ticket['legs'][0]['match'] ?? '') === 'Manchester City vs Arsenal', 'padroniza confronto simples com vs');
 assertTrue(($ticket['legs'][0]['market_key'] ?? '') === 'corners_total', 'detecta mercado de escanteios');
 assertTrue(($ticket['legs'][0]['side'] ?? '') === 'over', 'detecta over');
 assertTrue(abs((float)($ticket['legs'][0]['line'] ?? 0) - 8.5) < 0.0001, 'detecta linha 8.5');
@@ -58,7 +58,7 @@ $unicodeDashTicket = TicketNormalizer::fromModel([
 ]);
 assertTrue(($unicodeDashTicket['legs'][0]['market_key'] ?? '') === 'match_result', 'normaliza resultado com travessao unicode');
 assertTrue(($unicodeDashTicket['legs'][0]['side'] ?? '') === 'home', 'identifica mandante com travessao unicode');
-assertTrue(($unicodeDashTicket['legs'][0]['match_name'] ?? '') === 'Turquia vs Itália', 'padroniza travessao unicode com vs');
+assertTrue(($unicodeDashTicket['legs'][0]['match'] ?? '') === 'Turquia vs Itália', 'padroniza travessao unicode com vs');
 
 foreach([
     'Time A x Time B',
@@ -82,7 +82,7 @@ foreach([
             'odd'=>'1.50',
         ]],
     ]);
-    assertTrue(($normalized['legs'][0]['match_name'] ?? '') === 'Time A vs Time B', 'regra global vs: '.$legacyMatch);
+    assertTrue(($normalized['legs'][0]['match'] ?? '') === 'Time A vs Time B', 'regra global vs: '.$legacyMatch);
 }
 
 $matchSides = new ReflectionMethod(\App\Reporting\FixtureMatcher::class, 'matchSides');
