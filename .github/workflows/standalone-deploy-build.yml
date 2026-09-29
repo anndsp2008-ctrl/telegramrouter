@@ -23,6 +23,10 @@ on:
       - 'tests/reporting-history-accordion-smoke.php'
       - 'tests/reporting-live-scroll-smoke.php'
       - 'assets/live.js'
+      - 'assets/dialogs.js'
+      - 'assets/dialogs.css'
+      - 'runtime-dialog-system.php'
+      - 'tests/project-dialogs-smoke.php'
       - 'tests/routing-exclusion-smoke.php'
       - 'release/tests/routing-exclusion-smoke.php'
       - 'runtime-routing-exclusion.php'
@@ -74,6 +78,7 @@ jobs:
         run: |
           find release -type f -name '*.php' -print0 | xargs -0 -n1 php -l > /tmp/tmr-release-lint.log
           sh -n release/start.sh
+          node --check release/assets/dialogs.js
           python3 -m json.tool release/railway.json >/dev/null
           test -s release/app/CardLayoutEmojis.php
           test -s release/app/TelegramRouter.php
@@ -122,6 +127,7 @@ jobs:
           php tests/reporting-settlement-smoke.php
           php tests/reporting-history-accordion-smoke.php
           php tests/reporting-live-scroll-smoke.php
+          php tests/project-dialogs-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php
           ! grep -Fq 'lastStructuredBet' app/SmartFormatting.php
