@@ -69,10 +69,14 @@ try{
         $pages['reports']
     );
     if(!str_contains($pages['reports'],'/assets/dialogs.js?v=3')){
+        if(preg_match('/<script src="\\/assets\\/live\\.js\\?v=\\d+" defer><\\/script>/',$pages['reports'],$reportingLiveMatch)!==1){
+            throw new RuntimeException('TMR_DIALOG_ANCHOR_REPORTS_JS');
+        }
+        $reportingLiveAnchor=$reportingLiveMatch[0];
         $pages['reports']=$replaceOnce(
             $pages['reports'],
-            '<script src="/assets/live.js?v=2" defer></script>',
-            '<script src="/assets/dialogs.js?v=3" defer></script>'."\n".'<script src="/assets/live.js?v=2" defer></script>',
+            $reportingLiveAnchor,
+            '<script src="/assets/dialogs.js?v=3" defer></script>'."\n".$reportingLiveAnchor,
             'REPORTS_JS'
         );
     }
