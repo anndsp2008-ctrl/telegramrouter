@@ -23,6 +23,11 @@ $checks=[
     'stacked route markup'=>str_contains($reports,'reporting-history-route-stack'),
     'source above destination'=>strpos($reports,'reporting-history-route-item is-source') < strpos($reports,'reporting-history-route-item is-destination'),
     'stacked route style'=>str_contains($css,'.reporting-history-route-stack{'),
+    'history indexed rows'=>str_contains($reports,'foreach ($tickets as $historyIndex=>$ticket)'),
+    'history alternating tone'=>str_contains($reports,"reporting-history-row-light':'reporting-history-row-dark"),
+    'history zebra light style'=>str_contains($css,'.reporting-table tbody>.reporting-history-row-light>td{'),
+    'history zebra dark style'=>str_contains($css,'.reporting-table tbody>.reporting-history-row-dark>td{'),
+    'accordion keeps row tone'=>str_contains($reports,'reporting-history-accordion-row <?=$rowTone?>'),
 ];
 
 foreach($checks as $label=>$ok){
