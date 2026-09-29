@@ -32,6 +32,11 @@ final class ResultWorker
         $api = new ApiFootballClient($apiKey);
         $matcher = new FixtureMatcher($api);
 
+        $forcedPending = Repository::forcePendingChecksOnce('manual_force_pending_20260929_v1');
+        if ($forcedPending > 0) {
+            error_log('TMR_REPORTING_FORCE_PENDING ' . $forcedPending);
+        }
+
         // Garante que tickets já existentes também aguardem a janela pós-jogo,
         // sem consumir a API antes do horário esperado de término.
         $normalizedMatches = Repository::normalizeStoredMatchNamesOnce();
