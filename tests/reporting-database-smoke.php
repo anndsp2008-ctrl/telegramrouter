@@ -141,6 +141,20 @@ $pdo->exec(
          lookup_last_reason="not_found"
      WHERE id='.(int)$id
 );
+$forced=Repository::forcePendingChecksOnce('test_manual_force_pending');
+ok($forced===1,'forca verificacao imediata das pendencias uma unica vez');
+$forcedAgain=Repository::forcePendingChecksOnce('test_manual_force_pending');
+ok($forcedAgain===0,'forcagem manual nao repete');
+$forcedDue=(int)$pdo->query('SELECT next_check_at<=UTC_TIMESTAMP() FROM reporting_legs LIMIT 1')->fetchColumn();
+ok($forcedDue===1,'pendencia fica vencida para verificacao imediata');
+
+$pdo->exec(
+    'UPDATE reporting_legs
+     SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 3 HOUR),
+         lookup_attempts=1,
+         lookup_last_reason="not_found"
+     WHERE id='.(int)$id
+);
 $requeued=Repository::requeuePendingUnmatchedForRetryPolicyOnce();
 ok($requeued===1,'reagenda pendencia sem fixture imediatamente');
 $requeuedAgain=Repository::requeuePendingUnmatchedForRetryPolicyOnce();
