@@ -32,7 +32,7 @@ final class ResultWorker
         $api = new ApiFootballClient($apiKey);
         $matcher = new FixtureMatcher($api);
 
-        $forcedPending = Repository::forcePendingChecksOnce('manual_force_pending_20260929_v1');
+        $forcedPending = Repository::forcePendingChecksOnce('manual_force_pending_20260929_v2_date_lookup');
         if ($forcedPending > 0) {
             error_log('TMR_REPORTING_FORCE_PENDING ' . $forcedPending);
         }

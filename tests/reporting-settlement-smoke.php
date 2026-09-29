@@ -99,6 +99,10 @@ assertTrue($postMatchRetry->invoke(null, '2H', 80.0) === 25, '2H agenda unica co
 assertTrue($postMatchRetry->invoke(null, 'HT', null) === 60, 'intervalo agenda somente consulta pos-jogo');
 assertTrue($postMatchRetry->invoke(null, 'ET', 110.0) === 25, 'prorrogacao agenda consulta pos-fim projetado');
 
+$fixtureMatcherSource=(string)file_get_contents(__DIR__.'/../app/Reporting/FixtureMatcher.php');
+assertTrue(str_contains($fixtureMatcherSource,'foreach ($this->fixtures($date) as $fixture)'), 'matcher reutiliza consulta unica de fixtures por data');
+assertTrue(!str_contains($fixtureMatcherSource,'$this->api->fixturesByTeamDate($teamA, $date)'), 'matcher nao usa mais team+date que pode exigir season');
+
 $matchSides = new ReflectionMethod(\App\Reporting\FixtureMatcher::class, 'matchSides');
 $fixtureSides = $matchSides->invoke(null, 'Turquia – Itália');
 assertTrue(($fixtureSides[0] ?? '') === 'Turquia' && ($fixtureSides[1] ?? '') === 'Itália', 'fixture matcher aceita travessao unicode');
