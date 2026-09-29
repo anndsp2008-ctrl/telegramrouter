@@ -240,11 +240,7 @@ Repository::manualSetTicketStatus((int)$id,'RED');
 $manualRed=$pdo->query('SELECT status,profit_units,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
 ok(($manualRed['status']??'')==='RED','status do historico pode ser alterado manualmente para red');
 ok(abs((float)($manualRed['profit_units']??0)+10.0)<0.0001,'red manual recalcula resultado financeiro');
-ok(($manualRed['manual_status_override']??'')==='RED','override manual fica persistido');
-ok((string)$pdo->query('SELECT status FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()==='RED','alteracao manual encerra legs e evita nova consulta');
-
-Repository::recomputeTicket((int)$id);
-ok((string)$pdo->query('SELECT status FROM reporting_tickets WHERE id='.(int)$id)->fetchColumn()==='RED','recalculo automatico respeita override manual');
+ok(($manualRed['manual_status_override']??'')==='RED','override manual fica registrado');
 
 Repository::manualSetTicketStatus((int)$id,'PENDING');
 $manualPending=$pdo->query('SELECT status,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
@@ -253,8 +249,27 @@ ok(($manualPending['manual_status_override']??null)===null,'reabrir pendente dev
 ok((int)$pdo->query('SELECT next_check_at<=UTC_TIMESTAMP() FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()===1,'reabrir pendente coloca aposta novamente na fila');
 
 Repository::manualSetTicketStatus((int)$id,'HALF_RED');
-$manualHalfRed=$pdo->query('SELECT status,profit_units FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
+$manualHalfRed=$pdo->query('SELECT status,profit_units,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
 ok(($manualHalfRed['status']??'')==='HALF_RED','status pode ser alterado novamente a qualquer momento');
 ok(abs((float)($manualHalfRed['profit_units']??0)+5.0)<0.0001,'half red manual recalcula metade da stake');
+ok(($manualHalfRed['manual_status_override']??'')==='HALF_RED','correcao manual permanece provisoria');
+ok((string)$pdo->query('SELECT status FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetchColumn()==='PENDING','status manual nao encerra a leg pendente');
+ok(Repository::fixtureHasPendingLegs(12345)===true,'API continua elegivel mesmo com status manual terminal');
+
+$pendingLeg=$pdo->query('SELECT * FROM reporting_legs WHERE ticket_id='.(int)$id.' LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+$apiResult=SettlementEngine::settle($pendingLeg,[
+    'home_team'=>'Manchester City',
+    'away_team'=>'Arsenal',
+    'corners_home'=>6,
+    'corners_away'=>4,
+]);
+ok(($apiResult['status']??'')===SettlementEngine::GREEN,'API retorna liquidacao definitiva green');
+Repository::settleLeg((int)$pendingLeg['id'],$apiResult,['source'=>'api-priority-test']);
+
+$apiPriority=$pdo->query('SELECT status,profit_units,manual_status_override FROM reporting_tickets WHERE id='.(int)$id)->fetch(PDO::FETCH_ASSOC);
+ok(($apiPriority['status']??'')==='GREEN','liquidacao automatica sobrescreve status manual');
+ok(abs((float)($apiPriority['profit_units']??0)-6.0)<0.0001,'liquidacao automatica restaura resultado financeiro correto');
+ok(($apiPriority['manual_status_override']??null)===null,'liquidacao automatica limpa override manual');
+ok(Repository::fixtureHasPendingLegs(12345)===false,'apos liquidacao automatica fixture sai da fila');
 
 echo "REPORTING_DATABASE_SMOKE_PASSED\n";
