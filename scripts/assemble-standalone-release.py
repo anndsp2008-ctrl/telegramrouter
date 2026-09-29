@@ -107,6 +107,7 @@ def main() -> None:
         "runtime-db-reconnect.php",
         "runtime-mobile-bottom-nav.php",
         "runtime-mobile-app-header.php",
+        "runtime-theme.php",
         "runtime-panel-greeting.php",
         "runtime-caption-footer.php",
         "runtime-smart-format.php",

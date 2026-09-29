@@ -185,7 +185,7 @@ function aiUrl(string $status,string $q,int $page=1): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Aprendizado da IA · Telegram Router</title>
+<title>Aprendizado da IA · Telegram Router</title><script src="/assets/brand/theme.js?v=1"></script>
 <link rel="stylesheet" href="/assets/saas.css">
 <link rel="stylesheet" href="/assets/brand/navigation-shell.css?v=1">
 <link rel="stylesheet" href="/assets/responsive.css?v=4">
@@ -205,7 +205,7 @@ function aiUrl(string $status,string $q,int $page=1): string {
 <meta name="apple-mobile-web-app-title" content="TMR">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon.png?v=1">
 <script defer src="/assets/pwa.js?v=1"></script>
-</head>
+<link rel="stylesheet" href="/assets/brand/theme.css?v=1"></head>
 <body>
 <div class="saas-shell">
 <?php $navActive='ai-learning'; require __DIR__.'/app/project-sidebar.php'; ?>
@@ -219,7 +219,7 @@ function aiUrl(string $status,string $q,int $page=1): string {
     <span class="saas-avatar">AN</span>
     <span><?=aiEscape($greeting)?></span>
     <?php if($connectedPhone!==''):?><span class="connected-phone">Telegram: <?=aiEscape($connectedPhone)?></span><?php endif;?>
-    <form method="post">
+    <?php require __DIR__.'/app/theme-toggle.php'; ?><form method="post">
       <input type="hidden" name="csrf" value="<?=aiEscape(\App\Auth::csrf())?>">
       <input type="hidden" name="action" value="logout">
       <button class="saas-logout" type="submit" aria-label="Sair" title="Sair">
