@@ -24,6 +24,7 @@ on:
       - 'tests/reporting-live-scroll-smoke.php'
       - 'tests/reporting-overview-status-smoke.php'
       - 'tests/reporting-manual-pending-smoke.php'
+      - 'tests/reporting-clickable-status-smoke.php'
       - 'assets/live.js'
       - 'assets/dialogs.js'
       - 'assets/dialogs.css'
@@ -131,6 +132,7 @@ jobs:
           php tests/reporting-live-scroll-smoke.php
           php tests/reporting-overview-status-smoke.php
           php tests/reporting-manual-pending-smoke.php
+          php tests/reporting-clickable-status-smoke.php
           php tests/project-dialogs-smoke.php
           grep -Fq 'TMR_REPORTING_CAPTURE_V1' app/TelegramRouter.php
           grep -Fq 'lastReportingTicket' app/SmartFormatting.php
