@@ -17,6 +17,12 @@ $checks=[
     'compact table width'=>str_contains($css,'min-width:900px'),
     'fixed compact columns'=>str_contains($css,'table-layout:fixed'),
     'compact horizontal padding'=>str_contains($css,'padding-left:6px;padding-right:6px'),
+    'history channels column'=>str_contains($reports,'<th>Canais</th>'),
+    'history source channel'=>str_contains($reports,"\$ticket['source_chat']"),
+    'history destination channel'=>str_contains($reports,"\$ticket['destination_chat']"),
+    'stacked route markup'=>str_contains($reports,'reporting-history-route-stack'),
+    'source above destination'=>strpos($reports,'reporting-history-route-item is-source') < strpos($reports,'reporting-history-route-item is-destination'),
+    'stacked route style'=>str_contains($css,'.reporting-history-route-stack{'),
 ];
 
 foreach($checks as $label=>$ok){

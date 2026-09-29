@@ -26,7 +26,7 @@ ok(str_contains($page,"'HALF_GREEN'=>['Half Green','half-green']"),'editor permi
 ok(str_contains($page,"'HALF_RED'=>['Half Red','half-red']"),'editor permite half red');
 ok(str_contains($page,"'REVIEW'=>['Revisão','review']"),'editor permite revisao');
 ok(str_contains($page,"target.closest('.reporting-status-edit')"),'clique no selo abre editor');
-ok(str_contains($page,'/assets/reporting.css?v=10'),'editor usa CSS atualizado');
+ok(str_contains($page,'/assets/reporting.css?v=11'),'editor usa CSS atualizado');
 
 ok(str_contains($css,'.reporting-status-edit{'),'status clicavel possui estilo proprio');
 ok(str_contains($css,'.reporting-status-editor-options{'),'opcoes do editor seguem layout do projeto');

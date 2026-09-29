@@ -1256,7 +1256,7 @@ final class Repository
 
         $pdo = Database::pdo();
         $tickets = $pdo->query(
-            "SELECT id,destination_chat,bet_kind,total_odds,status,profit_units,placed_at,settled_at
+            "SELECT id,source_chat,destination_chat,bet_kind,total_odds,status,profit_units,placed_at,settled_at
              FROM reporting_tickets
              ORDER BY id DESC
              LIMIT {$limit}"
