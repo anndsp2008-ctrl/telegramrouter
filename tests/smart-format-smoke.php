@@ -612,6 +612,24 @@ foreach([
     if(SmartFormatting::cardHandlesTranslation($rule,$setting))
         throw new RuntimeException('Legacy translation intercepted for disabled rule');
 }
+// Spanish "gana" is a winner verb, not a team named Gana.
+$ganaGuard=(new ReflectionClass(SmartFormatting::class))->getMethod('spanishWinnerVerbMisread');
+if(!$ganaGuard->invoke(null,['match'=>'Gana vs Finlandia'],'Gana Finlandia el partido'))
+    throw new RuntimeException('Spanish gana verb misread was not rejected');
+if($ganaGuard->invoke(null,['match'=>'Finlandia vs Bielorrusia'],'Gana Finlandia el partido'))
+    throw new RuntimeException('Correct visual fixture was rejected by Spanish gana guard');
+$ganaInstruction=(new ReflectionClass(SmartFormatting::class))->getMethod('spanishWinnerVerbInstruction');
+$ganaPrompt=(string)$ganaInstruction->invoke(null,true);
+if(!str_contains($ganaPrompt,"'Gana Finlandia el partido'") ||
+   !str_contains($ganaPrompt,'Finlandia vs Bielorrusia') ||
+   !str_contains($ganaPrompt,'Ghana'))
+    throw new RuntimeException('Spanish gana disambiguation instruction incomplete');
+$smartSourceForGana=file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+if(!is_string($smartSourceForGana)
+   ||substr_count($smartSourceForGana,'spanishWinnerVerbInstruction($hasImage)')<3
+   ||!str_contains($smartSourceForGana,"'visual_match_evidence'"))
+    throw new RuntimeException('Spanish gana rule not applied to all AI providers');
+
 // Mandatory AI errors must remain actionable without revealing raw tip text.
 $diagMethod=(new ReflectionClass(SmartFormatting::class))->getMethod('diag');
 $diagMethod->invoke(null,'WORKERS_AI_RESPONSE_MISSING_TEXT');
