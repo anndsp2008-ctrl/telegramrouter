@@ -17,8 +17,8 @@ final class ApiFootballClient
 
     public function teamsSearch(string $search): array
     {
-        $search = trim($search);
-        if ($search === '') {
+        $search = self::searchTerm($search);
+        if ($search === '' || mb_strlen($search, 'UTF-8') < 3) {
             return [];
         }
         $payload = $this->get('/teams?search=' . rawurlencode($search));
@@ -94,6 +94,24 @@ final class ApiFootballClient
         }
 
         return $result;
+    }
+
+    private static function searchTerm(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if (is_string($ascii) && $ascii !== '') {
+            $value = $ascii;
+        }
+
+        $value = preg_replace('/[^A-Za-z0-9 ]+/', ' ', $value) ?? $value;
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+
+        return trim($value);
     }
 
     private function get(string $path): array
