@@ -17,6 +17,7 @@ ok(str_contains($page,'class="reporting-status-badge reporting-status-edit'),'st
 ok(str_contains($page,'data-ticket-id="<?=rh($ticket[\'id\'])?>"'),'botao identifica o ticket');
 ok(str_contains($page,'name="action" value="history_status_update"'),'editor envia acao manual');
 ok(str_contains($page,'id="reporting-status-editor"'),'pagina possui editor de status');
+ok(str_contains($page,'quando a API-Football retornar um resultado definitivo, o resultado automático terá prioridade'),'editor informa prioridade da liquidacao automatica');
 ok(str_contains($page,"'PENDING'=>['Pendente','pending']"),'editor permite reabrir como pendente');
 ok(str_contains($page,"'GREEN'=>['Green','green']"),'editor permite green');
 ok(str_contains($page,"'RED'=>['Red','red']"),'editor permite red');
@@ -34,6 +35,9 @@ ok(str_contains($css,'@media(max-width:520px)'),'editor possui tratamento respon
 ok(str_contains($repo,'public static function manualSetTicketStatus(int $ticketId, string $status): void'),'repositorio altera status de qualquer ticket');
 ok(str_contains($repo,'manual_status_override'),'override manual e persistente');
 ok(str_contains($repo,'manual_status_pending'),'pendente devolve ticket para a fila');
+ok(str_contains($repo,'Status manual é apenas uma correção visual/financeira provisória.'),'status manual nao encerra fila automatica');
+ok(str_contains($repo,'Resultado definitivo calculado pelas legs/API sempre tem prioridade.'),'repositorio prioriza liquidacao automatica');
+ok(str_contains($repo,'manual_status_override=NULL'),'liquidacao automatica remove override manual');
 ok(str_contains($schema,'manual_status_override VARCHAR(32) NULL'),'schema possui override manual');
 
 echo "REPORTING_CLICKABLE_STATUS_SMOKE_PASSED\n";
