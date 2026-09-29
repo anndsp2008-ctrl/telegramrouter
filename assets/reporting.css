@@ -821,6 +821,22 @@
 .reporting-table th,.reporting-table td{padding-left:6px;padding-right:6px}
 .reporting-table td{vertical-align:middle}
 .reporting-table td:first-child{color:#73dccc}
+/* leitura do histórico: linhas alternadas sem interferir no accordion */
+.reporting-table tbody>.reporting-history-row-light>td{
+  background:rgba(255,255,255,.032);
+}
+.reporting-table tbody>.reporting-history-row-dark>td{
+  background:rgba(3,9,15,.22);
+}
+.reporting-table tbody>.reporting-history-row>td{
+  transition:background .16s ease;
+}
+.reporting-table tbody>.reporting-history-row-light:hover>td{
+  background:rgba(255,255,255,.047);
+}
+.reporting-table tbody>.reporting-history-row-dark:hover>td{
+  background:rgba(10,23,33,.62);
+}
 .reporting-table th:nth-child(1),.reporting-table td:nth-child(1){width:44px}
 .reporting-table th:nth-child(2),.reporting-table td:nth-child(2){width:136px}
 .reporting-table th:nth-child(3),.reporting-table td:nth-child(3){width:72px}
@@ -937,6 +953,12 @@
 .reporting-history-parent.is-expanded>td{
   background:rgba(97,223,203,.025);
   border-bottom-color:transparent!important
+}
+.reporting-history-parent.reporting-history-row-light.is-expanded>td{
+  background:linear-gradient(rgba(97,223,203,.018),rgba(97,223,203,.018)),rgba(255,255,255,.032);
+}
+.reporting-history-parent.reporting-history-row-dark.is-expanded>td{
+  background:linear-gradient(rgba(97,223,203,.018),rgba(97,223,203,.018)),rgba(3,9,15,.22);
 }
 .reporting-history-accordion-row>td{
   padding:0!important;
