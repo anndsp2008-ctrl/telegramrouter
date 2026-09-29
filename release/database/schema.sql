@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS router_rules (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   source_chat VARCHAR(255) NOT NULL,
   trigger_text VARCHAR(500) NOT NULL,
+  exclude_text TEXT NULL,
   destination_chat VARCHAR(255) NOT NULL,
   media_mode ENUM('text_only','current_media','previous_photo') NOT NULL DEFAULT 'previous_photo',
   remove_links TINYINT(1) NOT NULL DEFAULT 1,
