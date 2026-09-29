@@ -171,7 +171,7 @@ $lowerTip=array_merge($bet,[
 $lowerOriginal=$lowerTip;
 $lowerCard=SmartFormatting::cardView($lowerTip);
 $lowerText=SmartFormatting::asText($lowerCard,true);
-foreach(['Real madrid x barcelona','Resultado final. Vitória ou empate',
+foreach(['Real madrid vs barcelona','Resultado final. Vitória ou empate',
     'Vitória do real madrid','O time chega motivado. A odd é 1.75',
     "\nNovo parágrafo.",'Odd: 1.75','Stake: 10'] as $fragment){
     if(!str_contains($lowerText,$fragment))
@@ -342,7 +342,7 @@ $cardFixture['bookmaker']='WINAMAX';
 $cardFixture['day']='Sábado';
 $cardView=SmartFormatting::cardView($cardFixture);
 $cardText=SmartFormatting::asText($cardView,true);
-foreach(['Athletic Bilbao × Alavés','Vitória do Athletic Bilbao','1.60','Stake: 10',
+foreach(['Athletic Bilbao vs Alavés','Vitória do Athletic Bilbao','1.60','Stake: 10',
          'Análise original integral da tip, sem alterar o argumento do autor.'] as $required){
     if(!str_contains($cardText,$required))throw new RuntimeException('Missing approved card text: '.$required);
 }
