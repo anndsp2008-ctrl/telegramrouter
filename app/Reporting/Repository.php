@@ -529,6 +529,18 @@ final class Repository
         return array_map('intval', Database::pdo()->query($sql)->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
 
+    public static function fixtureHasPendingLegs(int $fixtureId): bool
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT 1
+             FROM reporting_legs
+             WHERE fixture_id=? AND status="PENDING"
+             LIMIT 1'
+        );
+        $stmt->execute([$fixtureId]);
+        return (bool)$stmt->fetchColumn();
+    }
+
     public static function pendingLegsForFixture(int $fixtureId): array
     {
         $stmt = Database::pdo()->prepare(
