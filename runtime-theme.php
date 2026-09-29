@@ -7,6 +7,7 @@ function tmrThemePatch(string $file,bool $withToggle): void {
         if(str_contains($html,'</title>')) $html=str_replace('</title>','</title><script src="/assets/brand/theme.js?v=1"></script>',$html);
         elseif(str_contains($html,'<head>')) $html=str_replace('<head>','<head><script src="/assets/brand/theme.js?v=1"></script>',$html);
     }
+    $html=str_replace('/assets/brand/theme.css?v=1','/assets/brand/theme.css?v=2',$html);
     if(!str_contains($html,'/assets/brand/theme.css?v=2')&&str_contains($html,'</head>')){
         $html=str_replace('</head>','<link rel="stylesheet" href="/assets/brand/theme.css?v=2"></head>',$html);
     }
