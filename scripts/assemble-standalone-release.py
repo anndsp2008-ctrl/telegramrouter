@@ -114,6 +114,7 @@ def main() -> None:
         "runtime-reporting.php",
         "runtime-ai-learning.php",
         "runtime-routing-exclusion.php",
+        "runtime-dialog-system.php",
     ]:
         if (TARGET / installer).is_file():
             run("php", installer, env=env)
