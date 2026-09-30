@@ -110,6 +110,37 @@ foreach($fixtures as $fixture){
     @unlink($image);
 }
 
+$displayOdd=new ReflectionMethod(AdaptiveVipCardRenderer::class,'displayOdd');
+$displayOdd->setAccessible(true);
+foreach([
+    '1.5'=>'1.50',
+    '1.62'=>'1.62',
+    '1,87'=>'1.87',
+    '2'=>'2.00',
+] as $sourceOdd=>$expectedOdd){
+    $actualOdd=$displayOdd->invoke(null,$sourceOdd);
+    if($actualOdd!==$expectedOdd){
+        throw new RuntimeException('Two-decimal odd display failed: '.$sourceOdd.' => '.$actualOdd);
+    }
+}
+
+$oneDecimal=$fixtures[0]['data'];
+$oneDecimal['odd']='1.5';
+$oneDecimal['card_legs']=json_encode([[
+    'match'=>'Inglaterra x Espanha','league'=>'Amistoso Internacional','date'=>'26/09/2026',
+    'market'=>'Ambas as equipes marcam','selection'=>'Sim','odd'=>'1.5'
+]],JSON_UNESCAPED_UNICODE);
+$oneDecimalBet=AdaptiveVipCardRenderer::extract($oneDecimal,'',false);
+if($oneDecimalBet===null)throw new RuntimeException('One-decimal odd fixture extraction failed');
+if(($oneDecimalBet['odd']??'')!=='1.5'){
+    throw new RuntimeException('Display formatting must not mutate extracted odd value');
+}
+$oneDecimalCaption=AdaptiveVipCardRenderer::caption($oneDecimalBet);
+if(!str_contains($oneDecimalCaption,'📈 Odd: 1.50')
+   ||!str_contains($oneDecimalCaption,'📊 Odd total: 1.50')){
+    throw new RuntimeException('Published card/caption odd must always show two decimal places');
+}
+
 $apiFootballSelector=new ReflectionMethod(AdaptiveVipCardRenderer::class,'selectApiFootballTeamLogo');
 $apiFootballSelector->setAccessible(true);
 
@@ -385,7 +416,9 @@ if(!is_string($rendererSource)
    ||!str_contains($rendererSource,'private const MULTI_METADATA_MARKET_GAP=8')
    ||!str_contains($rendererSource,'$ty+=self::MULTI_DATE_BLOCK_ADVANCE')
    ||!str_contains($rendererSource,'$ty+=self::MULTI_METADATA_MARKET_GAP')
-   ||!str_contains($rendererSource,"return str_replace(',','.',\$odd)")){
+   ||!str_contains($rendererSource,"return str_replace(',','.',\$odd)")
+   ||!str_contains($rendererSource,'private static function displayOdd')
+   ||!str_contains($rendererSource,"number_format((float)\$normalized,2,'.','')")){
     throw new RuntimeException('Global premium renderer hooks missing');
 }
 if(str_contains($rendererSource,'private static function drawClubCrest')
