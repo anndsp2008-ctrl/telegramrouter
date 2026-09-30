@@ -1069,17 +1069,39 @@ final class StakeOddsProvider
     private static function marketScore(string $a,string $b): float
     {
         if($a===$b)return 1.0;
+
+        $sigA=self::marketSignature($a);
+        $sigB=self::marketSignature($b);
+
+        foreach([
+            'btts','corners','cards','handicap','double_chance',
+            'correct_score','first_half','team_total'
+        ] as $feature){
+            if($sigA[$feature]!==$sigB[$feature] && ($sigA[$feature]||$sigB[$feature])){
+                return 0.0;
+            }
+        }
+
+        // A total market is not interchangeable with a winner/BTTS/etc.
+        if($sigA['total']!==$sigB['total'] && ($sigA['total']||$sigB['total'])){
+            return 0.0;
+        }
+
+        // When the requested market explicitly contains a winner component,
+        // the candidate must contain that component too (and vice versa for
+        // combined markets). This blocks Match Winner from matching
+        // Match Winner + BTTS merely because the strings are similar.
+        if($sigA['winner']!==$sigB['winner'] && ($sigA['winner']||$sigB['winner'])){
+            return 0.0;
+        }
+
         $score=self::similarity($a,$b);
-        $aWinner=str_contains($a,'matchwinner')||str_contains($a,'matchresult')||str_contains($a,'moneyline');
-        $bWinner=str_contains($b,'matchwinner')||str_contains($b,'matchresult')||str_contains($b,'moneyline');
-        $aBtts=str_contains($a,'bothteamstoscore')||str_contains($a,'btts');
-        $bBtts=str_contains($b,'bothteamstoscore')||str_contains($b,'btts');
-        if($aWinner&&$bWinner&&$aBtts&&$bBtts)$score=max($score,0.98);
+        if($sigA===$sigB)$score=max($score,0.92);
 
         foreach([
             ['corner','corners'],['card','cards'],['goal','goals'],
             ['asianhandicap','handicap'],['doublechance'],
-            ['bothteamstoscore','btts'],['matchwinner','matchresult','moneyline'],
+            ['bothteamstoscore','btts'],['matchwinner','matchresult','moneyline','1x2'],
             ['total','overunder'],
         ] as $family){
             $left=false;$right=false;
@@ -1087,9 +1109,34 @@ final class StakeOddsProvider
                 if(str_contains($a,$term))$left=true;
                 if(str_contains($b,$term))$right=true;
             }
-            if($left&&$right)$score=max($score,0.86);
+            if($left&&$right)$score=max($score,0.88);
+        }
+
+        if($sigA['winner']&&$sigB['winner']&&$sigA['btts']&&$sigB['btts']){
+            $score=max($score,0.99);
         }
         return $score;
+    }
+
+    /** @return array{winner:bool,btts:bool,total:bool,corners:bool,cards:bool,handicap:bool,double_chance:bool,correct_score:bool,first_half:bool,team_total:bool} */
+    private static function marketSignature(string $value): array
+    {
+        $v=self::canonical($value);
+        return [
+            'winner'=>str_contains($v,'matchwinner')
+                ||str_contains($v,'matchresult')
+                ||str_contains($v,'moneyline')
+                ||str_contains($v,'1x2'),
+            'btts'=>str_contains($v,'bothteamstoscore')||str_contains($v,'btts'),
+            'total'=>str_contains($v,'total')||str_contains($v,'overunder'),
+            'corners'=>str_contains($v,'corner'),
+            'cards'=>str_contains($v,'card'),
+            'handicap'=>str_contains($v,'handicap'),
+            'double_chance'=>str_contains($v,'doublechance'),
+            'correct_score'=>str_contains($v,'correctscore')||str_contains($v,'exactscore'),
+            'first_half'=>str_contains($v,'firsthalf')||str_contains($v,'1sthalf'),
+            'team_total'=>str_contains($v,'teamtotal'),
+        ];
     }
 
     private static function selectionScore(string $a,string $b,string $rawA,string $rawB): float
@@ -1333,15 +1380,29 @@ final class StakeOddsProvider
         $value=strtr($value,[
             'vencedor da partida e ambas as equipes marcam'=>'match winner both teams to score',
             'vencedor da partida + ambas as equipes marcam'=>'match winner both teams to score',
+            'resultado da partida e ambas as equipes marcam'=>'match winner both teams to score',
+            'match result and both teams to score'=>'match winner both teams to score',
+            'match winner & both teams to score'=>'match winner both teams to score',
+            'match winner / both teams to score'=>'match winner both teams to score',
             'ambas as equipes marcam'=>'both teams to score',
             'ambas equipes marcam'=>'both teams to score',
+            'ambas marcam'=>'both teams to score',
+            'both teams score'=>'both teams to score',
             'mais de'=>'over','acima de'=>'over','menos de'=>'under','abaixo de'=>'under',
             'escanteios'=>'corners','escanteio'=>'corner','cantos'=>'corners',
             'cartões'=>'cards','cartoes'=>'cards','cartão'=>'card','cartao'=>'card',
-            'gols'=>'goals','gol'=>'goal','ambas marcam'=>'both teams to score',
-            'dupla chance'=>'double chance','handicap asiático'=>'asian handicap',
-            'handicap asiatico'=>'asian handicap','resultado da partida'=>'match result',
+            'gols'=>'goals','gol'=>'goal',
+            'dupla chance'=>'double chance',
+            'handicap asiático'=>'asian handicap','handicap asiatico'=>'asian handicap',
+            'resultado da partida'=>'match winner',
             'vencedor da partida'=>'match winner',
+            'resultado final'=>'match winner',
+            'moneyline'=>'match winner',
+            '1x2'=>'match winner',
+            'primeiro tempo'=>'first half','1º tempo'=>'first half','1° tempo'=>'first half','1o tempo'=>'first half',
+            'first-half'=>'first half',
+            'placar correto'=>'correct score','resultado correto'=>'correct score',
+            'total da equipe'=>'team total','total do time'=>'team total',
         ]);
         $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
         if(is_string($ascii)&&$ascii!=='')$value=strtolower($ascii);
