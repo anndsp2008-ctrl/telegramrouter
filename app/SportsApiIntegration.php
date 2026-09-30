@@ -11,6 +11,7 @@ final class SportsApiIntegration
 {
     private const STAKE_BASE_URL = 'https://odds-data.stake.com';
     private const API_FOOTBALL_BASE_URL = 'https://v3.football.api-sports.io';
+    private const FOOTBALL_DATA_BASE_URL = 'https://api.football-data.org';
 
     public static function stakeKey(): string
     {
@@ -20,6 +21,11 @@ final class SportsApiIntegration
     public static function apiFootballKey(): string
     {
         return self::storedOrEnv('api_football_key', 'API_FOOTBALL_KEY');
+    }
+
+    public static function footballDataKey(): string
+    {
+        return self::storedOrEnv('football_data_token', 'FOOTBALL_DATA_TOKEN');
     }
 
     /** @return array{ok:bool,message:string,latency_ms:int,http_code:?int,error:?string} */
@@ -36,6 +42,11 @@ final class SportsApiIntegration
         if ($provider === 'api_football') {
             if ($key === '') $key = self::apiFootballKey();
             return self::testApiFootball($key);
+        }
+
+        if ($provider === 'football_data') {
+            if ($key === '') $key = self::footballDataKey();
+            return self::testFootballData($key);
         }
 
         return [
@@ -120,6 +131,33 @@ final class SportsApiIntegration
         }
 
         return self::failed('API-Football', $result);
+    }
+
+    /** @return array{ok:bool,message:string,latency_ms:int,http_code:?int,error:?string} */
+    private static function testFootballData(string $key): array
+    {
+        if ($key === '') return self::missing('Informe um token da football-data.org para testar.');
+
+        $today = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d');
+        $result = self::request(
+            self::FOOTBALL_DATA_BASE_URL . '/v4/matches?dateFrom=' . rawurlencode($today) . '&dateTo=' . rawurlencode($today),
+            [
+                'Accept: application/json',
+                'X-Auth-Token: ' . $key,
+            ]
+        );
+
+        if ($result['ok']) {
+            return [
+                'ok' => true,
+                'message' => 'football-data.org conectada como fallback.',
+                'latency_ms' => $result['latency_ms'],
+                'http_code' => $result['http_code'],
+                'error' => null,
+            ];
+        }
+
+        return self::failed('football-data.org', $result);
     }
 
     /** @return array{ok:bool,http_code:?int,latency_ms:int,error:?string} */
