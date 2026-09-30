@@ -214,6 +214,15 @@ final class StakeOddsProvider
             }
 
             if($fixture===null){
+                $fixture=self::discoverFixtureByCategory(
+                    $sportSlug,
+                    (string)($bet['match']??''),
+                    (string)($bet['league']??''),
+                    (string)($bet['date']??$bet['day']??'')
+                );
+            }
+
+            if($fixture===null){
                 return ['bet'=>$bet,'status'=>'fixture_not_found','changed'=>false,'error'=>''];
             }
 
@@ -274,6 +283,125 @@ final class StakeOddsProvider
         // round up) to two decimal places. Example: 1.30 x 1.35 = 1.755 -> 1.75.
         $truncated=floor(($product+1.0e-9)*100.0)/100.0;
         return number_format($truncated,2,'.','');
+    }
+
+    /** @return ?array<string,mixed> */
+    private static function discoverFixtureByCategory(
+        string $sportSlug,
+        string $match,
+        string $league,
+        string $date
+    ): ?array {
+        $payload=self::cached(
+            'categories:'.$sportSlug,
+            300,
+            static fn(): array=>self::request('/sports/'.rawurlencode($sportSlug).'/categories')
+        );
+
+        $categories=is_array($payload['categories']??null)?$payload['categories']:[];
+        if($categories===[])return null;
+
+        $ordered=self::rankStakeCategories($categories,$league);
+        $attempts=0;
+        foreach($ordered as $category){
+            if($attempts>=6)break;
+            if(!is_array($category))continue;
+
+            $slug=trim((string)($category['slug']??''));
+            if($slug==='' || !preg_match('/^[A-Za-z0-9._:-]{1,160}$/D',$slug))continue;
+            $attempts++;
+
+            try{
+                $fixtures=self::cached(
+                    'category-fixtures:'.$sportSlug.':'.$slug,
+                    self::FIXTURE_CACHE_TTL,
+                    static fn(): array=>self::request(
+                        '/sport/'.rawurlencode($sportSlug)
+                        .'/category/'.rawurlencode($slug)
+                        .'/fixture'
+                    )
+                );
+                $fixture=self::selectFixture($fixtures,$match,$league,$date);
+                if($fixture!==null){
+                    error_log('TMR_STAKE_FIXTURE_MATCH category_fallback '.json_encode([
+                        'category'=>mb_substr((string)($category['name']??$slug),0,80),
+                        'attempts'=>$attempts,
+                    ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+                    return $fixture;
+                }
+            }catch(\Throwable $e){
+                error_log('TMR_STAKE_CATEGORY_LOOKUP '.json_encode([
+                    'category'=>mb_substr((string)($category['name']??$slug),0,80),
+                    'status'=>'failed',
+                    'error'=>get_class($e),
+                ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<mixed> $categories @return list<array<string,mixed>> */
+    private static function rankStakeCategories(array $categories,string $league): array
+    {
+        $target=self::stakeCategoryHint($league);
+        $scored=[];
+
+        foreach($categories as $idx=>$category){
+            if(!is_array($category))continue;
+            $name=trim((string)($category['name']??''));
+            $slug=trim((string)($category['slug']??''));
+            $label=trim($name.' '.$slug);
+            $canonical=self::canonical($label);
+
+            $score=0.0;
+            if($target!=='' && str_contains($canonical,$target))$score=1.0;
+            elseif($league!=='' && $label!=='')$score=self::similarity($league,$label);
+
+            if(str_contains($canonical,'international'))$score=max($score,0.70);
+            $score-=((int)$idx)*0.00001;
+
+            $scored[]=['score'=>$score,'category'=>$category];
+        }
+
+        usort($scored,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
+        return array_values(array_map(
+            static fn(array $row): array=>$row['category'],
+            $scored
+        ));
+    }
+
+    private static function stakeCategoryHint(string $league): string
+    {
+        $v=self::canonical($league);
+        if($v==='')return 'international';
+
+        foreach([
+            'championsleague'=>'international',
+            'uefachampionsleague'=>'international',
+            'europaleague'=>'international',
+            'conferenceleague'=>'international',
+            'worldcup'=>'international',
+            'mundial'=>'international',
+            'libertadores'=>'international',
+            'sudamericana'=>'international',
+            'premierleague'=>'england',
+            'championship'=>'england',
+            'laliga'=>'spain',
+            'bundesliga'=>'germany',
+            'ligue1'=>'france',
+            'primeiraliga'=>'portugal',
+            'ligaportugal'=>'portugal',
+            'eredivisie'=>'netherlands',
+            'brasileirao'=>'brazil',
+            'copadobrasil'=>'brazil',
+            'mls'=>'usa',
+            'majorleaguesoccer'=>'usa',
+        ] as $needle=>$hint){
+            if(str_contains($v,$needle))return $hint;
+        }
+
+        return '';
     }
 
     /** @return array<string,mixed> */
@@ -352,6 +480,7 @@ final class StakeOddsProvider
         $sides=self::matchSides($match);
         if($sides===null)return null;
         [$wantedA,$wantedB]=$sides;
+        $wantedVariant=self::eventVariant($match,$league);
 
         $rows=self::fixtureRows($payload);
         if($rows===[])return null;
@@ -373,10 +502,10 @@ final class StakeOddsProvider
             }
             if($actualA===''||$actualB==='')continue;
 
-            $directA=self::teamSimilarity($wantedA,$actualA);
-            $directB=self::teamSimilarity($wantedB,$actualB);
-            $reverseA=self::teamSimilarity($wantedA,$actualB);
-            $reverseB=self::teamSimilarity($wantedB,$actualA);
+            $directA=self::teamSimilarity($wantedA,$actualA,$wantedVariant);
+            $directB=self::teamSimilarity($wantedB,$actualB,$wantedVariant);
+            $reverseA=self::teamSimilarity($wantedA,$actualB,$wantedVariant);
+            $reverseB=self::teamSimilarity($wantedB,$actualA,$wantedVariant);
             $direct=($directA+$directB)/2;
             $reverse=($reverseA+$reverseB)/2;
 
@@ -704,9 +833,9 @@ final class StakeOddsProvider
         return max(0.0,min(1.0,$percent/100));
     }
 
-    private static function teamSimilarity(string $a,string $b): float
+    private static function teamSimilarity(string $a,string $b,?string $expectedVariant=null): float
     {
-        $variantA=self::teamVariant($a);
+        $variantA=$expectedVariant??self::teamVariant($a);
         $variantB=self::teamVariant($b);
         if($variantA!==$variantB)return 0.0;
 
@@ -739,6 +868,24 @@ final class StakeOddsProvider
             }
         }
         return $score;
+    }
+
+    private static function eventVariant(string $match,string $league): ?string
+    {
+        $v=mb_strtolower(trim($match.' '.$league),'UTF-8');
+        $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$v);
+        if(is_string($ascii)&&$ascii!=='')$v=strtolower($ascii);
+
+        if(preg_match('/\b(?:women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|female|wfc)\b|\(\s*w\s*\)|\b w$/u',$v)){
+            return 'women';
+        }
+        if(preg_match('/\b(?:u|sub)[ -]?(1[5-9]|2[0-3])\b/u',$v,$m)){
+            return 'u'.$m[1];
+        }
+        if(preg_match('/\b(?:reserve|reserves|reservas?|b team|team b|ii)\b/u',$v)){
+            return 'reserve';
+        }
+        return null;
     }
 
     private static function teamVariant(string $value): string
