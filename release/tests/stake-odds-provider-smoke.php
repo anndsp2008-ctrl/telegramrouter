@@ -160,6 +160,35 @@ if(!is_array($timezoneMatch)||($timezoneMatch['slug']??'')!=='timezone-fixture')
     throw new RuntimeException('Stake +/-1 day timezone tolerance failed.');
 }
 
+$womenLeagueFixture=[
+    'fixture'=>[
+        [
+            'slug'=>'benfica-bayern-women',
+            'name'=>'Benfica Women - Bayern Munich Women',
+            'startTime'=>1790895600000,
+            'tournament'=>"UEFA Women's Champions League",
+            'competitors'=>['Benfica Women','Bayern Munich Women'],
+        ],
+        [
+            'slug'=>'benfica-bayern-senior',
+            'name'=>'Benfica - Bayern Munich',
+            'startTime'=>1790895600000,
+            'tournament'=>'Club Friendly',
+            'competitors'=>['Benfica','Bayern Munich'],
+        ],
+    ],
+];
+$womenLeagueMatch=$fixtureMethod->invoke(
+    null,
+    $womenLeagueFixture,
+    'Benfica vs Bayern Munich',
+    "UEFA Women's Champions League",
+    ''
+);
+if(!is_array($womenLeagueMatch)||($womenLeagueMatch['slug']??'')!=='benfica-bayern-women'){
+    throw new RuntimeException('Women competition must force matching against women teams even when source match omits Women/Feminino.');
+}
+
 $categoryHint=new ReflectionMethod(StakeOddsProvider::class,'stakeCategoryHint');
 $categoryHint->setAccessible(true);
 if($categoryHint->invoke(null,'UEFA Champions League')!=='international'){
