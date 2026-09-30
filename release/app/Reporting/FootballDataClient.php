@@ -14,6 +14,11 @@ final class FootballDataClient implements FootballResultsClient
         private readonly int $requestBudget = 8
     ) {}
 
+    public function providerKey(): string
+    {
+        return 'football_data';
+    }
+
     public function fixturesByDate(string $date): array
     {
         if (array_key_exists($date, $this->dateCache)) {
