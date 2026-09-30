@@ -190,7 +190,7 @@ function rdate(mixed $value): string
     <link rel="stylesheet" href="/assets/translation-v2.css?v=2">
 <link rel="stylesheet" href="/assets/brand/workers-ai-provider.css?v=5">
 <link rel="stylesheet" href="/assets/brand/integrations-v10.css?v=8&workers-dot=5&openai-form=2">
-<link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=4">
+<link rel="stylesheet" href="/assets/brand/activity-status-badges.css?v=5">
 <link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1"><link rel="stylesheet" href="/assets/brand/project-scrollbar.css?v=1">
 <link rel="stylesheet" href="/assets/brand/service-status-responsive.css?v=1">
 <link rel="stylesheet" href="/assets/brand/connect-responsive.css?v=2">
@@ -204,7 +204,7 @@ function rdate(mixed $value): string
     <meta name="apple-mobile-web-app-title" content="TMR">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon.png?v=1">
     <script defer src="/assets/pwa.js?v=1"></script>
-<link rel="stylesheet" href="/assets/brand/theme.css?v=6"></head>
+<link rel="stylesheet" href="/assets/brand/theme.css?v=7"></head>
 <body>
 <div class="saas-shell">
     <?php $navActive='reports'; require __DIR__.'/app/project-sidebar.php'; ?>

@@ -27,6 +27,7 @@ function ltContrast(string $a,string $b): float {
 
 $css=(string)file_get_contents(__DIR__.'/../assets/brand/theme.css');
 $runtime=(string)file_get_contents(__DIR__.'/../runtime-theme.php');
+$activityStatusCss=(string)file_get_contents(__DIR__.'/../assets/brand/activity-status-badges.css');
 $pages=[
     'index'=>(string)file_get_contents(__DIR__.'/../index.php'),
     'reports'=>(string)file_get_contents(__DIR__.'/../reports.php'),
@@ -58,10 +59,10 @@ ltOk(str_contains($css,'.reporting-switch-row>input'),'switches de relatorios po
 ltOk(str_contains($css,'.reporting-choice>input'),'radios de relatorios possuem tema claro');
 ltOk(str_contains($css,'.reporting-status-badge.green'),'status do relatorio possui cores semanticas claras');
 ltOk(str_contains($css,'.reporting-history-row-dark>td'),'zebrado claro permanece coberto');
-ltOk(str_contains($runtime,'/assets/brand/theme.css?v=6'),'runtime injeta CSS claro v2');
+ltOk(str_contains($runtime,'/assets/brand/theme.css?v=7'),'runtime injeta CSS claro v2');
 
 foreach($pages as $name=>$page){
-    ltOk(str_contains($page,'/assets/brand/theme.css?v=6'),$name.' invalida cache do tema claro');
+    ltOk(str_contains($page,'/assets/brand/theme.css?v=7'),$name.' invalida cache do tema claro');
 }
 
 foreach([
@@ -79,6 +80,12 @@ echo "LIGHT_THEME_SMOKE_PASSED\n";
 ltOk(str_contains($css,'TMR_LIGHT_THEME_VISUAL_V4'),'refinamento visual claro v4 presente');
 ltOk(str_contains($css,'TMR_LIGHT_THEME_POLISH_V5'),'polimento visual claro v5 presente');
 ltOk(str_contains($css,'TMR_LIGHT_THEME_ICONS_V6'),'ajuste de icones claros v6 presente');
+ltOk(str_contains($css,'TMR_LIGHT_THEME_STATUS_V7'),'status claros v7 presentes');
+ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.Encaminhada'),'Encaminhada possui variante clara');
+ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.Ignorada'),'Ignorada possui variante clara');
+ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.Falhou'),'Falhou possui variante clara');
+ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.Processando'),'Processando possui variante clara');
+ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.Registrada'),'Registrada possui variante clara');
 ltOk(str_contains($css,'html[data-theme="light"] .saas-metric-icon{'),'icones de metricas sem caixa no light');
 ltOk(str_contains($css,'.reporting-rules-list::-webkit-scrollbar-thumb'),'scrollbar claro personalizado');
 ltOk(str_contains($css,'.guide-points span'),'passos do guia revisados');
