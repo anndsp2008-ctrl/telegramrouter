@@ -28,6 +28,7 @@ function ltContrast(string $a,string $b): float {
 $css=(string)file_get_contents(__DIR__.'/../assets/brand/theme.css');
 $runtime=(string)file_get_contents(__DIR__.'/../runtime-theme.php');
 $activityStatusCss=(string)file_get_contents(__DIR__.'/../assets/brand/activity-status-badges.css');
+$aiLearningCss=(string)file_get_contents(__DIR__.'/../assets/ai-learning.css');
 $pages=[
     'index'=>(string)file_get_contents(__DIR__.'/../index.php'),
     'reports'=>(string)file_get_contents(__DIR__.'/../reports.php'),
@@ -48,6 +49,9 @@ ltOk(str_contains($css,'.reporting-review-reprocess-btn'),'botao reprocessar pos
 ltOk(str_contains($css,'.reporting-force-pending-btn'),'botao verificar pendentes possui tema claro');
 ltOk(str_contains($css,'.reporting-history-toggle'),'botao de accordion possui tema claro');
 ltOk(str_contains($css,'.ai-danger-btn'),'botoes de IA possuem tema claro');
+ltOk(str_contains($aiLearningCss,'TMR_AI_LIBRARY_TOOLBAR_V2'),'barra da biblioteca IA v2 presente');
+ltOk(str_contains($aiLearningCss,'#biblioteca .ai-search button'),'botao Buscar possui estilo dedicado');
+ltOk(str_contains($aiLearningCss,'html[data-theme="light"] #biblioteca .ai-toolbar'),'biblioteca possui variante clara dedicada');
 ltOk(str_contains($css,'.reset-danger-button'),'botao destrutivo do reset possui tema claro');
 ltOk(str_contains($css,'.tmr-dialog-cancel'),'botoes de dialogo possuem tema claro');
 ltOk(str_contains($css,'.connect-shell button:not(.disconnect-button)'),'botoes da conexao possuem tema claro');
