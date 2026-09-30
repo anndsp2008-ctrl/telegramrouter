@@ -226,6 +226,18 @@ final class AdaptiveVipCardRenderer
         return str_replace(',','.',$odd);
     }
 
+    /**
+     * Presentation-only odds format. Keep the extracted/source value unchanged
+     * for validation and settlement, but every published card/caption shows
+     * exactly two decimal places.
+     */
+    private static function displayOdd(string $odd): string
+    {
+        $normalized=self::cleanOdd($odd);
+        if($normalized==='')return '';
+        return number_format((float)$normalized,2,'.','');
+    }
+
     private static function dateOnly(string $value): string
     {
         $value=trim($value);
@@ -268,12 +280,12 @@ final class AdaptiveVipCardRenderer
                 if(!empty($leg['date']))$lines[]='📅 '.$leg['date'];
                 $lines[]='🎯 Mercado: '.($leg['market']??'');
                 $lines[]='✅ Seleção: '.($leg['selection']??'');
-                if(!empty($leg['odd']))$lines[]='📈 Odd: '.$leg['odd'];
+                if(!empty($leg['odd']))$lines[]='📈 Odd: '.self::displayOdd((string)$leg['odd']);
                 $lines[]='';
             }
         }
 
-        if(!empty($bet['odd']))$lines[]='📊 Odd total: '.$bet['odd'];
+        if(!empty($bet['odd']))$lines[]='📊 Odd total: '.self::displayOdd((string)$bet['odd']);
         $lines[]='📍 Stake: '.self::FIXED_STAKE;
         $analysis=self::stripEmojis(trim((string)($bet['analysis']??'')));
         if($analysis!==''){
@@ -345,7 +357,8 @@ final class AdaptiveVipCardRenderer
         $bookmakerInfo=self::bookmakerForOutput($bet);
         $brandKey=$bookmakerInfo['key'];
         $bookmaker=$bookmakerInfo['name'];
-        $odd=trim((string)($bet['odd']??''))?:'—';
+        $odd=self::displayOdd((string)($bet['odd']??''));
+        if($odd==='')$odd='—';
         $analysis=trim((string)($bet['analysis']??''));
         if($analysis==='')return null;
 
@@ -672,7 +685,7 @@ final class AdaptiveVipCardRenderer
                         self::rounded($im,975,$cursor+30,$oddBoxW,70,16,$border);
                         self::rounded($im,978,$cursor+33,$oddBoxW-6,64,13,$panelDeep);
                         self::text($im,998,$cursor+55,'ODD',12,$muted,$bold);
-                        self::textFit($im,998,$cursor+88,(string)$leg['odd'],25,$white,$bold,91);
+                        self::textFit($im,998,$cursor+88,self::displayOdd((string)$leg['odd']),25,$white,$bold,91);
                     }
 
                     if($rowIndex<count($selectionRows)-1){
