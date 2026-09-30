@@ -54,6 +54,25 @@ assertTrue(($footballDataFixture['fixture']['id'] ?? 0) === 987654, 'football-da
 assertTrue(($footballDataFixture['teams']['home']['name'] ?? '') === 'Manchester City', 'football-data normaliza mandante');
 assertTrue(($footballDataFixture['score']['fulltime']['home'] ?? null) === 2.0, 'football-data normaliza placar final');
 
+$footballDataPenaltyFixture = $footballDataNormalize->invoke(null, [
+    'id'=>987655,
+    'utcDate'=>'2026-09-27T19:00:00Z',
+    'status'=>'FINISHED',
+    'competition'=>['id'=>2001,'name'=>'Cup'],
+    'homeTeam'=>['id'=>10,'name'=>'Home'],
+    'awayTeam'=>['id'=>11,'name'=>'Away'],
+    'score'=>[
+        'duration'=>'PENALTY_SHOOTOUT',
+        'fullTime'=>['home'=>6,'away'=>5],
+        'regularTime'=>['home'=>null,'away'=>null],
+        'extraTime'=>['home'=>0,'away'=>0],
+        'penalties'=>['home'=>5,'away'=>4],
+    ],
+]);
+assertTrue(($footballDataPenaltyFixture['fixture']['status']['short'] ?? '') === 'PEN', 'football-data preserva final por penaltis');
+assertTrue(($footballDataPenaltyFixture['score']['fulltime']['home'] ?? null) === 1.0, 'football-data remove penaltis do placar de settlement');
+assertTrue(($footballDataPenaltyFixture['score']['fulltime']['away'] ?? null) === 1.0, 'football-data normaliza placar de 90 minutos');
+
 $ticket = TicketNormalizer::fromModel([
     'kind'=>'simple',
     'odd'=>'1.60',
