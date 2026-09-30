@@ -109,6 +109,57 @@ if(!is_array($scheduleMatch)||($scheduleMatch['slug']??'')!=='lyon-chelsea-women
     throw new RuntimeException('Stake schedule fallback fixture extraction failed.');
 }
 
+$aliasFixture=[
+    'fixture'=>[
+        [
+            'slug'=>'lyon-chelsea-alias',
+            'name'=>'Olympique Lyonnais Women - Chelsea Women',
+            'startTime'=>1790895600000,
+            'tournament'=>"UEFA Women's Champions League",
+            'competitors'=>['Olympique Lyonnais Women','Chelsea Women'],
+        ],
+        [
+            'slug'=>'lyon-chelsea-senior',
+            'name'=>'Olympique Lyonnais - Chelsea',
+            'startTime'=>1790895600000,
+            'tournament'=>'Club Friendly',
+            'competitors'=>['Olympique Lyonnais','Chelsea'],
+        ],
+    ],
+];
+$aliasMatch=$fixtureMethod->invoke(
+    null,
+    $aliasFixture,
+    'Lyon Feminino x Chelsea Feminino',
+    'Liga dos Campeões Feminina',
+    '02/10/2026'
+);
+if(!is_array($aliasMatch)||($aliasMatch['slug']??'')!=='lyon-chelsea-alias'){
+    throw new RuntimeException('Stake alias/gender-aware fixture matching failed.');
+}
+
+$timezoneFixture=[
+    'fixture'=>[
+        [
+            'slug'=>'timezone-fixture',
+            'name'=>'Palmeiras - Flamengo',
+            'startTime'=>1790982000000,
+            'tournament'=>'Brasileirao',
+            'competitors'=>['Palmeiras','Flamengo'],
+        ],
+    ],
+];
+$timezoneMatch=$fixtureMethod->invoke(
+    null,
+    $timezoneFixture,
+    'Palmeiras x Flamengo',
+    'Brasileirão',
+    '02/10/2026'
+);
+if(!is_array($timezoneMatch)||($timezoneMatch['slug']??'')!=='timezone-fixture'){
+    throw new RuntimeException('Stake +/-1 day timezone tolerance failed.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
