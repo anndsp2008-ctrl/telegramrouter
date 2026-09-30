@@ -7,6 +7,7 @@ on:
       - 'tests/ai-learning-zip-import-test.php'
       - 'app/SmartFormatting.php'
       - 'ai-learning.php'
+      - 'assets/ai-learning.css'
       - 'tests/ai-learning-memory-test.php'
       - 'tests/ai-learning-db-test.php'
       - '.github/workflows/ai-learning-checks.yml'
@@ -70,9 +71,9 @@ jobs:
           grep -Fq 'AI_LEARNING_ZIP_IMPORT' tests/ai-learning-zip-import-test.php || true
           grep -q 'import_zip_chunk' ai-learning.php
           grep -q 'savePending' app/AiLearningZipImporter.php
-          # The learning screen must use the same navy/turquoise palette as the dashboard.
-          grep -Fq -- '--al-bg:#080b12' ai-learning.php
-          grep -Fq -- '--al-panel:#0d131e' ai-learning.php
-          grep -Fq -- '--al-accent:#61dfcb' ai-learning.php
-          ! grep -Fq '#88bc47' ai-learning.php
-          ! grep -Fq 'prefers-color-scheme:light' ai-learning.php
+          # The learning screen styles live in the dedicated stylesheet and must keep the project palette.
+          grep -Fq '#0d131e' assets/ai-learning.css
+          grep -Fq '#61dfcb' assets/ai-learning.css
+          grep -Fq 'TMR_AI_LIBRARY_TOOLBAR_V2' assets/ai-learning.css
+          ! grep -Fq '#88bc47' assets/ai-learning.css
+          ! grep -Fq 'prefers-color-scheme:light' assets/ai-learning.css
