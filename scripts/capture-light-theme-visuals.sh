@@ -23,3 +23,13 @@ for screen in "${SCREENS[@]}"; do
   test -s "$OUT/${screen}-mobile.png"
 done
 echo LIGHT_THEME_VISUAL_AUDIT_CAPTURED
+
+# Focused responsive captures for sections below the first viewport.
+"$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=1400 --window-size=768,1024 --screenshot="$OUT/ai-library-tablet.png" "http://127.0.0.1:$PORT/tests/light-theme-visual-fixture.html?screen=ai#biblioteca" >/dev/null 2>&1
+"$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=1400 --window-size=390,844 --screenshot="$OUT/ai-library-mobile.png" "http://127.0.0.1:$PORT/tests/light-theme-visual-fixture.html?screen=ai#biblioteca" >/dev/null 2>&1
+"$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=1400 --window-size=768,1024 --screenshot="$OUT/reports-history-tablet.png" "http://127.0.0.1:$PORT/tests/light-theme-visual-fixture.html?screen=reports#reporting-history-audit" >/dev/null 2>&1
+"$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=1400 --window-size=390,844 --screenshot="$OUT/reports-history-mobile.png" "http://127.0.0.1:$PORT/tests/light-theme-visual-fixture.html?screen=reports#reporting-history-audit" >/dev/null 2>&1
+test -s "$OUT/ai-library-tablet.png"
+test -s "$OUT/ai-library-mobile.png"
+test -s "$OUT/reports-history-tablet.png"
+test -s "$OUT/reports-history-mobile.png"
