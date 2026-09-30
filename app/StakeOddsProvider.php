@@ -302,14 +302,16 @@ final class StakeOddsProvider
         if($categories===[])return null;
 
         $ordered=self::rankStakeCategories($categories,$league);
-        $attempts=0;
+        $categoryAttempts=0;
+        $tournamentFixtureAttempts=0;
+
         foreach($ordered as $category){
-            if($attempts>=6)break;
+            if($categoryAttempts>=6)break;
             if(!is_array($category))continue;
 
             $slug=trim((string)($category['slug']??''));
             if($slug==='' || !preg_match('/^[A-Za-z0-9._:-]{1,160}$/D',$slug))continue;
-            $attempts++;
+            $categoryAttempts++;
 
             try{
                 $fixtures=self::cached(
@@ -325,14 +327,74 @@ final class StakeOddsProvider
                 if($fixture!==null){
                     error_log('TMR_STAKE_FIXTURE_MATCH category_fallback '.json_encode([
                         'category'=>mb_substr((string)($category['name']??$slug),0,80),
-                        'attempts'=>$attempts,
+                        'attempts'=>$categoryAttempts,
                     ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
                     return $fixture;
                 }
             }catch(\Throwable $e){
                 error_log('TMR_STAKE_CATEGORY_LOOKUP '.json_encode([
                     'category'=>mb_substr((string)($category['name']??$slug),0,80),
-                    'status'=>'failed',
+                    'status'=>'fixture_feed_failed',
+                    'error'=>get_class($e),
+                ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+            }
+
+            // Some competitions (notably international club / women's events)
+            // are not present in the broad category fixture feed. Follow the
+            // documented category -> tournament -> fixtures hierarchy before
+            // declaring fixture_not_found.
+            try{
+                $tournamentPayload=self::cached(
+                    'tournaments:'.$sportSlug.':'.$slug,
+                    300,
+                    static fn(): array=>self::request(
+                        '/sports/'.rawurlencode($sportSlug)
+                        .'/'.rawurlencode($slug)
+                        .'/tournaments'
+                    )
+                );
+                $tournaments=is_array($tournamentPayload['tournaments']??null)
+                    ?$tournamentPayload['tournaments']:[];
+                foreach(self::rankStakeTournaments($tournaments,$league,$match) as $tournament){
+                    if($tournamentFixtureAttempts>=10)break 2;
+                    if(!is_array($tournament))continue;
+
+                    $tournamentSlug=trim((string)($tournament['slug']??''));
+                    if($tournamentSlug==='' || !preg_match('/^[A-Za-z0-9._:-]{1,180}$/D',$tournamentSlug))continue;
+                    $tournamentFixtureAttempts++;
+
+                    try{
+                        $tournamentFixtures=self::cached(
+                            'tournament-fixtures:'.$sportSlug.':'.$slug.':'.$tournamentSlug,
+                            self::FIXTURE_CACHE_TTL,
+                            static fn(): array=>self::request(
+                                '/sports/'.rawurlencode($sportSlug)
+                                .'/'.rawurlencode($slug)
+                                .'/'.rawurlencode($tournamentSlug)
+                                .'/fixtures'
+                            )
+                        );
+                        $fixture=self::selectFixture($tournamentFixtures,$match,$league,$date);
+                        if($fixture!==null){
+                            error_log('TMR_STAKE_FIXTURE_MATCH tournament_fallback '.json_encode([
+                                'category'=>mb_substr((string)($category['name']??$slug),0,80),
+                                'tournament'=>mb_substr((string)($tournament['name']??$tournamentSlug),0,100),
+                                'attempts'=>$tournamentFixtureAttempts,
+                            ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+                            return $fixture;
+                        }
+                    }catch(\Throwable $e){
+                        error_log('TMR_STAKE_TOURNAMENT_LOOKUP '.json_encode([
+                            'tournament'=>mb_substr((string)($tournament['name']??$tournamentSlug),0,100),
+                            'status'=>'fixture_feed_failed',
+                            'error'=>get_class($e),
+                        ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+                    }
+                }
+            }catch(\Throwable $e){
+                error_log('TMR_STAKE_CATEGORY_LOOKUP '.json_encode([
+                    'category'=>mb_substr((string)($category['name']??$slug),0,80),
+                    'status'=>'tournaments_failed',
                     'error'=>get_class($e),
                 ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
             }
@@ -369,6 +431,65 @@ final class StakeOddsProvider
             static fn(array $row): array=>$row['category'],
             $scored
         ));
+    }
+
+    /** @param list<mixed> $tournaments @return list<array<string,mixed>> */
+    private static function rankStakeTournaments(array $tournaments,string $league,string $match): array
+    {
+        $hint=self::stakeTournamentHint($league,$match);
+        $expectedVariant=self::eventVariant($match,$league);
+        $scored=[];
+
+        foreach($tournaments as $idx=>$tournament){
+            if(!is_array($tournament))continue;
+            $name=trim((string)($tournament['name']??''));
+            $slug=trim((string)($tournament['slug']??''));
+            if($name==='' && $slug==='')continue;
+
+            $label=trim($name.' '.$slug);
+            $canonical=self::canonical($label);
+            $score=$league!==''?self::similarity($league,$label):0.0;
+
+            if($hint!=='' && str_contains($canonical,$hint))$score=max($score,1.0);
+            elseif($hint!=='' && self::similarity($hint,$canonical)>=0.72)$score=max($score,0.92);
+
+            $labelVariant=self::eventVariant($label,'');
+            if($expectedVariant==='women'){
+                if($labelVariant==='women')$score+=0.20;
+                elseif($labelVariant!==null)$score-=0.30;
+            }elseif($expectedVariant!==null && $labelVariant!==null && $expectedVariant!==$labelVariant){
+                $score-=0.30;
+            }
+
+            $score-=((int)$idx)*0.00001;
+            $scored[]=['score'=>$score,'tournament'=>$tournament];
+        }
+
+        usort($scored,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
+        return array_values(array_map(
+            static fn(array $row): array=>$row['tournament'],
+            array_slice($scored,0,8)
+        ));
+    }
+
+    private static function stakeTournamentHint(string $league,string $match=''): string
+    {
+        $v=self::canonical($league.' '.$match);
+        $women=self::eventVariant($match,$league)==='women';
+
+        if(str_contains($v,'championsleague')
+            || str_contains($v,'ligadoscampeoes')
+            || str_contains($v,'ligadecampeoes')){
+            return $women?'womenschampionsleague':'championsleague';
+        }
+        if(str_contains($v,'europaleague') || str_contains($v,'ligaeuropa'))return 'europaleague';
+        if(str_contains($v,'conferenceleague'))return 'conferenceleague';
+        if(str_contains($v,'libertadores'))return 'libertadores';
+        if(str_contains($v,'sudamericana'))return 'sudamericana';
+        if(str_contains($v,'premierleague'))return $women?'womenssuperleague':'premierleague';
+        if(str_contains($v,'bundesliga'))return $women?'womenbundesliga':'bundesliga';
+        if(str_contains($v,'primeiraliga') || str_contains($v,'ligaportugal'))return 'primeiraliga';
+        return '';
     }
 
     private static function stakeCategoryHint(string $league): string
