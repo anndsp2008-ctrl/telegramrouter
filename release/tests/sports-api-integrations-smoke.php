@@ -7,6 +7,8 @@ $checks=[
         "test_sports_api_provider",
         "stake_odds_api_key",
         "api_football_key",
+        "football_data_token",
+        "football_data",
         "sports-api-provider-grid",
     ],
     $root.'/app/StakeOddsProvider.php'=>[
@@ -14,6 +16,15 @@ $checks=[
     ],
     $root.'/app/Reporting/ResultWorker.php'=>[
         "SportsApiIntegration::apiFootballKey()",
+        "SportsApiIntegration::footballDataKey()",
+        "FootballDataClient",
+        "settlement_provider",
+    ],
+    $root.'/app/Reporting/FootballDataClient.php'=>[
+        "X-Auth-Token:",
+        "requestBudget",
+        "statistics",
+        "_provider",
     ],
     $root.'/assets/brand/integrations-v10.js'=>[
         "document.querySelectorAll('.translation-provider-grid')",
