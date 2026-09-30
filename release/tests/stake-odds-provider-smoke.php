@@ -549,6 +549,70 @@ if(($suspendedBtts['odd']??null)!==null){
     throw new RuntimeException('Stake suspended market must never publish an odd.');
 }
 
+$strictFixturePayload=[
+    'fixture'=>[
+        [
+            'slug'=>'disabled-match',
+            'name'=>'Benfica - Bayern Munich',
+            'competitors'=>['Benfica','Bayern Munich'],
+            'enabled'=>false,
+            'status'=>'active',
+            'startTime'=>1790982000000,
+        ],
+        [
+            'slug'=>'blacklisted-match',
+            'name'=>'Benfica - Bayern Munich',
+            'competitors'=>['Benfica','Bayern Munich'],
+            'enabled'=>true,
+            'blacklisted'=>true,
+            'status'=>'active',
+            'startTime'=>1790982000000,
+        ],
+        [
+            'slug'=>'wrong-date-match',
+            'name'=>'Benfica - Bayern Munich',
+            'competitors'=>['Benfica','Bayern Munich'],
+            'enabled'=>true,
+            'status'=>'active',
+            'startTime'=>1791154800000,
+        ],
+        [
+            'slug'=>'correct-active-match',
+            'name'=>'Benfica - Bayern Munich',
+            'competitors'=>['Benfica','Bayern Munich'],
+            'enabled'=>true,
+            'status'=>'active',
+            'startTime'=>1790982000000,
+        ],
+    ],
+];
+$strictFixture=$fixtureMethod->invoke(
+    null,
+    $strictFixturePayload,
+    'Benfica vs Bayern Munich',
+    'Champions League',
+    '02/10/2026'
+);
+if(!is_array($strictFixture)||($strictFixture['slug']??'')!=='correct-active-match'){
+    throw new RuntimeException('Stake fixture matching must reject disabled, blacklisted and wrong-date events.');
+}
+
+$onlyWrongDate=[
+    'fixture'=>[
+        [
+            'slug'=>'same-teams-wrong-date',
+            'name'=>'Benfica - Bayern Munich',
+            'competitors'=>['Benfica','Bayern Munich'],
+            'enabled'=>true,
+            'status'=>'active',
+            'startTime'=>1791241200000,
+        ],
+    ],
+];
+if($fixtureMethod->invoke(null,$onlyWrongDate,'Benfica vs Bayern Munich','Champions League','02/10/2026')!==null){
+    throw new RuntimeException('Stake fixture matching must never accept a known event more than one day from the requested date.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
@@ -734,6 +798,19 @@ $healthHasMarkets=new ReflectionMethod(\App\SportsApiIntegration::class,'stakeHa
 $healthHasMarkets->setAccessible(true);
 $healthShape=new ReflectionMethod(\App\SportsApiIntegration::class,'stakePayloadShape');
 $healthShape->setAccessible(true);
+
+if($healthHasMarkets->invoke(null,['fixture'=>['groups'=>[['markets'=>[['outcomes'=>[]]]]]]])!==false){
+    throw new RuntimeException('Stake health probe must reject empty outcome arrays.');
+}
+if($healthHasMarkets->invoke(null,['fixture'=>['groups'=>[['markets'=>[['outcomes'=>[['name'=>'Yes','odds'=>1.70,'active'=>false]]]]]]]])!==false){
+    throw new RuntimeException('Stake health probe must reject fixtures with only inactive odds.');
+}
+if($healthHasMarkets->invoke(null,['fixture'=>['groups'=>[['markets'=>[['outcomes'=>[['name'=>'Yes','odds'=>'1.70','active'=>true]]]]]]]])!==true){
+    throw new RuntimeException('Stake health probe must accept active numeric decimal odds.');
+}
+if($healthHasMarkets->invoke(null,['fixture'=>['swishMarkets'=>[['matchMarkets'=>[['outcomes'=>[['line'=>2.5,'over'=>1.91,'under'=>1.87]]]]]]]])!==true){
+    throw new RuntimeException('Stake health probe must accept active swish over/under odds.');
+}
 
 $healthNested=[
     'data'=>[

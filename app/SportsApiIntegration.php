@@ -219,35 +219,38 @@ final class SportsApiIntegration
     {
         if (!is_array($payload) || $depth > 8) return false;
 
+        if (isset($payload['outcomes']) && is_array($payload['outcomes'])) {
+            foreach ($payload['outcomes'] as $outcome) {
+                if (!is_array($outcome)) continue;
+                if (array_key_exists('active', $outcome) && !(bool)$outcome['active']) continue;
+
+                if (is_numeric($outcome['odds'] ?? null)) return true;
+                if (is_numeric($outcome['over'] ?? null) || is_numeric($outcome['under'] ?? null)) return true;
+            }
+        }
+
         if (isset($payload['groups']) && is_array($payload['groups'])) {
             foreach ($payload['groups'] as $group) {
-                if (!is_array($group)) continue;
-                foreach ((array)($group['markets'] ?? []) as $market) {
-                    if (!is_array($market)) continue;
-                    if (isset($market['outcomes']) && is_array($market['outcomes'])) return true;
-                }
+                if (is_array($group) && self::stakeHasMarketContract($group, $depth + 1)) return true;
             }
         }
 
         if (isset($payload['swishMarkets']) && is_array($payload['swishMarkets'])) {
             foreach ($payload['swishMarkets'] as $swish) {
-                if (!is_array($swish)) continue;
-                foreach (['matchMarkets','matchProps','teamProps','playerProps'] as $bucket) {
-                    if (!empty($swish[$bucket]) && is_array($swish[$bucket])) return true;
-                }
+                if (is_array($swish) && self::stakeHasMarketContract($swish, $depth + 1)) return true;
             }
         }
 
         if (isset($payload['markets']) && is_array($payload['markets'])) {
             foreach ($payload['markets'] as $market) {
-                if (is_array($market) && isset($market['outcomes']) && is_array($market['outcomes'])) return true;
+                if (is_array($market) && self::stakeHasMarketContract($market, $depth + 1)) return true;
             }
         }
 
-        if (isset($payload['outcomes']) && is_array($payload['outcomes'])) return true;
-
-        foreach ($payload as $value) {
-            if (is_array($value) && self::stakeHasMarketContract($value, $depth + 1)) return true;
+        foreach ($payload as $key=>$value) {
+            if (!is_array($value)) continue;
+            if (in_array((string)$key, ['outcomes','groups','swishMarkets','markets'], true)) continue;
+            if (self::stakeHasMarketContract($value, $depth + 1)) return true;
         }
         return false;
     }
