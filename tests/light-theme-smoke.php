@@ -29,6 +29,7 @@ $css=(string)file_get_contents(__DIR__.'/../assets/brand/theme.css');
 $runtime=(string)file_get_contents(__DIR__.'/../runtime-theme.php');
 $activityStatusCss=(string)file_get_contents(__DIR__.'/../assets/brand/activity-status-badges.css');
 $aiLearningCss=(string)file_get_contents(__DIR__.'/../assets/ai-learning.css');
+$mobileAuditCss=(string)file_get_contents(__DIR__.'/../assets/brand/mobile-visual-audit.css');
 $pages=[
     'index'=>(string)file_get_contents(__DIR__.'/../index.php'),
     'reports'=>(string)file_get_contents(__DIR__.'/../reports.php'),
@@ -103,3 +104,8 @@ ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.R
 ltOk(str_contains($css,'html[data-theme="light"] .saas-metric-icon{'),'icones de metricas sem caixa no light');
 ltOk(str_contains($css,'.reporting-rules-list::-webkit-scrollbar-thumb'),'scrollbar claro personalizado');
 ltOk(str_contains($css,'.guide-points span'),'passos do guia revisados');
+
+ltOk(str_contains($mobileAuditCss,'svg:not(.tmr-theme-icon)'),'toggle responsivo nao reexibe os dois icones');
+ltOk(str_contains($mobileAuditCss,'.tmr-theme-icon-moon{display:none!important}'),'lua fica oculta no tema escuro responsivo');
+ltOk(str_contains($mobileAuditCss,'html[data-theme="light"] .saas-topbar .tmr-theme-toggle .tmr-theme-icon-sun{display:none!important}'),'sol fica oculto no tema claro responsivo');
+ltOk(str_contains($runtime,'mobile-visual-audit.css?v=18'),'runtime invalida cache do css responsivo');

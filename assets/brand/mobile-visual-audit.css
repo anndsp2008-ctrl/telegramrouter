@@ -33,9 +33,15 @@
     max-width:100%!important;box-sizing:border-box!important;overflow-wrap:anywhere;
   }
   .saas-content :is(button,.saas-primary,.saas-secondary,.saas-danger) svg,
-  .saas-topbar button svg,.tmr-mobile-navigation svg{
+  .saas-topbar button svg:not(.tmr-theme-icon),.tmr-mobile-navigation svg{
     display:block;flex-shrink:0;
   }
+
+  /* Theme toggle keeps both SVGs in the DOM; responsive rules must not unhide both. */
+  .saas-topbar .tmr-theme-toggle .tmr-theme-icon-sun{display:block!important}
+  .saas-topbar .tmr-theme-toggle .tmr-theme-icon-moon{display:none!important}
+  html[data-theme="light"] .saas-topbar .tmr-theme-toggle .tmr-theme-icon-sun{display:none!important}
+  html[data-theme="light"] .saas-topbar .tmr-theme-toggle .tmr-theme-icon-moon{display:block!important}
   .saas-content :is(.saas-form-grid,.content-treatment,.provider-form,.provider-actions,.saas-actions)>*{
     min-width:0!important;max-width:100%!important;
   }
