@@ -373,8 +373,8 @@ final class StakeOddsProvider
             }
             if($actualA===''||$actualB==='')continue;
 
-            $direct=(self::similarity($wantedA,$actualA)+self::similarity($wantedB,$actualB))/2;
-            $reverse=(self::similarity($wantedA,$actualB)+self::similarity($wantedB,$actualA))/2;
+            $direct=(self::teamSimilarity($wantedA,$actualA)+self::teamSimilarity($wantedB,$actualB))/2;
+            $reverse=(self::teamSimilarity($wantedA,$actualB)+self::teamSimilarity($wantedB,$actualA))/2;
             $score=max($direct,$reverse);
 
             $tournamentValue=$fixture['tournament']??'';
@@ -659,6 +659,21 @@ final class StakeOddsProvider
     }
 
     private static function similarity(string $a,string $b): float
+    {
+        $a=self::countryAlias(self::canonical($a));
+        $b=self::countryAlias(self::canonical($b));
+        if($a===''||$b==='')return 0.0;
+        if($a===$b)return 1.0;
+
+        if(str_contains($a,$b)||str_contains($b,$a)){
+            return max(0.78,min(strlen($a),strlen($b))/max(strlen($a),strlen($b)));
+        }
+
+        similar_text($a,$b,$percent);
+        return max(0.0,min(1.0,$percent/100));
+    }
+
+    private static function teamSimilarity(string $a,string $b): float
     {
         $a=self::teamComparable($a);
         $b=self::teamComparable($b);
