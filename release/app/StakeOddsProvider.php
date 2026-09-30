@@ -1088,7 +1088,7 @@ final class StakeOddsProvider
         );
 
         $value=preg_replace(
-            '/\\b(?:fc|cf|sc|ac|afc|club|clube|women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|fem)\\b/u',
+            '/\\b(?:fc|cf|sc|ac|afc|club|clube|de|da|do|del|women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|fem)\\b/u',
             ' ',
             $value
         )??$value;
