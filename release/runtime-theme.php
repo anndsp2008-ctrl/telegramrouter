@@ -7,10 +7,10 @@ function tmrThemePatch(string $file,bool $withToggle): void {
         if(str_contains($html,'</title>')) $html=str_replace('</title>','</title><script src="/assets/brand/theme.js?v=1"></script>',$html);
         elseif(str_contains($html,'<head>')) $html=str_replace('<head>','<head><script src="/assets/brand/theme.js?v=1"></script>',$html);
     }
-    $html=preg_replace('~/assets/brand/theme\\.css\\?v=\\d+~','/assets/brand/theme.css?v=10',$html) ?? $html;
+    $html=preg_replace('~/assets/brand/theme\\.css\\?v=\\d+~','/assets/brand/theme.css?v=11',$html) ?? $html;
     $html=preg_replace('~/assets/brand/mobile-visual-audit\\.css\\?v=\\d+~','/assets/brand/mobile-visual-audit.css?v=18',$html) ?? $html;
-    if(!str_contains($html,'/assets/brand/theme.css?v=10')&&str_contains($html,'</head>')){
-        $html=str_replace('</head>','<link rel="stylesheet" href="/assets/brand/theme.css?v=10"></head>',$html);
+    if(!str_contains($html,'/assets/brand/theme.css?v=11')&&str_contains($html,'</head>')){
+        $html=str_replace('</head>','<link rel="stylesheet" href="/assets/brand/theme.css?v=11"></head>',$html);
     }
     if($withToggle&&!str_contains($html,'theme-toggle.php')){
         $actionPos=strpos($html,'name="action" value="logout"');

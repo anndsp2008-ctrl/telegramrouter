@@ -204,7 +204,7 @@ function rdate(mixed $value): string
     <meta name="apple-mobile-web-app-title" content="TMR">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon.png?v=1">
     <script defer src="/assets/pwa.js?v=1"></script>
-<link rel="stylesheet" href="/assets/brand/theme.css?v=10"></head>
+<link rel="stylesheet" href="/assets/brand/theme.css?v=11"></head>
 <body>
 <div class="saas-shell">
     <?php $navActive='reports'; require __DIR__.'/app/project-sidebar.php'; ?>
