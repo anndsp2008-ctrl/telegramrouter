@@ -1321,3 +1321,39 @@ html[data-theme="light"] .reporting-history-route-item.is-source>strong{color:#0
 html[data-theme="light"] .reporting-history-route-item.is-destination>strong{color:#345f8b!important}
 
 html[data-theme="light"] :is(.field-help,.form-note,.saas-card-head p,.reporting-section-heading p){color:#5b7087!important}
+
+
+/* TMR_LIGHT_THEME_ICONS_V6
+ * Remove caixas adicionadas apenas pelo modo claro em ícones decorativos.
+ * O dark já exibe estes ícones sem fundo.
+ */
+html[data-theme="light"] .saas-metric-icon{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:auto!important;
+  height:auto!important;
+  min-width:0!important;
+  min-height:0!important;
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  outline:0!important;
+  color:#0f8176!important;
+}
+html[data-theme="light"] .saas-metric-icon.danger{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:#b42335!important;
+}
+html[data-theme="light"] .saas-metric-icon svg,
+html[data-theme="light"] .saas-metric-icon .tmr-icon{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
