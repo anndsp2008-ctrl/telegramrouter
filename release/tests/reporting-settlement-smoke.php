@@ -162,7 +162,7 @@ assertTrue(!str_contains($reportingRepositorySource, '$candidate = $now->setTime
 
 $resultWorkerSource=(string)file_get_contents(__DIR__.'/../app/Reporting/ResultWorker.php');
 assertTrue(str_contains($resultWorkerSource,'if ($attempts >= 3)'), 'lookup permite dois retries controlados antes de revisao');
-assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 30);'), 'fixture vazio ou interrompido recebe retry curto');
+assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 30, $storedProvider);'), 'fixture vazio ou interrompido recebe retry curto');
 assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 60, $storedProvider);'), 'erro transitorio de fixture recebe retry em uma hora');
 assertTrue(str_contains($resultWorkerSource,'TMR_REPORTING_SETTLEMENT_FALLBACK'), 'worker registra uso do fallback de resultados');
 assertTrue(str_contains($resultWorkerSource,'TMR_REPORTING_FALLBACK_STATS_UNAVAILABLE'), 'fallback gratuito nao inventa estatisticas ausentes');
