@@ -1439,3 +1439,55 @@ html[data-theme="light"] .rules-panel .rule-card + .rule-card{
     margin-top:12px!important;
   }
 }
+
+
+/* TMR_LIGHT_SCROLLBAR_V9
+ * Scrollbars globais do modo claro: vertical, horizontal e cantos.
+ * Sobrescreve as cores fixas do tema escuro sem alterar o dark.
+ */
+@media (forced-colors: none){
+  html[data-theme="light"],
+  html[data-theme="light"] *{
+    scrollbar-width:thin!important;
+    scrollbar-color:#91a5b5 #edf2f6!important;
+  }
+
+  @supports selector(::-webkit-scrollbar){
+    html[data-theme="light"] ::-webkit-scrollbar{
+      width:10px!important;
+      height:10px!important;
+      background:#edf2f6!important;
+    }
+    html[data-theme="light"] ::-webkit-scrollbar-track{
+      background:#edf2f6!important;
+      border:0!important;
+      border-radius:999px!important;
+      box-shadow:none!important;
+    }
+    html[data-theme="light"] ::-webkit-scrollbar-thumb{
+      background:#91a5b5!important;
+      background-image:none!important;
+      border:2px solid #edf2f6!important;
+      border-radius:999px!important;
+      min-width:32px!important;
+      min-height:32px!important;
+      box-shadow:none!important;
+    }
+    html[data-theme="light"] ::-webkit-scrollbar-thumb:hover{
+      background:#708a9d!important;
+      background-image:none!important;
+    }
+    html[data-theme="light"] ::-webkit-scrollbar-thumb:active{
+      background:#0f8176!important;
+      background-image:none!important;
+    }
+    html[data-theme="light"] ::-webkit-scrollbar-corner{
+      background:#edf2f6!important;
+    }
+    html[data-theme="light"] ::-webkit-scrollbar-button{
+      display:none!important;
+      width:0!important;
+      height:0!important;
+    }
+  }
+}
