@@ -280,7 +280,12 @@ final class ResultWorker
                 return ['provider'=>'football_data','lookup'=>$fallbackLookup];
             }
             if ($primaryFailed) {
-                return ['provider'=>'football_data','lookup'=>$fallbackLookup];
+                // Falha transitória da principal não pode virar "not_found" só
+                // porque o free tier do fallback não cobre aquela competição.
+                return ['provider'=>'football_data','lookup'=>[
+                    'status'=>'provider_error',
+                    'match'=>null,
+                ]];
             }
         } catch (\Throwable $e) {
             error_log('TMR_REPORTING_FALLBACK_LOOKUP_FAILED ' . get_class($e) . ' ' . mb_substr($e->getMessage(), 0, 120));
