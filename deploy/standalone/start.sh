@@ -15,6 +15,14 @@ php -l index.php >/dev/null
 php -l app/TelegramRouter.php >/dev/null
 printf 'ok\n' > health
 
+if [ "${TMR_STAKE_HEALTHCHECK_ON_START:-1}" = "1" ]; then
+  (
+    php scripts/stake-health.php 2>&1 | tee -a storage/worker.log || true
+  ) &
+else
+  printf 'TMR_STAKE_HEALTH_DISABLED\n'
+fi
+
 if [ "${TMR_RUN_WORKER:-1}" = "1" ]; then
   (
     printf 'TMR_TELEGRAM_WORKER_SUPERVISOR_START\n'
