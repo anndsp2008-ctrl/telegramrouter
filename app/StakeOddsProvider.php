@@ -654,12 +654,22 @@ final class StakeOddsProvider
 
         $lastHttp=0;
         foreach($modes as $mode){
-            [$payload,$http,$authFailure]=self::requestWithAuth($path,$key,$mode);
-            $lastHttp=$http;
-            if($payload!==null){
-                self::$workingAuthMode=$mode;
-                return $payload;
-            }
+            $attempt=0;
+            do{
+                $attempt++;
+                [$payload,$http,$authFailure]=self::requestWithAuth($path,$key,$mode);
+                $lastHttp=$http;
+                if($payload!==null){
+                    self::$workingAuthMode=$mode;
+                    return $payload;
+                }
+
+                // One immediate retry for transient transport/provider failures.
+                // Do not retry 4xx business responses (except 429) and do not
+                // add blocking sleeps inside the Telegram processing path.
+                $transient=$http===0 || $http===429 || $http>=500;
+            }while($transient && $attempt<2);
+
             if(!$authFailure)break;
         }
 
@@ -750,6 +760,12 @@ final class StakeOddsProvider
         $candidates=[];
         foreach($rows as $fixture){
             if(!is_array($fixture))continue;
+
+            if(($fixture['enabled']??true)===false)continue;
+            if(($fixture['blacklisted']??false)===true)continue;
+            $fixtureStatus=mb_strtolower(trim((string)($fixture['status']??'')),'UTF-8');
+            if(in_array($fixtureStatus,['closed','settled','ended','cancelled','canceled','abandoned'],true))continue;
+
             $actualA='';$actualB='';
             $competitors=$fixture['competitors']??[];
             if(is_array($competitors) && count($competitors)>=2){
@@ -804,7 +820,7 @@ final class StakeOddsProvider
                 $dateDistance=self::dateDistanceDays($wantedDate,$actualDate);
                 if($dateDistance===0)$score+=0.03;
                 elseif($dateDistance===1)$score-=0.005; // timezone/local-date tolerance
-                else $score-=0.10;
+                else continue; // never accept a known fixture on the wrong day
             }
 
             $candidates[]=[
