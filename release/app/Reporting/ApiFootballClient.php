@@ -2,7 +2,7 @@
 
 namespace App\Reporting;
 
-final class ApiFootballClient
+final class ApiFootballClient implements FootballResultsClient
 {
     public function __construct(
         private readonly string $apiKey,
