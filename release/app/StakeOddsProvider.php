@@ -977,6 +977,10 @@ final class StakeOddsProvider
         $directionB=self::direction($rawB);
         if($directionA!==null && $directionB!==null && $directionA!==$directionB)return 0.0;
 
+        $bttsA=self::bttsState($rawA);
+        $bttsB=self::bttsState($rawB);
+        if($bttsA!==null && $bttsB!==null && $bttsA!==$bttsB)return 0.0;
+
         $score=self::similarity($a,$b);
         if($directionA!==null && $directionA===$directionB)$score=max($score,0.92);
 
@@ -1003,8 +1007,6 @@ final class StakeOddsProvider
                 }
             }
         }
-        $bttsA=self::bttsState($rawA);
-        $bttsB=self::bttsState($rawB);
         if($bttsA!==null && $bttsB!==null && $bttsA===$bttsB){
             $teamA=self::teamComparable(self::stripOutcomeSemantics($rawA));
             $teamB=self::teamComparable(self::stripOutcomeSemantics($rawB));
