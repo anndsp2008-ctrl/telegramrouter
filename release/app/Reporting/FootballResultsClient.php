@@ -4,6 +4,7 @@ namespace App\Reporting;
 
 interface FootballResultsClient
 {
+    public function providerKey(): string;
     public function fixturesByDate(string $date): array;
     public function teamsSearch(string $search): array;
     public function fixturesByTeamDate(int $teamId, string $date): array;
