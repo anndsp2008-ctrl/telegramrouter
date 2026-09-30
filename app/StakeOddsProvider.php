@@ -192,6 +192,27 @@ final class StakeOddsProvider
                 (string)($bet['league']??''),
                 (string)($bet['date']??$bet['day']??'')
             );
+
+            // The broad fixture feed can use different display names and may
+            // not be the best lookup surface for every event. Before declaring
+            // fixture_not_found, retry against Stake's sport schedule feed.
+            if($fixture===null){
+                $schedule=self::cached(
+                    'schedule:'.$sportSlug,
+                    self::FIXTURE_CACHE_TTL,
+                    static fn(): array=>self::request('/schedule/sport/'.rawurlencode($sportSlug))
+                );
+                $fixture=self::selectFixture(
+                    $schedule,
+                    (string)($bet['match']??''),
+                    (string)($bet['league']??''),
+                    (string)($bet['date']??$bet['day']??'')
+                );
+                if($fixture!==null){
+                    error_log('TMR_STAKE_FIXTURE_MATCH schedule_fallback');
+                }
+            }
+
             if($fixture===null){
                 return ['bet'=>$bet,'status'=>'fixture_not_found','changed'=>false,'error'=>''];
             }
@@ -332,8 +353,8 @@ final class StakeOddsProvider
         if($sides===null)return null;
         [$wantedA,$wantedB]=$sides;
 
-        $rows=$payload['fixture']??$payload['fixtures']??$payload;
-        if(!is_array($rows) || !array_is_list($rows))return null;
+        $rows=self::fixtureRows($payload);
+        if($rows===[])return null;
 
         $candidates=[];
         foreach($rows as $fixture){
@@ -352,8 +373,8 @@ final class StakeOddsProvider
             }
             if($actualA===''||$actualB==='')continue;
 
-            $direct=(self::similarity($wantedA,$actualA)+self::similarity($wantedB,$actualB))/2;
-            $reverse=(self::similarity($wantedA,$actualB)+self::similarity($wantedB,$actualA))/2;
+            $direct=(self::teamSimilarity($wantedA,$actualA)+self::teamSimilarity($wantedB,$actualB))/2;
+            $reverse=(self::teamSimilarity($wantedA,$actualB)+self::teamSimilarity($wantedB,$actualA))/2;
             $score=max($direct,$reverse);
 
             $tournamentValue=$fixture['tournament']??'';
@@ -380,6 +401,36 @@ final class StakeOddsProvider
         if((float)$best['score']<0.94 && ((float)$best['score']-$second)<0.035)return null;
 
         return $best['fixture'];
+    }
+
+    /** @param array<string,mixed> $payload @return list<array<string,mixed>> */
+    private static function fixtureRows(array $payload): array
+    {
+        foreach(['fixture','fixtures'] as $key){
+            $rows=$payload[$key]??null;
+            if(is_array($rows) && array_is_list($rows)){
+                return array_values(array_filter($rows,'is_array'));
+            }
+        }
+
+        $schedule=$payload['schedule']??null;
+        if(is_array($schedule) && array_is_list($schedule)){
+            $rows=[];
+            foreach($schedule as $bucket){
+                if(!is_array($bucket))continue;
+                $bucketDate=$bucket['date']??null;
+                foreach((array)($bucket['fixture']??$bucket['fixtures']??[]) as $fixture){
+                    if(!is_array($fixture))continue;
+                    if(!isset($fixture['date']) && $bucketDate!==null)$fixture['date']=$bucketDate;
+                    $rows[]=$fixture;
+                }
+            }
+            if($rows!==[])return $rows;
+        }
+
+        return array_is_list($payload)
+            ?array_values(array_filter($payload,'is_array'))
+            :[];
     }
 
     private static function competitorName(mixed $value): string
@@ -620,6 +671,45 @@ final class StakeOddsProvider
 
         similar_text($a,$b,$percent);
         return max(0.0,min(1.0,$percent/100));
+    }
+
+    private static function teamSimilarity(string $a,string $b): float
+    {
+        $a=self::teamComparable($a);
+        $b=self::teamComparable($b);
+        if($a===''||$b==='')return 0.0;
+        if($a===$b)return 1.0;
+
+        if(str_contains($a,$b)||str_contains($b,$a)){
+            return max(0.82,min(strlen($a),strlen($b))/max(strlen($a),strlen($b)));
+        }
+
+        similar_text($a,$b,$percent);
+        return max(0.0,min(1.0,$percent/100));
+    }
+
+    /**
+     * Team names from Telegram may be translated (Feminino/Feminina) while
+     * Stake commonly exposes Women/W or a longer official club name. Remove
+     * only presentation-level club/gender markers; keep youth/reserve markers
+     * intact so U19/U21/B teams cannot collapse into the senior side.
+     */
+    private static function teamComparable(string $value): string
+    {
+        $value=mb_strtolower(trim($value),'UTF-8');
+        $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
+        if(is_string($ascii)&&$ascii!=='')$value=strtolower($ascii);
+
+        $value=preg_replace(
+            '/\\b(?:fc|cf|sc|ac|afc|club|clube|women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|fem)\\b/u',
+            ' ',
+            $value
+        )??$value;
+        // Parenthesized/suffixed W is a common women's-team marker.
+        $value=preg_replace('/(?:\\(\\s*w\\s*\\)|\\b w\\b)$/u',' ',$value)??$value;
+        $value=preg_replace('/[^a-z0-9]+/','',trim($value))??'';
+
+        return self::countryAlias($value);
     }
 
     private static function countryAlias(string $value): string
