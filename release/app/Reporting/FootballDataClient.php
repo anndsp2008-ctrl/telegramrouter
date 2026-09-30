@@ -161,16 +161,25 @@ final class FootballDataClient implements FootballResultsClient
         $competition = is_array($match['competition'] ?? null) ? $match['competition'] : [];
         $score = is_array($match['score'] ?? null) ? $match['score'] : [];
         $fullTime = is_array($score['fullTime'] ?? null) ? $score['fullTime'] : [];
+        $regularTime = is_array($score['regularTime'] ?? null) ? $score['regularTime'] : [];
+        $extraTime = is_array($score['extraTime'] ?? null) ? $score['extraTime'] : [];
+        $penalties = is_array($score['penalties'] ?? null) ? $score['penalties'] : [];
+        $duration = strtoupper(trim((string)($score['duration'] ?? 'REGULAR')));
 
-        $homeScore = self::number($fullTime['home'] ?? null);
-        $awayScore = self::number($fullTime['away'] ?? null);
+        [$homeScore, $awayScore] = self::regulationScore(
+            $duration,
+            $fullTime,
+            $regularTime,
+            $extraTime,
+            $penalties
+        );
 
         return [
             'fixture' => [
                 'id' => (int)($match['id'] ?? 0),
                 'date' => trim((string)($match['utcDate'] ?? '')),
                 'status' => [
-                    'short' => self::statusShort((string)($match['status'] ?? '')),
+                    'short' => self::statusShort((string)($match['status'] ?? ''), $duration),
                     'long' => trim((string)($match['status'] ?? '')),
                     'elapsed' => null,
                 ],
@@ -203,10 +212,20 @@ final class FootballDataClient implements FootballResultsClient
         ];
     }
 
-    private static function statusShort(string $status): string
+    private static function statusShort(string $status, string $duration = ''): string
     {
-        return match (strtoupper(trim($status))) {
-            'FINISHED' => 'FT',
+        $status = strtoupper(trim($status));
+        $duration = strtoupper(trim($duration));
+
+        if ($status === 'FINISHED') {
+            return match ($duration) {
+                'PENALTY_SHOOTOUT' => 'PEN',
+                'EXTRA_TIME' => 'AET',
+                default => 'FT',
+            };
+        }
+
+        return match ($status) {
             'IN_PLAY', 'LIVE' => '2H',
             'PAUSED' => 'HT',
             'EXTRA_TIME', 'PENALTY_SHOOTOUT' => 'ET',
@@ -217,6 +236,40 @@ final class FootballDataClient implements FootballResultsClient
             'SCHEDULED', 'TIMED' => 'NS',
             default => 'TBD',
         };
+    }
+
+    private static function regulationScore(
+        string $duration,
+        array $fullTime,
+        array $regularTime,
+        array $extraTime,
+        array $penalties
+    ): array {
+        $regularHome = self::number($regularTime['home'] ?? null);
+        $regularAway = self::number($regularTime['away'] ?? null);
+        if ($regularHome !== null && $regularAway !== null) {
+            return [$regularHome, $regularAway];
+        }
+
+        $home = self::number($fullTime['home'] ?? null);
+        $away = self::number($fullTime['away'] ?? null);
+        if ($home === null || $away === null) {
+            return [$home, $away];
+        }
+
+        // football-data.org can expose a cumulative "fullTime" for knockout
+        // matches. Convert it back to the 90-minute score expected by the
+        // existing settlement engine.
+        if ($duration === 'PENALTY_SHOOTOUT') {
+            $home -= self::number($penalties['home'] ?? null) ?? 0.0;
+            $away -= self::number($penalties['away'] ?? null) ?? 0.0;
+        }
+        if (in_array($duration, ['EXTRA_TIME','PENALTY_SHOOTOUT'], true)) {
+            $home -= self::number($extraTime['home'] ?? null) ?? 0.0;
+            $away -= self::number($extraTime['away'] ?? null) ?? 0.0;
+        }
+
+        return [max(0.0, $home), max(0.0, $away)];
     }
 
     private static function number(mixed $value): ?float
