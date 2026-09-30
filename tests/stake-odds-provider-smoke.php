@@ -275,6 +275,15 @@ if($canonicalSelectionMethod->invoke(null,'Bayern de Munique Feminino')!=='bayer
     throw new RuntimeException('Stake selection canonicalization must map Bayern de Munique Feminino to Bayern Munich.');
 }
 
+$bttsStateMethod=new ReflectionMethod(StakeOddsProvider::class,'bttsState');
+$bttsStateMethod->setAccessible(true);
+if($bttsStateMethod->invoke(null,'Bayern de Munique Feminino vence e ambas as equipes marcam')!=='yes'){
+    throw new RuntimeException('BTTS parser must not read "Feminino" as standalone No.');
+}
+if($bttsStateMethod->invoke(null,'Bayern Munich & No')!=='no'){
+    throw new RuntimeException('BTTS parser must preserve explicit standalone No.');
+}
+
 $comboDetail=[
     'data'=>[
         'fixture'=>[
