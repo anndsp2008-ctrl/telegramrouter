@@ -487,8 +487,9 @@ final class Repository
         return count($ids);
     }
 
-    public static function attachFixture(int $legId, array $match): void
+    public static function attachFixture(int $legId, array $match, string $provider = 'api_football'): void
     {
+        $provider = in_array($provider, ['api_football','football_data'], true) ? $provider : 'api_football';
         $kickoff = (string)($match['kickoff_at'] ?? '');
         $next = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         if ($kickoff !== '') {
@@ -507,12 +508,13 @@ final class Repository
 
         $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
-             SET fixture_id=?,api_home_team=?,api_away_team=?,kickoff_at=?,match_confidence=?,next_check_at=?,
+             SET fixture_id=?,fixture_provider=?,api_home_team=?,api_away_team=?,kickoff_at=?,match_confidence=?,next_check_at=?,
                  lookup_last_reason=NULL
              WHERE id=? AND fixture_id IS NULL AND status="PENDING"'
         );
         $stmt->execute([
             (int)$match['fixture_id'],
+            $provider,
             (string)($match['home_team'] ?? ''),
             (string)($match['away_team'] ?? ''),
             $kickoff !== '' ? $kickoff : null,
@@ -553,50 +555,72 @@ final class Repository
         return array_map('intval', Database::pdo()->query($sql)->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
 
-    public static function fixtureHasPendingLegs(int $fixtureId): bool
+    public static function dueFixtures(int $limit = 20): array
+    {
+        Schema::migrate();
+        $limit = max(1, min(100, $limit));
+        $sql = "
+            SELECT fixture_provider,fixture_id
+            FROM reporting_legs
+            WHERE status='PENDING'
+              AND fixture_id IS NOT NULL
+              AND (next_check_at IS NULL OR next_check_at<=UTC_TIMESTAMP())
+            GROUP BY fixture_provider,fixture_id
+            ORDER BY fixture_provider,fixture_id
+            LIMIT {$limit}
+        ";
+        $rows = Database::pdo()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return array_map(static fn(array $row): array => [
+            'provider'=>(string)($row['fixture_provider'] ?? 'api_football'),
+            'fixture_id'=>(int)($row['fixture_id'] ?? 0),
+        ], $rows);
+    }
+
+    public static function fixtureHasPendingLegs(int $fixtureId, string $provider = 'api_football'): bool
     {
         $stmt = Database::pdo()->prepare(
             'SELECT 1
              FROM reporting_legs
-             WHERE fixture_id=? AND status="PENDING"
+             WHERE fixture_id=? AND fixture_provider=? AND status="PENDING"
              LIMIT 1'
         );
-        $stmt->execute([$fixtureId]);
+        $stmt->execute([$fixtureId, $provider]);
         return (bool)$stmt->fetchColumn();
     }
 
-    public static function pendingLegsForFixture(int $fixtureId): array
+    public static function pendingLegsForFixture(int $fixtureId, string $provider = 'api_football'): array
     {
         $stmt = Database::pdo()->prepare(
             'SELECT l.*,t.bet_kind,t.total_odds,t.stake_units
              FROM reporting_legs l
              JOIN reporting_tickets t ON t.id=l.ticket_id
-             WHERE l.fixture_id=? AND l.status="PENDING"
+             WHERE l.fixture_id=? AND l.fixture_provider=? AND l.status="PENDING"
              ORDER BY l.position_no'
         );
-        $stmt->execute([$fixtureId]);
+        $stmt->execute([$fixtureId, $provider]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public static function rescheduleFixture(int $fixtureId, int $minutes): void
+    public static function rescheduleFixture(int $fixtureId, int $minutes, string $provider = 'api_football'): void
     {
         $minutes = max(5, min(180, $minutes));
-        Database::pdo()->exec(
+        $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
              SET next_check_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL '.(int)$minutes.' MINUTE)
-             WHERE fixture_id='.(int)$fixtureId.' AND status="PENDING"'
+             WHERE fixture_id=? AND fixture_provider=? AND status="PENDING"'
         );
+        $stmt->execute([$fixtureId, $provider]);
     }
 
-    public static function rescheduleFixtureAtNextSweep(int $fixtureId): void
+    public static function rescheduleFixtureAtNextSweep(int $fixtureId, string $provider = 'api_football'): void
     {
         $next = self::nextSparseLookupUtc();
         $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
              SET next_check_at=?
-             WHERE fixture_id=? AND status="PENDING"'
+             WHERE fixture_id=? AND fixture_provider=? AND status="PENDING"'
         );
-        $stmt->execute([$next, $fixtureId]);
+        $stmt->execute([$next, $fixtureId, $provider]);
     }
 
     public static function settleLeg(int $legId, array $result, array $details): void
@@ -627,22 +651,23 @@ final class Repository
         }
     }
 
-    public static function markFixtureReview(int $fixtureId, string $reason): void
+    public static function markFixtureReview(int $fixtureId, string $reason, string $provider = 'api_football'): void
     {
         $stmt = Database::pdo()->prepare(
             'UPDATE reporting_legs
              SET status="REVIEW",settlement_details=?,settled_at=UTC_TIMESTAMP(),next_check_at=NULL
-             WHERE fixture_id=? AND status="PENDING"'
+             WHERE fixture_id=? AND fixture_provider=? AND status="PENDING"'
         );
         $stmt->execute([
             json_encode(['reason'=>$reason], JSON_UNESCAPED_UNICODE),
             $fixtureId,
+            $provider,
         ]);
 
         $tickets = Database::pdo()->prepare(
-            'SELECT DISTINCT ticket_id FROM reporting_legs WHERE fixture_id=?'
+            'SELECT DISTINCT ticket_id FROM reporting_legs WHERE fixture_id=? AND fixture_provider=?'
         );
-        $tickets->execute([$fixtureId]);
+        $tickets->execute([$fixtureId, $provider]);
         foreach ($tickets->fetchAll(PDO::FETCH_COLUMN) ?: [] as $ticketId) {
             self::recomputeTicket((int)$ticketId);
         }
