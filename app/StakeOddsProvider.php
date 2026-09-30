@@ -373,32 +373,63 @@ final class StakeOddsProvider
             }
             if($actualA===''||$actualB==='')continue;
 
-            $direct=(self::teamSimilarity($wantedA,$actualA)+self::teamSimilarity($wantedB,$actualB))/2;
-            $reverse=(self::teamSimilarity($wantedA,$actualB)+self::teamSimilarity($wantedB,$actualA))/2;
-            $score=max($direct,$reverse);
+            $directA=self::teamSimilarity($wantedA,$actualA);
+            $directB=self::teamSimilarity($wantedB,$actualB);
+            $reverseA=self::teamSimilarity($wantedA,$actualB);
+            $reverseB=self::teamSimilarity($wantedB,$actualA);
+            $direct=($directA+$directB)/2;
+            $reverse=($reverseA+$reverseB)/2;
+
+            if($direct>=$reverse){
+                $score=$direct;
+                $sideMin=min($directA,$directB);
+            }else{
+                $score=$reverse;
+                $sideMin=min($reverseA,$reverseB);
+            }
 
             $tournamentValue=$fixture['tournament']??'';
             $actualLeague=is_string($tournamentValue)?trim($tournamentValue):'';
             if($league!=='' && $actualLeague!==''){
-                $score=($score*0.94)+(self::similarity($league,$actualLeague)*0.06);
+                // League is only a weak tie-breaker because source text can be
+                // translated while Stake normally exposes the official name.
+                $score=($score*0.97)+(self::similarity($league,$actualLeague)*0.03);
             }
 
             $wantedDate=self::dateKey($date);
             $actualDate=self::dateKey((string)($fixture['date']??$fixture['startTime']??''));
+            $dateDistance=null;
             if($wantedDate!==null && $actualDate!==null){
-                $score+=($wantedDate===$actualDate)?0.035:-0.08;
+                $dateDistance=self::dateDistanceDays($wantedDate,$actualDate);
+                if($dateDistance===0)$score+=0.03;
+                elseif($dateDistance===1)$score-=0.005; // timezone/local-date tolerance
+                else $score-=0.10;
             }
 
-            $candidates[]=['score'=>$score,'fixture'=>$fixture];
+            $candidates[]=[
+                'score'=>$score,
+                'side_min'=>$sideMin,
+                'date_distance'=>$dateDistance,
+                'fixture'=>$fixture
+            ];
         }
 
         if($candidates===[])return null;
         usort($candidates,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
         $best=$candidates[0];
         $second=(float)($candidates[1]['score']??0.0);
+        $bestScore=(float)$best['score'];
+        $sideMin=(float)($best['side_min']??0.0);
+        $dateDistance=$best['date_distance']??null;
 
-        if((float)$best['score']<0.78)return null;
-        if((float)$best['score']<0.94 && ((float)$best['score']-$second)<0.035)return null;
+        $strongPair=$sideMin>=0.88 && ($dateDistance===null || (int)$dateDistance<=1);
+        $accepted=$bestScore>=0.78
+            && ($bestScore>=0.94 || ($bestScore-$second)>=0.035 || $strongPair);
+
+        if(!$accepted){
+            self::logFixtureCandidates($match,$candidates);
+            return null;
+        }
 
         return $best['fixture'];
     }
@@ -675,17 +706,59 @@ final class StakeOddsProvider
 
     private static function teamSimilarity(string $a,string $b): float
     {
+        $variantA=self::teamVariant($a);
+        $variantB=self::teamVariant($b);
+        if($variantA!==$variantB)return 0.0;
+
         $a=self::teamComparable($a);
         $b=self::teamComparable($b);
         if($a===''||$b==='')return 0.0;
         if($a===$b)return 1.0;
 
         if(str_contains($a,$b)||str_contains($b,$a)){
-            return max(0.82,min(strlen($a),strlen($b))/max(strlen($a),strlen($b)));
+            // Official names often include a prefix/suffix absent from tips
+            // (Lyon vs Olympique Lyonnais, Inter vs Internazionale, etc.).
+            return 0.94;
         }
 
         similar_text($a,$b,$percent);
-        return max(0.0,min(1.0,$percent/100));
+        $score=max(0.0,min(1.0,$percent/100));
+
+        // Acronym compatibility for well-formed multi-word official names.
+        $rawA=self::teamWords($a);
+        $rawB=self::teamWords($b);
+        if($rawA!==[] && $rawB!==[]){
+            $short=count($rawA)<=count($rawB)?$rawA:$rawB;
+            $long=count($rawA)<=count($rawB)?$rawB:$rawA;
+            if(count($short)===1 && strlen($short[0])>=3){
+                foreach($long as $word){
+                    if(str_starts_with($word,$short[0]) || str_starts_with($short[0],$word)){
+                        $score=max($score,0.90);
+                    }
+                }
+            }
+        }
+        return $score;
+    }
+
+    private static function teamVariant(string $value): string
+    {
+        $v=mb_strtolower($value,'UTF-8');
+        $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$v);
+        if(is_string($ascii)&&$ascii!=='')$v=strtolower($ascii);
+
+        if(preg_match('/\\b(?:women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|fem)\\b|\\(\\s*w\\s*\\)|\\b w$/u',$v))return 'women';
+        if(preg_match('/\\b(?:u|sub)[ -]?(1[5-9]|2[0-3])\\b/u',$v,$m))return 'u'.$m[1];
+        if(preg_match('/\\b(?:reserve|reserves|reservas?|b team|team b|ii)\\b/u',$v))return 'reserve';
+        return 'senior';
+    }
+
+    /** @return list<string> */
+    private static function teamWords(string $canonical): array
+    {
+        $parts=preg_split('/(?=[A-Z])|[^a-z0-9]+/',$canonical);
+        if(!is_array($parts))return [];
+        return array_values(array_filter(array_map('strtolower',$parts),static fn(string $v): bool=>$v!==''));
     }
 
     /**
@@ -753,6 +826,36 @@ final class StakeOddsProvider
             return sprintf('%04d-%02d-%02d',$year,(int)$m[2],(int)$m[1]);
         }
         return null;
+    }
+
+    private static function dateDistanceDays(string $a,string $b): int
+    {
+        try{
+            $da=new \DateTimeImmutable($a.' 00:00:00',new \DateTimeZone('UTC'));
+            $db=new \DateTimeImmutable($b.' 00:00:00',new \DateTimeZone('UTC'));
+            return (int)abs((int)$da->diff($db)->format('%r%a'));
+        }catch(\Throwable){
+            return 99;
+        }
+    }
+
+    /** @param list<array<string,mixed>> $candidates */
+    private static function logFixtureCandidates(string $match,array $candidates): void
+    {
+        $top=[];
+        foreach(array_slice($candidates,0,3) as $candidate){
+            $fixture=is_array($candidate['fixture']??null)?$candidate['fixture']:[];
+            $top[]=[
+                'name'=>mb_substr((string)($fixture['name']??''),0,120),
+                'score'=>round((float)($candidate['score']??0.0),3),
+                'side_min'=>round((float)($candidate['side_min']??0.0),3),
+                'date_distance'=>$candidate['date_distance']??null,
+            ];
+        }
+        error_log('TMR_STAKE_FIXTURE_DIAG '.json_encode([
+            'match'=>mb_substr($match,0,120),
+            'top'=>$top,
+        ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
     }
 
     private static function normalizeOdd(string $odd): string
