@@ -7,7 +7,7 @@ use PDO;
 
 final class Schema
 {
-    public const VERSION = 1;
+    public const VERSION = 2;
     private static bool $migrated = false;
 
     public static function migrate(): void
@@ -78,6 +78,7 @@ final class Schema
                 ticket_id BIGINT UNSIGNED NOT NULL,
                 position_no SMALLINT UNSIGNED NOT NULL,
                 fixture_id BIGINT NULL,
+                fixture_provider VARCHAR(32) NOT NULL DEFAULT 'api_football',
                 sport VARCHAR(64) NOT NULL DEFAULT '',
                 match_name VARCHAR(255) NOT NULL,
                 league VARCHAR(190) NOT NULL DEFAULT '',
@@ -110,6 +111,7 @@ final class Schema
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
+        self::ensureColumn($pdo, 'reporting_legs', 'fixture_provider', "VARCHAR(32) NOT NULL DEFAULT 'api_football'");
         self::ensureColumn($pdo, 'reporting_legs', 'lookup_attempts', "SMALLINT UNSIGNED NOT NULL DEFAULT 0");
         self::ensureColumn($pdo, 'reporting_legs', 'lookup_last_reason', "VARCHAR(64) NULL");
 
