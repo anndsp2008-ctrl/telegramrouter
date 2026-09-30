@@ -8,6 +8,27 @@ if (!is_file($path)) {
 }
 
 $source = (string)file_get_contents($path);
+
+$repositoryPath = __DIR__ . '/app/Repository.php';
+if (!is_file($repositoryPath)) {
+    fwrite(STDERR, "TMR_FOOTBALL_DATA_REPOSITORY_MISSING\n");
+    exit(1);
+}
+$repository = (string)file_get_contents($repositoryPath);
+$oldProviders = "['openai','gemini','google_cloud','workers_ai','stake','api_football']";
+$newProviders = "['openai','gemini','google_cloud','workers_ai','stake','api_football','football_data']";
+if (!str_contains($repository, "'football_data'")) {
+    if (substr_count($repository, $oldProviders) !== 1) {
+        fwrite(STDERR, "TMR_FOOTBALL_DATA_REPOSITORY_ANCHOR_MISSING\n");
+        exit(1);
+    }
+    $repository = str_replace($oldProviders, $newProviders, $repository);
+    if (@file_put_contents($repositoryPath, $repository, LOCK_EX) === false) {
+        fwrite(STDERR, "TMR_FOOTBALL_DATA_REPOSITORY_WRITE_FAILED\n");
+        exit(1);
+    }
+}
+
 if (
     str_contains($source, "football_data_token")
     && str_contains($source, 'value="football_data"')
@@ -135,8 +156,10 @@ HTML;
 }
 
 $verify = (string)file_get_contents($path);
+$repositoryVerify = (string)file_get_contents($repositoryPath);
 if (
-    !str_contains($verify, "football_data_token")
+    !str_contains($repositoryVerify, "'football_data'")
+    || !str_contains($verify, "football_data_token")
     || !str_contains($verify, 'value="football_data"')
     || !str_contains($verify, 'SportsApiIntegration::footballDataKey()')
     || !str_contains($verify, 'Data provided by football-data.org')
