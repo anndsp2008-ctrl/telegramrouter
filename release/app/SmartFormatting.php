@@ -1244,6 +1244,11 @@ final class SmartFormatting
      * attempts; provider-level fallback is still handled by TranslationService.
      * @param list<string> $fields
      */
+    private static function teamVariantPreservationInstruction(): string
+    {
+        return "REGRA DE IDENTIDADE DA EQUIPE: nunca remova do confronto marcadores que distinguem categorias diferentes do mesmo clube ou seleção, incluindo Women, Women's, W, WFC, Feminino/Feminina, Female, U17/U18/U19/U20/U21/U23, Sub-20/Sub-21, B, II, Reservas/Reserves. Se o comprovante ou campeonato indicar equipe feminina, o campo match e cada perna em card_legs/double_legs devem continuar explicitamente femininos, mesmo que o nome-base do clube seja igual ao masculino. Pode traduzir Women para Feminino quando o idioma alvo for pt-BR, mas é proibido omitir esse marcador. ";
+    }
+
     private static function spanishWinnerVerbInstruction(bool $hasImage): string
     {
         return "REGRA DE DESAMBIGUAÇÃO DO ESPANHOL: a palavra 'Gana' em frases como 'Gana Finlandia el partido', 'Gana Real Madrid el partido' ou 'Gana X' é o VERBO espanhol ganhar/vence, e NUNCA o nome de uma equipe. O país/equipe Ghana é escrito Ghana. Portanto, 'Gana Finlandia el partido' significa que a seleção é Finlandia para vencer; jamais crie um confronto 'Gana vs Finlandia'. O confronto deve vir somente do confronto explícito do texto ou do cabeçalho visual do comprovante. ".
@@ -1287,7 +1292,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).self::teamVariantPreservationInstruction().AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete. Uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade como string numérica. ".
             "Se for multiple, preencha multiple_details com TODAS as escolhas separadas e numeradas, indicando confronto, mercado e seleção. Não resuma duas ou mais condições em uma única seleção. ".
@@ -1340,7 +1345,7 @@ final class SmartFormatting
         $prompt="Interprete tip de aposta a partir do TEXTO ORIGINAL e comprovante opcional. ".
             "Responda SOMENTE um objeto JSON válido, sem markdown, com cada chave string: ".implode(', ',$fields).". ".
             "Extraia apenas fatos explícitos, desconhecido = string vazia. Não invente mercado, seleção, odd, partida ou status. ".
-            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).self::teamVariantPreservationInstruction().AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".
@@ -1463,7 +1468,7 @@ final class SmartFormatting
         $prompt="Você interpreta dicas de apostas, SEM CRIAR OU ALTERAR DADOS. ".
             "Responda somente com um objeto JSON, com todas estas chaves string: ".implode(', ',$fields).". ".
             "Leia o texto e a imagem (se presente). Apenas dados explícitos; desconhecido = string vazia. ".
-            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
+            self::multipleScopeInstruction($hasImage).DoubleVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).self::teamVariantPreservationInstruction().AdaptiveVipCardRenderer::extractionInstruction().self::spanishWinnerVerbInstruction($hasImage).
             "Antes de preencher o card, conte as CONDIÇÕES/SELEÇÕES individuais do bilhete (não conte somente jogos): uma Bet Builder/Criar Aposta/Crear Apuesta com duas ou mais linhas de escolhas no MESMO jogo é múltipla para este sistema, mesmo se o cabeçalho disser Simple/Simples. ".
             "Em bet_kind retorne single para exatamente uma seleção ou multiple para duas ou mais. Em selections_count retorne a quantidade de escolhas como string numérica. ".
             "Não confunda o mercado único Dupla chance/Double chance com aposta dupla: é só UMA seleção se houver uma única escolha. ".

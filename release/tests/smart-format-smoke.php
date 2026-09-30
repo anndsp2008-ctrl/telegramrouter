@@ -704,6 +704,14 @@ if(!str_contains($telegramRouterSource,'$this->sleep(0.3);')){
     throw new RuntimeException('Telegram media retry must use MadelineProto async sleep().');
 }
 
+$smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+if(!str_contains($smartFormattingSource,'teamVariantPreservationInstruction')){
+    throw new RuntimeException('Smart formatter must preserve Women/Feminino/U21 team identity markers.');
+}
+if(!str_contains($smartFormattingSource,'é proibido omitir esse marcador')){
+    throw new RuntimeException('Smart formatter prompt must explicitly forbid dropping team category markers.');
+}
+
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";

@@ -212,6 +212,23 @@ if(($ranked[0]['slug']??'')!=='international-1'){
     throw new RuntimeException('International Stake category was not prioritized for Champions League.');
 }
 
+$tournamentHint=new ReflectionMethod(StakeOddsProvider::class,'stakeTournamentHint');
+$tournamentHint->setAccessible(true);
+if($tournamentHint->invoke(null,"UEFA Women's Champions League",'Benfica Feminino vs Bayern Munich Feminino')!=='womenschampionsleague'){
+    throw new RuntimeException('Stake women Champions League tournament hint failed.');
+}
+
+$rankTournaments=new ReflectionMethod(StakeOddsProvider::class,'rankStakeTournaments');
+$rankTournaments->setAccessible(true);
+$rankedTournaments=$rankTournaments->invoke(null,[
+    ['slug'=>'uefa-champions-league','name'=>'UEFA Champions League'],
+    ['slug'=>'uefa-womens-champions-league','name'=>"UEFA Women's Champions League"],
+    ['slug'=>'club-friendlies','name'=>'Club Friendlies'],
+],"UEFA Women's Champions League",'Benfica Feminino vs Bayern Munich Feminino');
+if(($rankedTournaments[0]['slug']??'')!=='uefa-womens-champions-league'){
+    throw new RuntimeException('Stake women tournament ranking did not prioritize the women competition.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
