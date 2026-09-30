@@ -480,6 +480,7 @@ final class StakeOddsProvider
         $sides=self::matchSides($match);
         if($sides===null)return null;
         [$wantedA,$wantedB]=$sides;
+        $wantedVariant=self::eventVariant($match,$league);
 
         $rows=self::fixtureRows($payload);
         if($rows===[])return null;
@@ -501,10 +502,10 @@ final class StakeOddsProvider
             }
             if($actualA===''||$actualB==='')continue;
 
-            $directA=self::teamSimilarity($wantedA,$actualA);
-            $directB=self::teamSimilarity($wantedB,$actualB);
-            $reverseA=self::teamSimilarity($wantedA,$actualB);
-            $reverseB=self::teamSimilarity($wantedB,$actualA);
+            $directA=self::teamSimilarity($wantedA,$actualA,$wantedVariant);
+            $directB=self::teamSimilarity($wantedB,$actualB,$wantedVariant);
+            $reverseA=self::teamSimilarity($wantedA,$actualB,$wantedVariant);
+            $reverseB=self::teamSimilarity($wantedB,$actualA,$wantedVariant);
             $direct=($directA+$directB)/2;
             $reverse=($reverseA+$reverseB)/2;
 
@@ -832,9 +833,9 @@ final class StakeOddsProvider
         return max(0.0,min(1.0,$percent/100));
     }
 
-    private static function teamSimilarity(string $a,string $b): float
+    private static function teamSimilarity(string $a,string $b,?string $expectedVariant=null): float
     {
-        $variantA=self::teamVariant($a);
+        $variantA=$expectedVariant??self::teamVariant($a);
         $variantB=self::teamVariant($b);
         if($variantA!==$variantB)return 0.0;
 
@@ -867,6 +868,24 @@ final class StakeOddsProvider
             }
         }
         return $score;
+    }
+
+    private static function eventVariant(string $match,string $league): ?string
+    {
+        $v=mb_strtolower(trim($match.' '.$league),'UTF-8');
+        $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$v);
+        if(is_string($ascii)&&$ascii!=='')$v=strtolower($ascii);
+
+        if(preg_match('/\b(?:women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|female|wfc)\b|\(\s*w\s*\)|\b w$/u',$v)){
+            return 'women';
+        }
+        if(preg_match('/\b(?:u|sub)[ -]?(1[5-9]|2[0-3])\b/u',$v,$m)){
+            return 'u'.$m[1];
+        }
+        if(preg_match('/\b(?:reserve|reserves|reservas?|b team|team b|ii)\b/u',$v)){
+            return 'reserve';
+        }
+        return null;
     }
 
     private static function teamVariant(string $value): string
