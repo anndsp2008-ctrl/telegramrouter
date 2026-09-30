@@ -237,32 +237,53 @@ final class StakeOddsProvider
                 static fn(): array=>self::request('/fixtures/'.rawurlencode($slug))
             );
 
-            $stakeOdd=self::selectOdd(
-                $detail,
-                (string)($bet['market']??''),
-                (string)($bet['selection']??'')
-            );
+            $market=(string)($bet['market']??'');
+            $selection=(string)($bet['selection']??'');
+            $primaryResult=self::selectOddResult($detail,$market,$selection);
+            if($primaryResult['status']==='odds_payload_invalid'){
+                self::logPayloadContract('fixtures',$slug,$detail);
+            }
 
-            if($stakeOdd===null && self::marketRowsFromPayload($detail)===[]){
-                // Stake also documents a dedicated /odds/{fixture} endpoint.
-                // Some providers/fixtures may expose the market payload there
-                // even when /fixtures/{slug} contains only fixture metadata.
-                $oddsDetail=self::cached(
-                    'odds:'.$slug,
-                    self::DETAIL_CACHE_TTL,
-                    static fn(): array=>self::request('/odds/'.rawurlencode($slug))
-                );
-                $stakeOdd=self::selectOdd(
-                    $oddsDetail,
-                    (string)($bet['market']??''),
-                    (string)($bet['selection']??'')
-                );
-                if($stakeOdd!==null){
-                    error_log('TMR_STAKE_ODDS_SOURCE odds_endpoint');
+            $finalResult=$primaryResult;
+
+            // The official API exposes both /fixtures/{fixture} and
+            // /odds/{fixture}. If the primary detail does not validate the
+            // requested market, consult the dedicated odds endpoint too.
+            // A failure of this secondary endpoint must not erase useful
+            // diagnostics from the primary response.
+            if($primaryResult['odd']===null){
+                try{
+                    $oddsDetail=self::cached(
+                        'odds:'.$slug,
+                        self::DETAIL_CACHE_TTL,
+                        static fn(): array=>self::request('/odds/'.rawurlencode($slug))
+                    );
+                    $oddsResult=self::selectOddResult($oddsDetail,$market,$selection);
+                    if($oddsResult['status']==='odds_payload_invalid'){
+                        self::logPayloadContract('odds',$slug,$oddsDetail);
+                    }
+                    if($oddsResult['odd']!==null){
+                        $finalResult=$oddsResult;
+                        error_log('TMR_STAKE_ODDS_SOURCE odds_endpoint');
+                    }elseif($primaryResult['status']==='odds_payload_invalid'){
+                        $finalResult=$oddsResult;
+                    }
+                }catch(\Throwable $secondaryError){
+                    error_log('TMR_STAKE_ODDS_ENDPOINT '.json_encode([
+                        'status'=>'failed',
+                        'error'=>get_class($secondaryError),
+                    ],JSON_UNESCAPED_SLASHES));
                 }
             }
+
+            $stakeOdd=$finalResult['odd'];
             if($stakeOdd===null){
-                return ['bet'=>$bet,'status'=>'market_or_line_not_found','changed'=>false,'error'=>''];
+                return [
+                    'bet'=>$bet,
+                    'status'=>(string)$finalResult['status'],
+                    'changed'=>false,
+                    'error'=>''
+                ];
             }
 
             // Never invent a missing published odd. Exact Stake matching is still
@@ -779,22 +800,39 @@ final class StakeOddsProvider
     /** @param array<string,mixed> $payload */
     private static function selectOdd(array $payload,string $market,string $selection): ?string
     {
-        $fixture=self::fixtureMarketObject($payload);
-        if($fixture===[])return null;
+        return self::selectOddResult($payload,$market,$selection)['odd'];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return array{odd:?string,status:string}
+     */
+    private static function selectOddResult(array $payload,string $market,string $selection): array
+    {
+        $rows=self::marketRowsFromPayload($payload);
+        if($rows===[])return ['odd'=>null,'status'=>'odds_payload_invalid'];
+
         $wantedMarket=self::canonical($market);
         $wantedSelection=self::canonicalSelection($selection);
-        if($wantedMarket===''||$wantedSelection==='')return null;
+        if($wantedMarket===''||$wantedSelection===''){
+            return ['odd'=>null,'status'=>'market_input_invalid'];
+        }
 
         $wantedLine=self::marketNeedsLine($market,$selection)
             ?self::extractLine($selection.' '.$market)
             :null;
 
+        $marketMatches=0;
+        $lineMatches=0;
+        $selectionMatches=0;
         $matches=[];
-        foreach(self::marketRows($fixture) as $row){
+
+        foreach($rows as $row){
             if(!$row['active'])continue;
 
             $marketScore=self::marketScore($wantedMarket,self::canonical($row['market']));
             if($marketScore<0.62)continue;
+            $marketMatches++;
 
             if($wantedLine!==null){
                 $candidateLine=self::extractLine(
@@ -802,6 +840,7 @@ final class StakeOddsProvider
                 );
                 if($candidateLine===null || abs($candidateLine-$wantedLine)>0.0001)continue;
             }
+            $lineMatches++;
 
             $selectionScore=self::selectionScore(
                 $wantedSelection,
@@ -810,6 +849,7 @@ final class StakeOddsProvider
                 $row['selection']
             );
             if($selectionScore<0.70)continue;
+            $selectionMatches++;
 
             $score=($marketScore*0.48)+($selectionScore*0.52);
             if($wantedLine!==null)$score+=0.06;
@@ -817,24 +857,29 @@ final class StakeOddsProvider
         }
 
         if($matches===[]){
-            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
-            return null;
+            self::logMarketCandidates($payload,$market,$selection,$wantedLine);
+            if($marketMatches===0)return ['odd'=>null,'status'=>'market_not_found'];
+            if($wantedLine!==null && $lineMatches===0)return ['odd'=>null,'status'=>'line_not_found'];
+            if($selectionMatches===0)return ['odd'=>null,'status'=>'selection_not_found'];
+            return ['odd'=>null,'status'=>'market_or_line_not_found'];
         }
+
         usort($matches,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
         $best=$matches[0];
         $second=(float)($matches[1]['score']??0.0);
 
         if((float)$best['score']<0.77){
-            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
-            return null;
+            self::logMarketCandidates($payload,$market,$selection,$wantedLine);
+            return ['odd'=>null,'status'=>'selection_not_found'];
         }
         if((float)$best['score']<0.96 && ((float)$best['score']-$second)<0.025){
-            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
-            return null;
+            self::logMarketCandidates($payload,$market,$selection,$wantedLine);
+            return ['odd'=>null,'status'=>'market_ambiguous'];
         }
 
         $odd=self::normalizeOdd((string)$best['odd']);
-        return $odd!==''?$odd:null;
+        if($odd==='')return ['odd'=>null,'status'=>'odd_invalid'];
+        return ['odd'=>$odd,'status'=>'validated'];
     }
 
     /** @param array<string,mixed> $payload @return array<string,mixed> */
