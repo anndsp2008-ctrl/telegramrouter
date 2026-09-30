@@ -412,7 +412,7 @@ try {
 }
 @media (min-width:1025px){nav.tmr-mobile-navigation{display:none!important}}
 body:has(.reset-page) .tmr-mobile-navigation .tmr-nav-more.is-active>summary{color:#79e9be!important}
-</style><link rel="stylesheet" href="/assets/brand/mobile-app-header.css?v=2"><link rel="stylesheet" href="/assets/brand/logout-icon.css?v=1"><link rel="stylesheet" href="/assets/dialogs.css?v=3"><link rel="stylesheet" href="/assets/brand/theme.css?v=5"></head><body>
+</style><link rel="stylesheet" href="/assets/brand/mobile-app-header.css?v=2"><link rel="stylesheet" href="/assets/brand/logout-icon.css?v=1"><link rel="stylesheet" href="/assets/dialogs.css?v=3"><link rel="stylesheet" href="/assets/brand/theme.css?v=6"></head><body>
 <div class="saas-shell"><?php $navActive='reset'; require __DIR__.'/app/project-sidebar.php'; ?><div class="saas-main"><header class="saas-topbar"><div class="tmr-app-header-brand" aria-label="TelegramRouter">
   <span class="tmr-app-brand-symbol"><img src="/assets/brand/mark.svg?v=1" alt=""></span>
   <span class="tmr-app-brand-name"><b>Telegram<span>Router</span></b><small>Conecte. Direcione. Automatize.</small></span>
