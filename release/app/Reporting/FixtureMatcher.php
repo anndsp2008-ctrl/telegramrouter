@@ -12,7 +12,7 @@ final class FixtureMatcher
     private array $teamDateCache = [];
     private array $teamResolveCache = [];
 
-    public function __construct(private readonly ApiFootballClient $api) {}
+    public function __construct(private readonly FootballResultsClient $api) {}
 
     public function match(array $leg): ?array
     {
