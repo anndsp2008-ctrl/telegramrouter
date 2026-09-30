@@ -242,6 +242,7 @@ final class StakeOddsProvider
             $primaryResult=self::selectOddResult($detail,$market,$selection);
             if($primaryResult['status']==='odds_payload_invalid'){
                 self::logPayloadContract('fixtures',$slug,$detail);
+                unset(self::$cache['fixture:'.$slug]);
             }
 
             $finalResult=$primaryResult;
@@ -261,6 +262,7 @@ final class StakeOddsProvider
                     $oddsResult=self::selectOddResult($oddsDetail,$market,$selection);
                     if($oddsResult['status']==='odds_payload_invalid'){
                         self::logPayloadContract('odds',$slug,$oddsDetail);
+                        unset(self::$cache['odds:'.$slug]);
                     }
                     if($oddsResult['odd']!==null){
                         $finalResult=$oddsResult;
@@ -419,6 +421,42 @@ final class StakeOddsProvider
                             (string)($tournament['name']??$tournamentSlug)
                         );
                         $fixture=self::selectFixture($tournamentFixtures,$match,$league,$date);
+
+                        if($fixture===null){
+                            $alternate=self::cached(
+                                'tournament-fixtures-alt:'.$sportSlug.':'.$slug.':'.$tournamentSlug,
+                                self::FIXTURE_CACHE_TTL,
+                                static fn(): array=>self::request(
+                                    '/sport/'.rawurlencode($sportSlug)
+                                    .'/category/'.rawurlencode($slug)
+                                    .'/tournament/'.rawurlencode($tournamentSlug)
+                                    .'/fixture'
+                                )
+                            );
+                            $alternate=self::withTournamentContext(
+                                $alternate,
+                                (string)($tournament['name']??$tournamentSlug)
+                            );
+                            $fixture=self::selectFixture($alternate,$match,$league,$date);
+                        }
+
+                        if($fixture===null){
+                            $schedule=self::cached(
+                                'tournament-schedule:'.$sportSlug.':'.$slug.':'.$tournamentSlug,
+                                self::FIXTURE_CACHE_TTL,
+                                static fn(): array=>self::request(
+                                    '/schedule/sport/'.rawurlencode($sportSlug)
+                                    .'/'.rawurlencode($slug)
+                                    .'/tournament/'.rawurlencode($tournamentSlug)
+                                )
+                            );
+                            $schedule=self::withTournamentContext(
+                                $schedule,
+                                (string)($tournament['name']??$tournamentSlug)
+                            );
+                            $fixture=self::selectFixture($schedule,$match,$league,$date);
+                        }
+
                         if($fixture!==null){
                             error_log('TMR_STAKE_FIXTURE_MATCH tournament_fallback '.json_encode([
                                 'category'=>mb_substr((string)($category['name']??$slug),0,80),
@@ -654,11 +692,48 @@ final class StakeOddsProvider
         $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
         unset($ch);
 
-        if($body===false || $errno!==0)return [null,$http,false];
-        $decoded=json_decode((string)$body,true);
-        if($http>=200 && $http<300 && is_array($decoded))return [$decoded,$http,false];
+        if($body===false || $errno!==0){
+            error_log('TMR_STAKE_HTTP '.json_encode([
+                'path'=>$path,
+                'http'=>$http,
+                'network_error'=>$errno,
+            ],JSON_UNESCAPED_SLASHES));
+            return [null,$http,false];
+        }
 
+        $decoded=json_decode((string)$body,true);
+        if($http>=200 && $http<300 && is_array($decoded)){
+            if(self::providerPayloadHasError($decoded)){
+                error_log('TMR_STAKE_HTTP '.json_encode([
+                    'path'=>$path,
+                    'http'=>$http,
+                    'provider_error'=>true,
+                    'shape'=>self::payloadShape($decoded),
+                ],JSON_UNESCAPED_SLASHES));
+                return [null,$http,false];
+            }
+            return [$decoded,$http,false];
+        }
+
+        error_log('TMR_STAKE_HTTP '.json_encode([
+            'path'=>$path,
+            'http'=>$http,
+            'auth_failure'=>in_array($http,[401,403],true),
+        ],JSON_UNESCAPED_SLASHES));
         return [null,$http,in_array($http,[401,403],true)];
+    }
+
+    /** @param array<string,mixed> $payload */
+    private static function providerPayloadHasError(array $payload): bool
+    {
+        if(isset($payload['errors']) && $payload['errors']!==[] && $payload['errors']!==null)return true;
+        if(array_key_exists('error',$payload)){
+            $error=$payload['error'];
+            if(is_string($error) && trim($error)!=='')return true;
+            if(is_array($error) && $error!==[])return true;
+            if(is_bool($error) && $error)return true;
+        }
+        return false;
     }
 
     /** @param array<string,mixed> $payload @return ?array<string,mixed> */
