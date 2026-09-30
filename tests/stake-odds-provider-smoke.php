@@ -160,6 +160,29 @@ if(!is_array($timezoneMatch)||($timezoneMatch['slug']??'')!=='timezone-fixture')
     throw new RuntimeException('Stake +/-1 day timezone tolerance failed.');
 }
 
+$categoryHint=new ReflectionMethod(StakeOddsProvider::class,'stakeCategoryHint');
+$categoryHint->setAccessible(true);
+if($categoryHint->invoke(null,'UEFA Champions League')!=='international'){
+    throw new RuntimeException('Champions League must prioritize Stake International category.');
+}
+if($categoryHint->invoke(null,'Primeira Liga')!=='portugal'){
+    throw new RuntimeException('Primeira Liga must prioritize Stake Portugal category.');
+}
+if($categoryHint->invoke(null,'Bundesliga')!=='germany'){
+    throw new RuntimeException('Bundesliga must prioritize Stake Germany category.');
+}
+
+$rankCategories=new ReflectionMethod(StakeOddsProvider::class,'rankStakeCategories');
+$rankCategories->setAccessible(true);
+$ranked=$rankCategories->invoke(null,[
+    ['slug'=>'germany-1','name'=>'Germany'],
+    ['slug'=>'international-1','name'=>'International'],
+    ['slug'=>'portugal-1','name'=>'Portugal'],
+],'UEFA Champions League');
+if(($ranked[0]['slug']??'')!=='international-1'){
+    throw new RuntimeException('International Stake category was not prioritized for Champions League.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
