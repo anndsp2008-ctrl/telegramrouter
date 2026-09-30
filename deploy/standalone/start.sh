@@ -17,12 +17,17 @@ printf 'ok\n' > health
 
 if [ "${TMR_RUN_WORKER:-1}" = "1" ]; then
   (
+    printf 'TMR_TELEGRAM_WORKER_SUPERVISOR_START\n'
     while :; do
-      php worker.php >> storage/worker.log 2>&1 || true
+      printf 'TMR_TELEGRAM_WORKER_START\n'
+      php worker.php 2>&1 | tee -a storage/worker.log || true
+      printf 'TMR_TELEGRAM_WORKER_RESTART\n'
       rm -f storage/worker.pid
       sleep 10
     done
   ) &
+else
+  printf 'TMR_TELEGRAM_WORKER_DISABLED\n'
 fi
 
 (
