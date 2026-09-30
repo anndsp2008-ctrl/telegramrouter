@@ -86,3 +86,76 @@
     opacity:1 !important;
   }
 }
+
+
+/* Modo claro: os mesmos estados do dark, sem pílulas escuras. */
+html[data-theme="light"] :is(
+  .activity-badge.Encaminhada,.saas-badge.Encaminhada,
+  .activity-badge.Falhou,.saas-badge.Falhou,
+  .activity-badge.Ignorada,.saas-badge.Ignorada,
+  .activity-badge.Processando,.saas-badge.Processando,
+  .activity-badge.Registrada,.saas-badge.Registrada
+){
+  min-height:26px !important;
+  padding:5px 10px !important;
+  border-radius:999px !important;
+  font-size:10px !important;
+  font-weight:700 !important;
+  line-height:1 !important;
+  letter-spacing:0 !important;
+  text-shadow:none !important;
+  box-shadow:none !important;
+}
+html[data-theme="light"] .activity-badge.Encaminhada,
+html[data-theme="light"] .saas-badge.Encaminhada{
+  background:#eaf8f2 !important;
+  border-color:#b9dfd2 !important;
+  color:#067647 !important;
+}
+html[data-theme="light"] .activity-badge.Falhou,
+html[data-theme="light"] .saas-badge.Falhou{
+  background:#fff0f2 !important;
+  border-color:#efc2c8 !important;
+  color:#b42335 !important;
+}
+html[data-theme="light"] .activity-badge.Ignorada,
+html[data-theme="light"] .saas-badge.Ignorada{
+  background:#fff7df !important;
+  border-color:#ead6a0 !important;
+  color:#815800 !important;
+}
+html[data-theme="light"] .activity-badge.Processando,
+html[data-theme="light"] .saas-badge.Processando{
+  background:#eaf7fb !important;
+  border:1px solid #bddde6 !important;
+  color:#176b82 !important;
+  animation:none !important;
+  opacity:1 !important;
+}
+html[data-theme="light"] .activity-badge.Registrada,
+html[data-theme="light"] .saas-badge.Registrada{
+  background:#f1f5f8 !important;
+  border:1px solid #d7e0e8 !important;
+  color:#53667b !important;
+}
+html[data-theme="light"] .activity-badge.Processando::before,
+html[data-theme="light"] .saas-badge.Processando::before{
+  content:"•";
+  color:inherit;
+  font-size:14px;
+  line-height:.7;
+  font-weight:900;
+}
+html[data-theme="light"] .activity-badge.Registrada::before,
+html[data-theme="light"] .saas-badge.Registrada::before{
+  content:"•";
+  color:inherit;
+  font-size:12px;
+  line-height:.7;
+  font-weight:900;
+}
+html[data-theme="light"] .activity-status-dot.Encaminhada{background:#22a06b !important;box-shadow:none !important}
+html[data-theme="light"] .activity-status-dot.Falhou{background:#d6455d !important;box-shadow:none !important}
+html[data-theme="light"] .activity-status-dot.Ignorada{background:#c28a16 !important;box-shadow:none !important}
+html[data-theme="light"] .activity-status-dot.Processando{background:#2787a1 !important;box-shadow:none !important}
+html[data-theme="light"] .activity-status-dot.Registrada{background:#8292a3 !important;box-shadow:none !important}

@@ -1357,3 +1357,71 @@ html[data-theme="light"] .saas-metric-icon .tmr-icon{
   border:0!important;
   box-shadow:none!important;
 }
+
+
+/* TMR_LIGHT_THEME_STATUS_V7 — padronização dos chips de status do modo claro. */
+html[data-theme="light"] :is(
+  .activity-badge,.saas-badge,.reporting-status-badge,
+  .translation-provider-grid .provider-badge,
+  .translation-provider-grid .form-status,
+  .reporting-section-heading .form-status,
+  .reset-security-status,
+  .connect-shell .online,.connect-shell .offline
+){
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-sizing:border-box!important;
+  border-radius:999px!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  white-space:nowrap!important;
+  vertical-align:middle!important;
+}
+html[data-theme="light"] .reporting-status-badge{
+  min-height:26px!important;
+  padding:5px 9px!important;
+  border:1px solid transparent!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  line-height:1!important;
+}
+html[data-theme="light"] .reporting-status-badge.green{background:#eaf8f2!important;border-color:#b9dfd2!important;color:#067647!important}
+html[data-theme="light"] .reporting-status-badge.red{background:#fff0f2!important;border-color:#efc2c8!important;color:#b42335!important}
+html[data-theme="light"] .reporting-status-badge.void{background:#f1f5f8!important;border-color:#d7e0e8!important;color:#53667b!important}
+html[data-theme="light"] .reporting-status-badge.half-green{background:#eff8e9!important;border-color:#cce1ba!important;color:#4a6f2e!important}
+html[data-theme="light"] .reporting-status-badge.half-red{background:#fff4e5!important;border-color:#efd2a3!important;color:#8a5b00!important}
+html[data-theme="light"] .reporting-status-badge.review{background:#fff7df!important;border-color:#ead6a0!important;color:#815800!important}
+html[data-theme="light"] .reporting-status-badge.pending{background:#eaf7fb!important;border-color:#bddde6!important;color:#176b82!important}
+html[data-theme="light"] .translation-provider-grid :is(.provider-badge,.form-status),
+html[data-theme="light"] .reporting-section-heading .form-status{
+  min-height:28px!important;
+  padding:5px 9px!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  line-height:1!important;
+}
+html[data-theme="light"] .translation-provider-grid :is(.provider-badge,.form-status).is-configured,
+html[data-theme="light"] .reporting-section-heading .form-status.is-configured{
+  background:#eaf8f2!important;
+  border:1px solid #b9dfd2!important;
+  color:#067647!important;
+}
+html[data-theme="light"] .translation-provider-grid :is(.provider-badge,.form-status).is-empty,
+html[data-theme="light"] .reporting-section-heading .form-status.is-empty{
+  background:#f3f6f8!important;
+  border:1px solid #d7e0e8!important;
+  color:#5b6d80!important;
+}
+html[data-theme="light"] .reset-security-status.ready,
+html[data-theme="light"] .connect-shell .online{
+  background:#eaf8f2!important;
+  border:1px solid #b9dfd2!important;
+  color:#067647!important;
+}
+html[data-theme="light"] .reset-security-status.pending,
+html[data-theme="light"] .connect-shell .offline{
+  background:#fff7df!important;
+  border:1px solid #ead6a0!important;
+  color:#815800!important;
+}
