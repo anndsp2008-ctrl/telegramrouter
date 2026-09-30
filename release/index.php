@@ -85,6 +85,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 $newKey=trim((string)($_POST['api_football_key']??''));
                 if($newKey!=='') Repository::saveIntegration('api_football_key',$newKey);
                 $notice='API-Football atualizada com segurança.';
+            } elseif($provider==='football_data'){
+                $newKey=trim((string)($_POST['football_data_token']??''));
+                if($newKey!=='') Repository::saveIntegration('football_data_token',$newKey);
+                $notice='football-data.org atualizada como fallback.';
             } else throw new RuntimeException('Provedor esportivo inválido.');
             $page='integrations';
         }
@@ -94,6 +98,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $override='';
             if($provider==='stake') $override=trim((string)($_POST['stake_odds_api_key']??''));
             elseif($provider==='api_football') $override=trim((string)($_POST['api_football_key']??''));
+            elseif($provider==='football_data') $override=trim((string)($_POST['football_data_token']??''));
             else throw new RuntimeException('Provedor esportivo inválido.');
 
             $test=\App\SportsApiIntegration::test($provider,$override);
@@ -249,8 +254,10 @@ $workersAIKey=\App\WorkersAITranslation::token();
 $workersAIAccount=\App\WorkersAITranslation::account();
 $stakeKey=\App\SportsApiIntegration::stakeKey();
 $apiFootballKey=\App\SportsApiIntegration::apiFootballKey();
+$footballDataKey=\App\SportsApiIntegration::footballDataKey();
 $stakeTest=Repository::providerTestStatus('stake');
 $apiFootballTest=Repository::providerTestStatus('api_football');
+$footballDataTest=Repository::providerTestStatus('football_data');
 $primaryProvider=Repository::translationPrimaryProvider();
 $fallbackProvider=Repository::translationFallbackProvider();
 $openaiStats=Repository::translationProviderStats('openai'); $geminiStats=Repository::translationProviderStats('gemini');
@@ -265,13 +272,13 @@ $openaiTest=Repository::providerTestStatus('openai'); $geminiTest=Repository::pr
     <small>Configure credenciais, valide conexões e acompanhe o estado de cada provedor sem poluição visual.</small>
   </div>
   <div class="integrations-overview-v10-status">
-    <?php $integrationKeyCount=(!empty($openaiKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0)+((!empty($workersAIKey)&&!empty($workersAIAccount))?1:0)+(!empty($stakeKey)?1:0)+(!empty($apiFootballKey)?1:0); ?>
-    <span class="<?=$integrationKeyCount>0?'is-good':''?>">Chaves <?=$integrationKeyCount?>/6</span>
+    <?php $integrationKeyCount=(!empty($openaiKey)?1:0)+(!empty($geminiKey)?1:0)+(!empty($googleCloudKey)?1:0)+((!empty($workersAIKey)&&!empty($workersAIAccount))?1:0)+(!empty($stakeKey)?1:0)+(!empty($apiFootballKey)?1:0)+(!empty($footballDataKey)?1:0); ?>
+    <span class="<?=$integrationKeyCount>0?'is-good':''?>">Chaves <?=$integrationKeyCount?>/7</span>
     <span class="<?=$connectedPhone!==''?'is-good':''?>">Telegram <?=$connectedPhone!==''?'online':'offline'?></span>
   </div>
 </section>
 <section class="saas-card integrations-connection"><div><span class="saas-kicker">CONEXÃO</span><h2>Telegram</h2><p>Gerencie a conta usada para receber e encaminhar as mensagens.</p></div><a class="saas-secondary" href="/connect.php">Gerenciar conexão →</a></section>
-<div class="integrations-section-heading sports-api-heading"><div><span class="saas-kicker">APIS ESPORTIVAS</span><h2>Validação e resultados</h2><p>Substitua as credenciais usadas para validar odds na Stake e consultar partidas/resultados na API-Football. O teste pode ser executado antes de salvar.</p></div></div>
+<div class="integrations-section-heading sports-api-heading"><div><span class="saas-kicker">APIS ESPORTIVAS</span><h2>Validação e resultados</h2><p>Stake valida odds. API-Football permanece como fonte principal de resultados e football-data.org entra apenas como fallback quando a principal falhar ou não localizar a partida.</p></div></div>
 <div class="translation-provider-grid sports-api-provider-grid">
 <section class="saas-card translation-provider-card sports-api-card">
   <div class="provider-head">
@@ -292,6 +299,17 @@ $openaiTest=Repository::providerTestStatus('openai'); $geminiTest=Repository::pr
     <label class="field-wide">API Key<span class="field-help"><?=$apiFootballKey?'Atual: '.sh(TranslationService::maskSecret($apiFootballKey)).'. Digite uma nova chave apenas para substituir.':'Informe a chave da API-Football.'?></span><input name="api_football_key" type="password" autocomplete="new-password" placeholder="<?=$apiFootballKey?'••••••••••••••••':'Cole a API Key da API-Football'?>"></label>
   </div><div class="provider-actions"><button class="saas-primary" name="action" value="save_sports_api_provider">Salvar</button><button class="saas-secondary" name="action" value="test_sports_api_provider">Testar conexão</button></div></form>
   <div class="provider-test <?=$apiFootballTest?((int)$apiFootballTest['last_test_ok']?'ok':'bad'):'neutral'?>"><b>Último teste</b><span><?=$apiFootballTest?((int)$apiFootballTest['last_test_ok']?'Conexão válida':'Falha'.(!empty($apiFootballTest['last_test_error'])?' — '.sh((string)$apiFootballTest['last_test_error']):(!empty($apiFootballTest['last_test_http_code'])?' — HTTP '.(int)$apiFootballTest['last_test_http_code']:''))):'Ainda não testado'?></span><small><?=$apiFootballTest?sh(dataHoraBrasil($apiFootballTest['last_test_at'])).' · '.(int)$apiFootballTest['last_test_latency_ms'].' ms':'—'?></small></div>
+</section>
+<section class="saas-card translation-provider-card sports-api-card">
+  <div class="provider-head">
+    <div><span class="saas-kicker">RESULTS FALLBACK · FREE</span><h2>football-data.org</h2><p>Fallback da API-Football para localizar partidas e obter placar/resultado quando a fonte principal falhar.</p></div>
+    <span class="provider-badge <?=$footballDataKey?'is-configured':'is-empty'?>"><?=$footballDataKey?'Configurado':'Não configurado'?></span>
+  </div>
+  <form method="post" class="provider-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="provider" value="football_data"><div class="saas-form-grid">
+    <label class="field-wide">API Token<span class="field-help"><?=$footballDataKey?'Atual: '.sh(TranslationService::maskSecret($footballDataKey)).'. Digite um novo token apenas para substituir.':'Informe o token gratuito da football-data.org.'?></span><input name="football_data_token" type="password" autocomplete="new-password" placeholder="<?=$footballDataKey?'••••••••••••••••':'Cole o token da football-data.org'?>"></label>
+  </div><div class="provider-actions"><button class="saas-primary" name="action" value="save_sports_api_provider">Salvar</button><button class="saas-secondary" name="action" value="test_sports_api_provider">Testar conexão</button></div></form>
+  <div class="provider-test <?=$footballDataTest?((int)$footballDataTest['last_test_ok']?'ok':'bad'):'neutral'?>"><b>Último teste</b><span><?=$footballDataTest?((int)$footballDataTest['last_test_ok']?'Conexão válida':'Falha'.(!empty($footballDataTest['last_test_error'])?' — '.sh((string)$footballDataTest['last_test_error']):(!empty($footballDataTest['last_test_http_code'])?' — HTTP '.(int)$footballDataTest['last_test_http_code']:''))):'Ainda não testado'?></span><small><?=$footballDataTest?sh(dataHoraBrasil($footballDataTest['last_test_at'])).' · '.(int)$footballDataTest['last_test_latency_ms'].' ms':'—'?></small></div>
+  <p class="field-help">Plano gratuito: placares podem chegar com atraso e estatísticas avançadas não são usadas. O Router nunca converte dado ausente em zero. Data provided by football-data.org.</p>
 </section>
 </div>
 <section class="translation-routing-card saas-card"><div class="saas-card-head"><div><span class="saas-kicker">ORQUESTRAÇÃO</span><h2>Prioridade e fallback</h2><p>A regra sempre tem prioridade. O fallback usa o provedor alternativo configurado quando estiver habilitado.</p></div></div><form method="post" class="translation-routing-form"><input type="hidden" name="csrf" value="<?=sh(Auth::csrf())?>"><input type="hidden" name="action" value="save_translation_routing"><label>Provedor principal<select id="translation-primary" name="translation_primary_provider"><option value="openai" <?=$primaryProvider==='openai'?'selected':''?>>OpenAI</option><option value="gemini" <?=$primaryProvider==='gemini'?'selected':''?>>Google Gemini</option><option value="google_cloud" <?=$primaryProvider==='google_cloud'?'selected':''?>>Google Cloud Translation</option><option value="workers_ai" <?=($primaryProvider==='workers_ai')?'selected':''?>>Cloudflare Workers AI</option></select></label><label>Provedor de fallback<select id="translation-fallback" name="translation_fallback_provider"><option value="none" <?=$fallbackProvider==='none'?'selected':''?>>Nenhum</option><option value="openai" <?=$fallbackProvider==='openai'?'selected':''?>>OpenAI</option><option value="gemini" <?=$fallbackProvider==='gemini'?'selected':''?>>Google Gemini</option><option value="google_cloud" <?=$fallbackProvider==='google_cloud'?'selected':''?>>Google Cloud Translation</option><option value="workers_ai" <?=($fallbackProvider==='workers_ai')?'selected':''?>>Cloudflare Workers AI</option></select></label><button class="saas-primary">Salvar prioridade →</button></form></section>
