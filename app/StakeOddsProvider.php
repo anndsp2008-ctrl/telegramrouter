@@ -920,8 +920,86 @@ final class StakeOddsProvider
      */
     private static function marketRowsFromPayload(array $payload): array
     {
-        $fixture=self::fixtureMarketObject($payload);
-        return $fixture===[]?[]:self::marketRows($fixture);
+        $rows=[];
+        self::collectMarketRows($payload,$rows,'',0);
+
+        $unique=[];
+        foreach($rows as $row){
+            $key=implode('|',[
+                self::canonical((string)$row['market']),
+                self::canonicalSelection((string)$row['selection']),
+                (string)$row['specifier'],
+                self::normalizeOdd((string)$row['odd']),
+                $row['active']?'1':'0',
+            ]);
+            $unique[$key]=$row;
+        }
+        return array_values($unique);
+    }
+
+    /**
+     * Recursively accepts the documented fixture.groups/swishMarkets shape and
+     * common wrapper/list variants returned by upstream gateways.
+     *
+     * @param array<string,mixed>|list<mixed> $node
+     * @param list<array{market:string,selection:string,odd:string,specifier:string,active:bool}> $rows
+     */
+    private static function collectMarketRows(array $node,array &$rows,string $context,int $depth): void
+    {
+        if($depth>7)return;
+
+        if(isset($node['groups']) || isset($node['swishMarkets'])){
+            foreach(self::marketRows($node) as $row)$rows[]=$row;
+        }
+
+        if(isset($node['markets']) && is_array($node['markets'])){
+            $groupName=trim((string)($node['name']??$node['groupName']??$context));
+            $synthetic=['groups'=>[[
+                'name'=>$groupName,
+                'markets'=>$node['markets'],
+            ]]];
+            foreach(self::marketRows($synthetic) as $row)$rows[]=$row;
+        }
+
+        if(isset($node['outcomes']) && is_array($node['outcomes'])){
+            if(isset($node['marketName'])){
+                $synthetic=['swishMarkets'=>[[
+                    'matchMarkets'=>[$node],
+                ]]];
+                foreach(self::marketRows($synthetic) as $row)$rows[]=$row;
+            }elseif(isset($node['name'])){
+                $synthetic=['groups'=>[[
+                    'name'=>$context,
+                    'markets'=>[$node],
+                ]]];
+                foreach(self::marketRows($synthetic) as $row)$rows[]=$row;
+            }
+        }
+
+        foreach($node as $key=>$value){
+            if(!is_array($value))continue;
+            if(in_array((string)$key,['groups','swishMarkets','markets','outcomes'],true))continue;
+
+            if(array_is_list($value)){
+                foreach($value as $item){
+                    if(is_array($item)){
+                        self::collectMarketRows(
+                            $item,
+                            $rows,
+                            is_string($key)?$key:$context,
+                            $depth+1
+                        );
+                    }
+                }
+            }else{
+                self::collectMarketRows(
+                    $value,
+                    $rows,
+                    is_string($key)?$key:$context,
+                    $depth+1
+                );
+            }
+        }
     }
 
     /** @param array<string,mixed> $fixture
@@ -1102,11 +1180,11 @@ final class StakeOddsProvider
         return preg_replace('/(?:^|\s)[+-]?\d+(?:\.\d+)?(?:\s|$)/u',' ',$value)??$value;
     }
 
-    /** @param array<string,mixed> $fixture */
-    private static function logMarketCandidates(array $fixture,string $market,string $selection,?float $wantedLine): void
+    /** @param array<string,mixed> $payload */
+    private static function logMarketCandidates(array $payload,string $market,string $selection,?float $wantedLine): void
     {
         $rows=[];
-        foreach(self::marketRows($fixture) as $row){
+        foreach(self::marketRowsFromPayload($payload) as $row){
             if(!$row['active'])continue;
             $marketScore=self::marketScore(self::canonical($market),self::canonical($row['market']));
             $selectionScore=self::selectionScore(
@@ -1119,7 +1197,7 @@ final class StakeOddsProvider
             $score=($marketScore*0.48)+($selectionScore*0.52);
             if($wantedLine!==null && $candidateLine!==null && abs($candidateLine-$wantedLine)<=0.0001)$score+=0.06;
             $rows[]=[
-                'score'=>$score,
+                'score'=>round($score,3),
                 'market'=>mb_substr($row['market'],0,100),
                 'selection'=>mb_substr($row['selection'],0,100),
                 'line'=>$candidateLine,
@@ -1131,8 +1209,64 @@ final class StakeOddsProvider
             'wanted_market'=>mb_substr($market,0,100),
             'wanted_selection'=>mb_substr($selection,0,100),
             'wanted_line'=>$wantedLine,
+            'row_count'=>count(self::marketRowsFromPayload($payload)),
             'top'=>array_slice($rows,0,5),
         ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+    }
+
+    /** @param array<string,mixed> $payload */
+    private static function logPayloadContract(string $endpoint,string $slug,array $payload): void
+    {
+        error_log('TMR_STAKE_PAYLOAD_CONTRACT '.json_encode([
+            'endpoint'=>$endpoint,
+            'fixture_slug'=>mb_substr($slug,0,180),
+            'shape'=>self::payloadShape($payload),
+        ],JSON_UNESCAPED_SLASHES));
+    }
+
+    /** @param array<string,mixed>|list<mixed> $payload @return array<string,mixed> */
+    private static function payloadShape(array $payload,int $depth=0): array
+    {
+        $shape=[
+            'kind'=>array_is_list($payload)?'list':'object',
+            'count'=>count($payload),
+        ];
+        if(array_is_list($payload)){
+            $first=$payload[0]??null;
+            if(is_array($first) && $depth<2){
+                $shape['first']=self::payloadShape($first,$depth+1);
+            }
+            return $shape;
+        }
+
+        $keys=array_slice(array_map('strval',array_keys($payload)),0,24);
+        $shape['keys']=$keys;
+        if($depth<2){
+            $children=[];
+            foreach($keys as $key){
+                $value=$payload[$key]??null;
+                if(is_array($value)){
+                    $children[$key]=[
+                        'kind'=>array_is_list($value)?'list':'object',
+                        'count'=>count($value),
+                    ];
+                    if($value!==[]){
+                        $sample=array_is_list($value)?($value[0]??null):$value;
+                        if(is_array($sample)){
+                            $children[$key]['keys']=array_slice(
+                                array_map('strval',array_keys($sample)),
+                                0,
+                                16
+                            );
+                        }
+                    }
+                }else{
+                    $children[$key]=['type'=>get_debug_type($value)];
+                }
+            }
+            $shape['children']=$children;
+        }
+        return $shape;
     }
 
     private static function marketNeedsLine(string $market,string $selection): bool
