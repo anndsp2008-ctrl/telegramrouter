@@ -275,6 +275,62 @@ if($canonicalSelectionMethod->invoke(null,'Bayern de Munique Feminino')!=='bayer
     throw new RuntimeException('Stake selection canonicalization must map Bayern de Munique Feminino to Bayern Munich.');
 }
 
+$comboDetail=[
+    'data'=>[
+        'fixture'=>[
+            'slug'=>'benfica-bayern-women-combo',
+            'groups'=>[
+                [
+                    'name'=>'specials',
+                    'markets'=>[
+                        [
+                            'status'=>'active',
+                            'name'=>'Match Winner & Both Teams To Score',
+                            'specifiers'=>'',
+                            'outcomes'=>[
+                                ['name'=>'Bayern Munich & Yes','odds'=>1.87,'active'=>true],
+                                ['name'=>'SL Benfica & Yes','odds'=>6.20,'active'=>true],
+                                ['name'=>'Bayern Munich & No','odds'=>2.40,'active'=>true],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ],
+];
+$selectOddMethod=new ReflectionMethod(StakeOddsProvider::class,'selectOdd');
+$selectOddMethod->setAccessible(true);
+$comboOdd=$selectOddMethod->invoke(
+    null,
+    $comboDetail,
+    'Vencedor da partida e ambas as equipes marcam',
+    'Bayern de Munique Feminino vence e ambas as equipes marcam'
+);
+if($comboOdd!=='1.87'){
+    throw new RuntimeException('Stake combo market Winner + BTTS alias matching failed: '.var_export($comboOdd,true));
+}
+
+$marketRowsFromPayload=new ReflectionMethod(StakeOddsProvider::class,'marketRowsFromPayload');
+$marketRowsFromPayload->setAccessible(true);
+$comboRows=$marketRowsFromPayload->invoke(null,$comboDetail);
+if(!is_array($comboRows)||count($comboRows)!==3){
+    throw new RuntimeException('Stake nested fixture market payload unwrapping failed.');
+}
+
+$listWrapped=[
+    'fixture'=>[
+        [
+            'slug'=>'wrapped',
+            'groups'=>$comboDetail['data']['fixture']['groups'],
+        ],
+    ],
+];
+$listRows=$marketRowsFromPayload->invoke(null,$listWrapped);
+if(!is_array($listRows)||count($listRows)!==3){
+    throw new RuntimeException('Stake list-wrapped fixture market payload unwrapping failed.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
