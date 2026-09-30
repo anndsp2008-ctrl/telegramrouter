@@ -113,6 +113,7 @@ def main() -> None:
         "runtime-smart-format.php",
         "runtime-card-models.php",
         "runtime-reporting.php",
+        "runtime-football-data-fallback.php",
         "runtime-ai-learning.php",
         "runtime-routing-exclusion.php",
         "runtime-dialog-system.php",
