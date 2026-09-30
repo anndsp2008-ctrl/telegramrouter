@@ -2,9 +2,7 @@
 
 // TMR_FOOTBALL_DATA_FALLBACK_V2
 $indexPath = __DIR__ . '/index.php';
-$repositoryPath = __DIR__ . '/app/Repository.php';
-
-foreach ([$indexPath, $repositoryPath] as $required) {
+foreach ([$indexPath] as $required) {
     if (!is_file($required)) {
         fwrite(STDERR, 'TMR_FOOTBALL_DATA_REQUIRED_MISSING ' . basename($required) . PHP_EOL);
         exit(1);
@@ -12,8 +10,6 @@ foreach ([$indexPath, $repositoryPath] as $required) {
 }
 
 $index = (string)file_get_contents($indexPath);
-$repository = (string)file_get_contents($repositoryPath);
-
 $replaceOnce = static function(string $body, string $old, string $new, string $label): string {
     $count = substr_count($body, $old);
     if ($count !== 1) {
@@ -23,29 +19,6 @@ $replaceOnce = static function(string $body, string $old, string $new, string $l
 };
 
 try {
-    // Provider-test status table is shared with translation providers. Extend its
-    // allow-list without depending on which providers existed in the old snapshot.
-    if (!str_contains($repository, "'football_data'")) {
-        $repository = preg_replace_callback(
-            "~if\(!in_array\(\$provider,\[(.*?)\],true\)\) return;~s",
-            static function(array $m): string {
-                $inside = $m[1];
-                foreach (["'stake'","'api_football'","'football_data'"] as $provider) {
-                    if (!str_contains($inside, $provider)) {
-                        $inside .= ',' . $provider;
-                    }
-                }
-                return "if(!in_array(\$provider,[" . $inside . "],true)) return;";
-            },
-            $repository,
-            1,
-            $repoPatchCount
-        ) ?? $repository;
-        if (($repoPatchCount ?? 0) !== 1) {
-            throw new RuntimeException('TMR_FOOTBALL_DATA_REPOSITORY_ALLOWLIST');
-        }
-    }
-
     // Add the sports save/test actions if the sanitized snapshot predates them.
     if (!str_contains($index, "save_sports_api_provider")) {
         $handlerAnchor = "        if(\$action==='delete_rule')";
@@ -82,13 +55,15 @@ try {
             else throw new RuntimeException('Provedor esportivo inválido.');
 
             $test=\App\SportsApiIntegration::test($provider,$override);
-            Repository::saveProviderTest(
-                $provider,
-                (bool)$test['ok'],
-                (int)$test['latency_ms'],
-                $test['http_code']!==null?(int)$test['http_code']:null,
-                $test['error']!==null?(string)$test['error']:null
-            );
+            if(method_exists(Repository::class,'saveProviderTest')){
+                Repository::saveProviderTest(
+                    $provider,
+                    (bool)$test['ok'],
+                    (int)$test['latency_ms'],
+                    $test['http_code']!==null?(int)$test['http_code']:null,
+                    $test['error']!==null?(string)$test['error']:null
+                );
+            }
             if($test['ok']) $notice=(string)$test['message']; else $error=(string)$test['message'];
             $page='integrations';
         }
@@ -123,9 +98,9 @@ PHP;
 $stakeKey=\App\SportsApiIntegration::stakeKey();
 $apiFootballKey=\App\SportsApiIntegration::apiFootballKey();
 $footballDataKey=\App\SportsApiIntegration::footballDataKey();
-$stakeTest=Repository::providerTestStatus('stake');
-$apiFootballTest=Repository::providerTestStatus('api_football');
-$footballDataTest=Repository::providerTestStatus('football_data');
+$stakeTest=method_exists(Repository::class,'providerTestStatus')?Repository::providerTestStatus('stake'):null;
+$apiFootballTest=method_exists(Repository::class,'providerTestStatus')?Repository::providerTestStatus('api_football'):null;
+$footballDataTest=method_exists(Repository::class,'providerTestStatus')?Repository::providerTestStatus('football_data'):null;
 PHP;
         $index = str_replace($integrationMarker, $integrationMarker . $vars . "\n", $index, $varsCount);
         if ($varsCount !== 1) {
@@ -143,7 +118,7 @@ PHP;
             $index,
             "$apiFootballTest=Repository::providerTestStatus('api_football');",
             "$apiFootballTest=Repository::providerTestStatus('api_football');\n" .
-            "$footballDataTest=Repository::providerTestStatus('football_data');",
+            "$footballDataTest=method_exists(Repository::class,'providerTestStatus')?Repository::providerTestStatus('football_data'):null;",
             'FALLBACK_TEST_VAR'
         );
     }
@@ -221,9 +196,6 @@ HTML;
         }
     }
 
-    if (@file_put_contents($repositoryPath, $repository, LOCK_EX) === false) {
-        throw new RuntimeException('TMR_FOOTBALL_DATA_REPOSITORY_WRITE_FAILED');
-    }
     if (@file_put_contents($indexPath, $index, LOCK_EX) === false) {
         throw new RuntimeException('TMR_FOOTBALL_DATA_INDEX_WRITE_FAILED');
     }
@@ -233,10 +205,8 @@ HTML;
 }
 
 $indexVerify = (string)file_get_contents($indexPath);
-$repositoryVerify = (string)file_get_contents($repositoryPath);
 if (
-    !str_contains($repositoryVerify, "'football_data'")
-    || !str_contains($indexVerify, "football_data_token")
+    !str_contains($indexVerify, "football_data_token")
     || !str_contains($indexVerify, 'value="football_data"')
     || !str_contains($indexVerify, 'SportsApiIntegration::footballDataKey()')
     || !str_contains($indexVerify, 'sports-api-provider-grid')
