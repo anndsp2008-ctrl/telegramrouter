@@ -63,10 +63,10 @@ ltOk(str_contains($css,'.reporting-switch-row>input'),'switches de relatorios po
 ltOk(str_contains($css,'.reporting-choice>input'),'radios de relatorios possuem tema claro');
 ltOk(str_contains($css,'.reporting-status-badge.green'),'status do relatorio possui cores semanticas claras');
 ltOk(str_contains($css,'.reporting-history-row-dark>td'),'zebrado claro permanece coberto');
-ltOk(str_contains($runtime,'/assets/brand/theme.css?v=8'),'runtime injeta CSS claro v2');
+ltOk(str_contains($runtime,'/assets/brand/theme.css?v=9'),'runtime injeta CSS claro v2');
 
 foreach($pages as $name=>$page){
-    ltOk(str_contains($page,'/assets/brand/theme.css?v=8'),$name.' invalida cache do tema claro');
+    ltOk(str_contains($page,'/assets/brand/theme.css?v=9'),$name.' invalida cache do tema claro');
 }
 
 foreach([
@@ -86,6 +86,9 @@ ltOk(str_contains($css,'TMR_LIGHT_THEME_POLISH_V5'),'polimento visual claro v5 p
 ltOk(str_contains($css,'TMR_LIGHT_THEME_ICONS_V6'),'ajuste de icones claros v6 presente');
 ltOk(str_contains($css,'TMR_LIGHT_THEME_STATUS_V7'),'status claros v7 presentes');
 ltOk(str_contains($css,'TMR_LIGHT_RULE_CARD_SPACING_V8'),'espacamento entre cards de regras presente');
+ltOk(str_contains($css,'TMR_LIGHT_SCROLLBAR_V9'),'scrollbars globais claras v9 presentes');
+ltOk(str_contains($css,'scrollbar-color:#91a5b5 #edf2f6'),'Firefox usa scrollbar clara');
+ltOk(str_contains($css,'html[data-theme="light"] ::-webkit-scrollbar-thumb'),'Chromium/WebKit usa thumb claro');
 ltOk(str_contains($css,'.rules-panel .rule-card + .rule-card'),'cards consecutivos possuem seletor dedicado de espacamento');
 ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.Encaminhada'),'Encaminhada possui variante clara');
 ltOk(str_contains($activityStatusCss,'html[data-theme="light"] .activity-badge.Ignorada'),'Ignorada possui variante clara');
