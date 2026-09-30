@@ -78,21 +78,27 @@ final class FixtureMatcher
             }
         }
 
-        // Só consulta /teams?search quando a comparação pelo calendário não foi
-        // conclusiva. O fixture por data já está em cache e é filtrado por IDs localmente.
-        $teamA = $this->safeResolveTeam($wantedA);
-        $teamB = $this->safeResolveTeam($wantedB);
-        if (is_array($teamA) && is_array($teamB) && (int)$teamA['team_id'] !== (int)$teamB['team_id']) {
-            foreach ($dates as $date) {
-                $exact = $this->matchByTeamIds(
-                    (int)$teamA['team_id'],
-                    (int)$teamB['team_id'],
-                    $date
-                );
-                if ($exact !== null) {
-                    $exact['confidence'] = 1.0;
-                    $exact['match_method'] = 'team_ids';
-                    return ['status'=>'matched','match'=>$exact];
+        $teamA = null;
+        $teamB = null;
+
+        // IDs de equipes não são portáveis entre provedores. A resolução por
+        // aliases/IDs permanece exclusiva da API-Football; o fallback usa o
+        // calendário por data + similaridade textual.
+        if ($this->api->providerKey() === 'api_football') {
+            $teamA = $this->safeResolveTeam($wantedA);
+            $teamB = $this->safeResolveTeam($wantedB);
+            if (is_array($teamA) && is_array($teamB) && (int)$teamA['team_id'] !== (int)$teamB['team_id']) {
+                foreach ($dates as $date) {
+                    $exact = $this->matchByTeamIds(
+                        (int)$teamA['team_id'],
+                        (int)$teamB['team_id'],
+                        $date
+                    );
+                    if ($exact !== null) {
+                        $exact['confidence'] = 1.0;
+                        $exact['match_method'] = 'team_ids';
+                        return ['status'=>'matched','match'=>$exact];
+                    }
                 }
             }
         }
