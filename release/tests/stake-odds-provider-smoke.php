@@ -62,6 +62,53 @@ if(!is_array($fixture)||($fixture['slug']??'')!=='palmeiras-flamengo-123'){
     throw new RuntimeException('Stake fixture matcher selected the wrong event.');
 }
 
+$womenFixture=[
+    'fixture'=>[
+        [
+            'slug'=>'lyon-chelsea-women-999',
+            'name'=>'Olympique Lyonnais Women - Chelsea Women',
+            'startTime'=>1790784000000,
+            'tournament'=>"UEFA Women's Champions League",
+            'competitors'=>['Olympique Lyonnais Women','Chelsea Women'],
+        ],
+    ],
+];
+$womenMatch=$fixtureMethod->invoke(
+    null,
+    $womenFixture,
+    'Lyon Feminino x Chelsea Feminino',
+    'Liga dos Campeões Feminina',
+    ''
+);
+if(!is_array($womenMatch)||($womenMatch['slug']??'')!=='lyon-chelsea-women-999'){
+    throw new RuntimeException('Stake women-team translated-name matching failed.');
+}
+
+$schedulePayload=[
+    'schedule'=>[
+        [
+            'date'=>1790784000000,
+            'fixture'=>[
+                [
+                    'slug'=>'lyon-chelsea-women-schedule',
+                    'name'=>'Olympique Lyonnais Women - Chelsea Women',
+                    'tournamentId'=>'women-ucl',
+                ],
+            ],
+        ],
+    ],
+];
+$scheduleMatch=$fixtureMethod->invoke(
+    null,
+    $schedulePayload,
+    'Lyon Feminino x Chelsea Feminino',
+    'Liga dos Campeões Feminina',
+    ''
+);
+if(!is_array($scheduleMatch)||($scheduleMatch['slug']??'')!=='lyon-chelsea-women-schedule'){
+    throw new RuntimeException('Stake schedule fallback fixture extraction failed.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
@@ -101,6 +148,16 @@ if($wrongLine!==null){
 $wrongDirection=$oddMethod->invoke(null,$detail,'Total de escanteios','Menos de 8,5 escanteios');
 if($wrongDirection!=='1.85'){
     throw new RuntimeException('Stake validator did not preserve Over/Under direction.');
+}
+
+$genericMarketScore=new ReflectionMethod(StakeOddsProvider::class,'marketScore');
+$genericMarketScore->setAccessible(true);
+$cornersScore=$genericMarketScore->invoke(null,'totalcorners','totalscorners');
+if(!is_float($cornersScore) && !is_int($cornersScore)){
+    throw new RuntimeException('Stake market similarity type changed unexpectedly.');
+}
+if((float)$cornersScore<0.62){
+    throw new RuntimeException('Team-name normalization leaked into market matching.');
 }
 
 
