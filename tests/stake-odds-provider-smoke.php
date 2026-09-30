@@ -256,6 +256,25 @@ if(!is_array($womenTournamentMatch)||($womenTournamentMatch['slug']??'')!=='benf
     throw new RuntimeException('Stake women tournament context must match bare team labels and translated Bayern de Munique.');
 }
 
+$selectionScoreMethod=new ReflectionMethod(StakeOddsProvider::class,'selectionScore');
+$selectionScoreMethod->setAccessible(true);
+$aliasSelectionScore=$selectionScoreMethod->invoke(
+    null,
+    'bayernmunich',
+    'bayernmunich',
+    'Bayern de Munique Feminino',
+    'Bayern Munich'
+);
+if((float)$aliasSelectionScore<0.94){
+    throw new RuntimeException('Stake translated/gender team selection alias matching failed.');
+}
+
+$canonicalSelectionMethod=new ReflectionMethod(StakeOddsProvider::class,'canonicalSelection');
+$canonicalSelectionMethod->setAccessible(true);
+if($canonicalSelectionMethod->invoke(null,'Bayern de Munique Feminino')!=='bayernmunich'){
+    throw new RuntimeException('Stake selection canonicalization must map Bayern de Munique Feminino to Bayern Munich.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
