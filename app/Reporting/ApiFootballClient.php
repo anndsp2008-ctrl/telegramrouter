@@ -2,12 +2,17 @@
 
 namespace App\Reporting;
 
-final class ApiFootballClient
+final class ApiFootballClient implements FootballResultsClient
 {
     public function __construct(
         private readonly string $apiKey,
         private readonly string $baseUrl = 'https://v3.football.api-sports.io'
     ) {}
+
+    public function providerKey(): string
+    {
+        return 'api_football';
+    }
 
     public function fixturesByDate(string $date): array
     {
