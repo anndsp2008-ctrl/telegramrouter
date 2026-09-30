@@ -15,7 +15,10 @@ on:
       - 'tests/multiple-bet-contingency-smoke.php'
       - 'runtime-ai-learning.php'
       - 'runtime-reporting.php'
+      - 'runtime-football-data-fallback.php'
       - 'app/Reporting/**'
+      - 'app/SportsApiIntegration.php'
+      - 'tests/sports-api-integrations-smoke.php'
       - 'reports.php'
       - 'scripts/report-worker.php'
       - 'tests/reporting-settlement-smoke.php'
@@ -128,6 +131,7 @@ jobs:
           php tests/multiple-bet-contingency-smoke.php
           php tests/smart-format-smoke.php
           php tests/stake-odds-provider-smoke.php
+          php tests/sports-api-integrations-smoke.php
           test -s app/StakeOddsProvider.php
           grep -Fq 'StakeOddsProvider::applyToSingle' app/SmartFormatting.php
           grep -Fq 'StakeOddsProvider::applyToTicket' app/SmartFormatting.php
