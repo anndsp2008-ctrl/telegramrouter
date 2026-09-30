@@ -696,6 +696,14 @@ if(!is_string($geminiTransport)
    ||!str_contains($smartSource,'gemini-2.5-flash-lite')
    ||!str_contains($smartSource,'geminiBackoffActive()'))
     throw new RuntimeException('PR76-77 Gemini resilience regression');
+$telegramRouterSource=(string)file_get_contents(__DIR__.'/../app/TelegramRouter.php');
+if(str_contains($telegramRouterSource,'usleep(')){
+    throw new RuntimeException('Telegram event handler must not use blocking usleep().');
+}
+if(!str_contains($telegramRouterSource,'$this->sleep(0.3);')){
+    throw new RuntimeException('Telegram media retry must use MadelineProto async sleep().');
+}
+
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
