@@ -1425,3 +1425,17 @@ html[data-theme="light"] .connect-shell .offline{
   border:1px solid #ead6a0!important;
   color:#815800!important;
 }
+
+
+/* TMR_LIGHT_RULE_CARD_SPACING_V8
+ * Separa visualmente cards consecutivos de regras no modo claro.
+ * Não altera dimensões internas nem regras de negócio.
+ */
+html[data-theme="light"] .rules-panel .rule-card + .rule-card{
+  margin-top:14px!important;
+}
+@media(max-width:700px){
+  html[data-theme="light"] .rules-panel .rule-card + .rule-card{
+    margin-top:12px!important;
+  }
+}
