@@ -242,6 +242,25 @@ final class StakeOddsProvider
                 (string)($bet['market']??''),
                 (string)($bet['selection']??'')
             );
+
+            if($stakeOdd===null && self::marketRowsFromPayload($detail)===[]){
+                // Stake also documents a dedicated /odds/{fixture} endpoint.
+                // Some providers/fixtures may expose the market payload there
+                // even when /fixtures/{slug} contains only fixture metadata.
+                $oddsDetail=self::cached(
+                    'odds:'.$slug,
+                    self::DETAIL_CACHE_TTL,
+                    static fn(): array=>self::request('/odds/'.rawurlencode($slug))
+                );
+                $stakeOdd=self::selectOdd(
+                    $oddsDetail,
+                    (string)($bet['market']??''),
+                    (string)($bet['selection']??'')
+                );
+                if($stakeOdd!==null){
+                    error_log('TMR_STAKE_ODDS_SOURCE odds_endpoint');
+                }
+            }
             if($stakeOdd===null){
                 return ['bet'=>$bet,'status'=>'market_or_line_not_found','changed'=>false,'error'=>''];
             }
@@ -760,7 +779,8 @@ final class StakeOddsProvider
     /** @param array<string,mixed> $payload */
     private static function selectOdd(array $payload,string $market,string $selection): ?string
     {
-        $fixture=is_array($payload['fixture']??null)?$payload['fixture']:$payload;
+        $fixture=self::fixtureMarketObject($payload);
+        if($fixture===[])return null;
         $wantedMarket=self::canonical($market);
         $wantedSelection=self::canonicalSelection($selection);
         if($wantedMarket===''||$wantedSelection==='')return null;
@@ -815,6 +835,48 @@ final class StakeOddsProvider
 
         $odd=self::normalizeOdd((string)$best['odd']);
         return $odd!==''?$odd:null;
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,mixed> */
+    private static function fixtureMarketObject(array $payload): array
+    {
+        if(isset($payload['groups']) || isset($payload['swishMarkets']))return $payload;
+
+        foreach(['fixture','data','odds','result'] as $key){
+            $value=$payload[$key]??null;
+            if(!is_array($value))continue;
+
+            if(isset($value['groups']) || isset($value['swishMarkets']))return $value;
+            if(array_is_list($value)){
+                foreach($value as $row){
+                    if(is_array($row) && (isset($row['groups']) || isset($row['swishMarkets']))){
+                        return $row;
+                    }
+                }
+            }
+
+            $nested=self::fixtureMarketObject($value);
+            if($nested!==[])return $nested;
+        }
+
+        if(array_is_list($payload)){
+            foreach($payload as $row){
+                if(!is_array($row))continue;
+                if(isset($row['groups']) || isset($row['swishMarkets']))return $row;
+                $nested=self::fixtureMarketObject($row);
+                if($nested!==[])return $nested;
+            }
+        }
+        return [];
+    }
+
+    /** @param array<string,mixed> $payload
+     *  @return list<array{market:string,selection:string,odd:string,specifier:string,active:bool}>
+     */
+    private static function marketRowsFromPayload(array $payload): array
+    {
+        $fixture=self::fixtureMarketObject($payload);
+        return $fixture===[]?[]:self::marketRows($fixture);
     }
 
     /** @param array<string,mixed> $fixture
@@ -885,6 +947,12 @@ final class StakeOddsProvider
     {
         if($a===$b)return 1.0;
         $score=self::similarity($a,$b);
+        $aWinner=str_contains($a,'matchwinner')||str_contains($a,'matchresult')||str_contains($a,'moneyline');
+        $bWinner=str_contains($b,'matchwinner')||str_contains($b,'matchresult')||str_contains($b,'moneyline');
+        $aBtts=str_contains($a,'bothteamstoscore')||str_contains($a,'btts');
+        $bBtts=str_contains($b,'bothteamstoscore')||str_contains($b,'btts');
+        if($aWinner&&$bWinner&&$aBtts&&$bBtts)$score=max($score,0.98);
+
         foreach([
             ['corner','corners'],['card','cards'],['goal','goals'],
             ['asianhandicap','handicap'],['doublechance'],
@@ -935,7 +1003,37 @@ final class StakeOddsProvider
                 }
             }
         }
+        $bttsA=self::bttsState($rawA);
+        $bttsB=self::bttsState($rawB);
+        if($bttsA!==null && $bttsB!==null && $bttsA===$bttsB){
+            $teamA=self::teamComparable(self::stripOutcomeSemantics($rawA));
+            $teamB=self::teamComparable(self::stripOutcomeSemantics($rawB));
+            if($teamA!=='' && $teamB!==''){
+                if($teamA===$teamB)$score=max($score,0.99);
+                elseif(str_contains($teamA,$teamB)||str_contains($teamB,$teamA))$score=max($score,0.96);
+            }
+        }
+
         return $score;
+    }
+
+    private static function bttsState(string $value): ?string
+    {
+        $v=self::canonical($value);
+        if(str_contains($v,'bothteamstoscore')){
+            if(str_contains($v,'no')||str_contains($v,'nao'))return 'no';
+            return 'yes';
+        }
+        if(preg_match('/(?:^|[^a-z])(yes|sim)(?:$|[^a-z])/iu',$value))return 'yes';
+        if(preg_match('/(?:^|[^a-z])(no|nao|não)(?:$|[^a-z])/iu',$value))return 'no';
+        return null;
+    }
+
+    private static function stripOutcomeSemantics(string $value): string
+    {
+        $value=preg_replace('/\b(?:vence|vencedor|winner|win|ganha|ganhar|and|e|yes|sim|no|nao|não)\b/iu',' ',$value)??$value;
+        $value=preg_replace('/\b(?:ambas\s+(?:as\s+)?equipes\s+marcam|ambas\s+marcam|both\s+teams\s+to\s+score|btts)\b/iu',' ',$value)??$value;
+        return trim($value);
     }
 
     private static function withoutBetLine(string $value): string
@@ -1041,6 +1139,10 @@ final class StakeOddsProvider
     {
         $value=mb_strtolower(trim($value),'UTF-8');
         $value=strtr($value,[
+            'vencedor da partida e ambas as equipes marcam'=>'match winner both teams to score',
+            'vencedor da partida + ambas as equipes marcam'=>'match winner both teams to score',
+            'ambas as equipes marcam'=>'both teams to score',
+            'ambas equipes marcam'=>'both teams to score',
             'mais de'=>'over','acima de'=>'over','menos de'=>'under','abaixo de'=>'under',
             'escanteios'=>'corners','escanteio'=>'corner','cantos'=>'corners',
             'cartões'=>'cards','cartoes'=>'cards','cartão'=>'card','cartao'=>'card',
