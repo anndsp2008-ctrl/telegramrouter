@@ -205,7 +205,7 @@ function aiUrl(string $status,string $q,int $page=1): string {
 <meta name="apple-mobile-web-app-title" content="TMR">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon.png?v=1">
 <script defer src="/assets/pwa.js?v=1"></script>
-<link rel="stylesheet" href="/assets/brand/theme.css?v=3"></head>
+<link rel="stylesheet" href="/assets/brand/theme.css?v=4"></head>
 <body>
 <div class="saas-shell">
 <?php $navActive='ai-learning'; require __DIR__.'/app/project-sidebar.php'; ?>
