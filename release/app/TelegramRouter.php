@@ -226,24 +226,35 @@ final class TelegramRouter extends SimpleEventHandler
         }
         $formatted=null;
         $sourceImage=null;
+        $analysisMediaDownloadMs=0;
         $contingencyTranslationMs=0;
         $contingencyRenderMs=0;
         try {
             if($setting['enabled']){
                 if($analysisMedia!==null){
                     $tempDir=sys_get_temp_dir().'/tmr-smart-'.bin2hex(random_bytes(10));
+                    $mediaStarted=hrtime(true);
                     try {
                         if(!@mkdir($tempDir,0700,true) && !is_dir($tempDir))throw new \RuntimeException('SMART_MEDIA_TEMP_FAILED');
-                        if(is_object($analysisMedia) && method_exists($analysisMedia,'downloadToDir')){
-                            $sourceImage=$analysisMedia->downloadToDir($tempDir);
-                        } else {
-                            $sourceImage=$this->downloadToDir($analysisMedia,$tempDir);
-                        }
-                        if(!is_string($sourceImage) || !is_file($sourceImage) || filesize($sourceImage)>4*1024*1024){
-                            $sourceImage=null;
-                        }
-                    } catch(\Throwable $e){
+                        $mediaResult=$this->downloadSmartAnalysisImage($analysisMedia,$tempDir);
+                        $sourceImage=$mediaResult['path'];
+                        $analysisMediaDownloadMs=(int)$mediaResult['ms'];
+                    } catch(\Throwable $mediaError){
+                        $analysisMediaDownloadMs=self::elapsedMs($mediaStarted);
+                        $requiresImage=$this->smartAnalysisMediaIsImage($analysisMedia);
+                        error_log('TMR_SMART_MEDIA_ANALYSIS_UNAVAILABLE '.json_encode([
+                            'required_for_card'=>$requiresImage && (($setting['output_mode']??'')==='card'),
+                            'elapsed_ms'=>$analysisMediaDownloadMs,
+                            'exception'=>get_class($mediaError),
+                            'reason'=>TranslationService::sanitizeError($mediaError->getMessage())
+                        ],JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
                         $sourceImage=null;
+                        // A mandatory card that visibly depends on a received image must
+                        // never silently degrade to a text-only contingency. Failing here
+                        // is safer than publishing a generic card that omits the fixture.
+                        if($requiresImage && (($setting['output_mode']??'')==='card')){
+                            throw new \RuntimeException('SMART_CARD_SOURCE_MEDIA_UNAVAILABLE',0,$mediaError);
+                        }
                     }
                 }
                 $formatted=SmartFormatting::prepare($text,$rule,$sourceImage,$setting['output_mode']);
@@ -435,6 +446,10 @@ final class TelegramRouter extends SimpleEventHandler
                             $isContingency?$contingencyRenderMs:0,
                             $isContingency?$contingencyTranslationMs:0
                         );
+                        if($analysisMediaDownloadMs>0){
+                            $mediaTiming='Mídia='.number_format($analysisMediaDownloadMs/1000,1,'.','').'s';
+                            $timing=$mediaTiming.($timing!==''?'; '.$timing:'');
+                        }
                         if($isContingency){
                             $translationStatus=!empty($formatted['translation_ok'])?'OK':'indisponível';
                             $prefix=$partial?'ai_vip_card_contingency_partial':'ai_vip_card_contingency';
@@ -537,6 +552,97 @@ final class TelegramRouter extends SimpleEventHandler
             $this->deliveryMethod='smart_original_fallback'.($diag!==''?' ['.$diag.']':'');
         }
     }
+    /** TMR_SMART_MEDIA_DOWNLOAD_V1 — bounded, observable analysis-media download. */
+    private function downloadSmartAnalysisImage(mixed $media,string $tempDir): array
+    {
+        $overallStarted=hrtime(true);
+        $timeout=(int)(getenv('SMART_MEDIA_DOWNLOAD_TIMEOUT_SECONDS')?:0);
+        $timeout=max(5,min(30,$timeout>0?$timeout:12));
+        $lastReason='SMART_MEDIA_DOWNLOAD_FAILED';
+
+        for($attempt=1;$attempt<=2;$attempt++){
+            foreach(glob($tempDir.'/*')?:[] as $stale)if(is_file($stale))@unlink($stale);
+            $attemptStarted=hrtime(true);
+            $wallStarted=microtime(true);
+            $progress=static function(...$args) use($wallStarted,$timeout): void {
+                if((microtime(true)-$wallStarted)>$timeout){
+                    throw new \RuntimeException('SMART_MEDIA_DOWNLOAD_TIMEOUT');
+                }
+            };
+            try {
+                if(is_object($media) && method_exists($media,'downloadToDir')){
+                    $path=$media->downloadToDir($tempDir,$progress);
+                } else {
+                    $path=$this->downloadToDir($media,$tempDir,$progress);
+                }
+                if(!is_string($path)||$path===''||!is_file($path)){
+                    throw new \RuntimeException('SMART_MEDIA_DOWNLOAD_EMPTY');
+                }
+
+                $realDir=realpath($tempDir);
+                $realPath=realpath($path);
+                if($realDir===false||$realPath===false||!str_starts_with($realPath,$realDir.DIRECTORY_SEPARATOR)){
+                    throw new \RuntimeException('SMART_MEDIA_TEMP_PATH_INVALID');
+                }
+
+                $bytes=(int)(filesize($realPath)?:0);
+                if($bytes<=0)throw new \RuntimeException('SMART_MEDIA_EMPTY_FILE');
+                if($bytes>4*1024*1024)throw new \RuntimeException('SMART_MEDIA_TOO_LARGE');
+
+                $imageInfo=@getimagesize($realPath);
+                $imageType=is_array($imageInfo)?(int)($imageInfo[2]??0):0;
+                if(!in_array($imageType,[IMAGETYPE_JPEG,IMAGETYPE_PNG,IMAGETYPE_WEBP],true)){
+                    throw new \RuntimeException('SMART_MEDIA_NOT_SUPPORTED_IMAGE');
+                }
+
+                $attemptMs=self::elapsedMs($attemptStarted);
+                $totalMs=self::elapsedMs($overallStarted);
+                error_log('TMR_SMART_MEDIA_ANALYSIS_DOWNLOAD '.json_encode([
+                    'status'=>'success',
+                    'attempt'=>$attempt,
+                    'attempt_ms'=>$attemptMs,
+                    'elapsed_ms'=>$totalMs,
+                    'bytes'=>$bytes
+                ],JSON_UNESCAPED_SLASHES));
+                return ['path'=>$realPath,'ms'=>$totalMs,'attempts'=>$attempt];
+            } catch(\Throwable $error) {
+                $attemptMs=self::elapsedMs($attemptStarted);
+                $lastReason=TranslationService::sanitizeError($error->getMessage());
+                error_log('TMR_SMART_MEDIA_ANALYSIS_DOWNLOAD '.json_encode([
+                    'status'=>'failed',
+                    'attempt'=>$attempt,
+                    'attempt_ms'=>$attemptMs,
+                    'reason'=>$lastReason
+                ],JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+
+                $deterministic=in_array($error->getMessage(),[
+                    'SMART_MEDIA_TOO_LARGE',
+                    'SMART_MEDIA_NOT_SUPPORTED_IMAGE',
+                    'SMART_MEDIA_TEMP_PATH_INVALID'
+                ],true);
+                if($deterministic||$attempt>=2)break;
+                usleep(300000);
+            }
+        }
+
+        throw new \RuntimeException('SMART_MEDIA_ANALYSIS_DOWNLOAD_FAILED: '.$lastReason);
+    }
+
+    private function smartAnalysisMediaIsImage(mixed $media): bool
+    {
+        $type=strtolower(is_object($media)?get_class($media):(string)(is_array($media)?($media['_']??''):''));
+        if(str_contains($type,'photo')||str_contains($type,'image'))return true;
+
+        try {
+            $meta=$this->restrictedMediaMeta($media);
+            $mime=strtolower(trim((string)($meta['mime']??'')));
+            if(str_starts_with($mime,'image/'))return true;
+            $ext=strtolower(ltrim(trim((string)($meta['ext']??'')),'.'));
+            if(in_array($ext,['jpg','jpeg','png','webp'],true))return true;
+        } catch(\Throwable) {}
+        return false;
+    }
+
     private function resolveDestination(string $peer): void
     {
         try { $this->getInfo($peer); return; }

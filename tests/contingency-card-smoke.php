@@ -119,6 +119,33 @@ foreach([
         throw new RuntimeException('Smart timing source anchor missing: '.$timingAnchor);
     }
 }
+
+$routerSource=(string)file_get_contents(__DIR__.'/../app/TelegramRouter.php');
+foreach([
+    'TMR_SMART_MEDIA_DOWNLOAD_V1',
+    'downloadSmartAnalysisImage(',
+    'smartAnalysisMediaIsImage(',
+    'TMR_SMART_MEDIA_ANALYSIS_DOWNLOAD',
+    'SMART_CARD_SOURCE_MEDIA_UNAVAILABLE',
+    "'Mídia='.number_format(\$analysisMediaDownloadMs/1000,1,'.','').'s'"
+] as $mediaAnchor){
+    if(!str_contains($routerSource,$mediaAnchor)){
+        throw new RuntimeException('Smart media retry anchor missing: '.$mediaAnchor);
+    }
+}
+if(str_contains($routerSource,"catch(\\Throwable \$e){\n                        \$sourceImage=null;")){
+    throw new RuntimeException('Silent smart-media fallback was reintroduced');
+}
+foreach([
+    'TMR_SMART_MEDIA_DOWNLOAD_V1',
+    'SMART_CARD_SOURCE_MEDIA_UNAVAILABLE',
+    'TMR_SMART_MEDIA_ANALYSIS_DOWNLOAD'
+] as $runtimeMediaAnchor){
+    if(!str_contains($runtime,$runtimeMediaAnchor)){
+        throw new RuntimeException('Runtime smart media retry anchor missing: '.$runtimeMediaAnchor);
+    }
+}
+
 $labels=(string)file_get_contents(__DIR__.'/../runtime-ui-labels.php');
 if(!str_contains($labels,'ai_vip_card_contingency')||
    !str_contains($labels,'Card VIP de contingência')||
