@@ -1022,12 +1022,23 @@ final class StakeOddsProvider
     private static function bttsState(string $value): ?string
     {
         $v=self::canonical($value);
+
+        $lower=mb_strtolower(trim($value),'UTF-8');
+        $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$lower);
+        if(is_string($ascii)&&$ascii!=='')$lower=strtolower($ascii);
+
+        $explicitNo=preg_match('/(?:^|[^a-z])(no|nao)(?:$|[^a-z])/u',$lower)===1;
+        $explicitYes=preg_match('/(?:^|[^a-z])(yes|sim)(?:$|[^a-z])/u',$lower)===1;
+
         if(str_contains($v,'bothteamstoscore')){
-            if(str_contains($v,'no')||str_contains($v,'nao'))return 'no';
+            if($explicitNo)return 'no';
+            if($explicitYes)return 'yes';
+            // Phrases such as "ambas as equipes marcam" are affirmative by
+            // definition. Do not infer "no" from substrings like "feminino".
             return 'yes';
         }
-        if(preg_match('/(?:^|[^a-z])(yes|sim)(?:$|[^a-z])/iu',$value))return 'yes';
-        if(preg_match('/(?:^|[^a-z])(no|nao|não)(?:$|[^a-z])/iu',$value))return 'no';
+        if($explicitYes)return 'yes';
+        if($explicitNo)return 'no';
         return null;
     }
 
