@@ -198,7 +198,7 @@ function aiUrl(string $status,string $q,int $page=1): string {
 <link rel="stylesheet" href="/assets/brand/horizontal-scrollbar.css?v=1">
 <link rel="stylesheet" href="/assets/brand/project-scrollbar.css?v=1">
 <link rel="stylesheet" href="/assets/brand/smart-format.css?v=1">
-<link rel="stylesheet" href="/assets/ai-learning.css?v=1">
+<link rel="stylesheet" href="/assets/ai-learning.css?v=2">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
