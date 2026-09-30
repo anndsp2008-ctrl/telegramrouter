@@ -87,12 +87,11 @@ final class SportsApiIntegration
 
             $sportPayload = $sports['payload'];
             if (!is_array($sportPayload) || !array_is_list($sportPayload)) {
-                return self::failed('Stake', [
-                    'ok'=>false,
-                    'http_code'=>$sports['http_code'],
-                    'latency_ms'=>$sports['latency_ms'],
-                    'error'=>'Contrato inválido em /sports.',
-                ]);
+                return self::stakeContractFailure(
+                    $sports,
+                    'Contrato inválido em /sports.',
+                    $sportPayload
+                );
             }
 
             $hasSoccer = false;
@@ -103,12 +102,11 @@ final class SportsApiIntegration
                 }
             }
             if (!$hasSoccer) {
-                return self::failed('Stake', [
-                    'ok'=>false,
-                    'http_code'=>$sports['http_code'],
-                    'latency_ms'=>$sports['latency_ms'],
-                    'error'=>'A Stake respondeu, mas o esporte soccer não apareceu em /sports.',
-                ]);
+                return self::stakeContractFailure(
+                    $sports,
+                    'O esporte soccer não apareceu em /sports.',
+                    $sportPayload
+                );
             }
 
             $fixtures = self::requestJson(
@@ -117,16 +115,7 @@ final class SportsApiIntegration
             );
             if (!$fixtures['ok']) return self::failed('Stake', $fixtures);
 
-            $fixtureRows = [];
-            $fixturePayload = $fixtures['payload'];
-            if (is_array($fixturePayload)) {
-                if (is_array($fixturePayload['fixture'] ?? null)) {
-                    $fixtureRows = array_values(array_filter($fixturePayload['fixture'], 'is_array'));
-                } elseif (array_is_list($fixturePayload)) {
-                    $fixtureRows = array_values(array_filter($fixturePayload, 'is_array'));
-                }
-            }
-
+            $fixtureRows = self::stakeFixtureRows($fixtures['payload']);
             if ($fixtureRows === []) {
                 return [
                     'ok' => true,
@@ -138,44 +127,173 @@ final class SportsApiIntegration
             }
 
             $checked = 0;
+            $totalLatency = $sports['latency_ms'] + $fixtures['latency_ms'];
+            $lastDetailPayload = null;
+            $lastOddsPayload = null;
+            $lastSlug = '';
+
             foreach ($fixtureRows as $fixture) {
+                if (($fixture['enabled'] ?? true) === false) continue;
+                if (($fixture['blacklisted'] ?? false) === true) continue;
+                $status = strtolower(trim((string)($fixture['status'] ?? '')));
+                if (in_array($status, ['closed','settled','ended','cancelled','canceled'], true)) continue;
+
                 $slug = trim((string)($fixture['slug'] ?? ''));
                 if ($slug === '') continue;
-                if (++$checked > 3) break;
+                if (++$checked > 8) break;
+                $lastSlug = $slug;
 
                 $detail = self::requestJson(
                     self::STAKE_BASE_URL . '/fixtures/' . rawurlencode($slug),
                     array_merge(['Accept: application/json'], $authHeaders)
                 );
-                if (!$detail['ok']) continue;
+                $totalLatency += $detail['latency_ms'];
+                if ($detail['ok']) {
+                    $lastDetailPayload = $detail['payload'];
+                    if (self::stakeHasMarketContract($detail['payload'])) {
+                        return [
+                            'ok' => true,
+                            'message' => 'Stake conectada e contrato de fixtures/mercados validado via /fixtures/{slug}.',
+                            'latency_ms' => $totalLatency,
+                            'http_code' => $detail['http_code'],
+                            'error' => null,
+                        ];
+                    }
+                }
 
-                $payload = $detail['payload'];
-                $fixtureDetail = is_array($payload['fixture'] ?? null)
-                    ? $payload['fixture']
-                    : (is_array($payload) ? $payload : []);
-
-                if (is_array($fixtureDetail)
-                    && (array_key_exists('groups', $fixtureDetail)
-                        || array_key_exists('swishMarkets', $fixtureDetail))) {
-                    return [
-                        'ok' => true,
-                        'message' => 'Stake conectada e contrato de fixtures/mercados validado.',
-                        'latency_ms' => $sports['latency_ms'] + $fixtures['latency_ms'] + $detail['latency_ms'],
-                        'http_code' => $detail['http_code'],
-                        'error' => null,
-                    ];
+                $odds = self::requestJson(
+                    self::STAKE_BASE_URL . '/odds/' . rawurlencode($slug),
+                    array_merge(['Accept: application/json'], $authHeaders)
+                );
+                $totalLatency += $odds['latency_ms'];
+                if ($odds['ok']) {
+                    $lastOddsPayload = $odds['payload'];
+                    if (self::stakeHasMarketContract($odds['payload'])) {
+                        return [
+                            'ok' => true,
+                            'message' => 'Stake conectada e contrato de mercados validado via /odds/{slug}.',
+                            'latency_ms' => $totalLatency,
+                            'http_code' => $odds['http_code'],
+                            'error' => null,
+                        ];
+                    }
                 }
             }
 
-            return self::failed('Stake', [
-                'ok'=>false,
-                'http_code'=>$fixtures['http_code'],
-                'latency_ms'=>$sports['latency_ms'] + $fixtures['latency_ms'],
-                'error'=>'Stake conectada, porém o detalhe dos fixtures não apresentou groups/swishMarkets conforme o contrato esperado.',
-            ]);
+            $detailShape = self::stakePayloadShape($lastDetailPayload);
+            $oddsShape = self::stakePayloadShape($lastOddsPayload);
+            $error = 'Stake conectada, mas nenhum dos fixtures ativos testados expôs mercados no contrato esperado.'
+                .' fixture_shape='.$detailShape
+                .' odds_shape='.$oddsShape
+                .' checked='.$checked
+                .' sample_slug='.self::safeToken($lastSlug);
+
+            return [
+                'ok' => false,
+                'message' => 'Stake: ' . $error,
+                'latency_ms' => $totalLatency,
+                'http_code' => $fixtures['http_code'],
+                'error' => $error,
+            ];
         }
 
         return self::failed('Stake', $last);
+    }
+
+    /** @param array<string,mixed>|list<mixed>|null $payload @return list<array<string,mixed>> */
+    private static function stakeFixtureRows(?array $payload): array
+    {
+        if (!is_array($payload)) return [];
+        foreach (['fixture','fixtures'] as $key) {
+            $rows = $payload[$key] ?? null;
+            if (is_array($rows) && array_is_list($rows)) {
+                return array_values(array_filter($rows, 'is_array'));
+            }
+        }
+        if (array_is_list($payload)) return array_values(array_filter($payload, 'is_array'));
+        return [];
+    }
+
+    /** @param array<string,mixed>|list<mixed>|null $payload */
+    private static function stakeHasMarketContract(?array $payload, int $depth = 0): bool
+    {
+        if (!is_array($payload) || $depth > 8) return false;
+
+        if (isset($payload['groups']) && is_array($payload['groups'])) {
+            foreach ($payload['groups'] as $group) {
+                if (!is_array($group)) continue;
+                foreach ((array)($group['markets'] ?? []) as $market) {
+                    if (!is_array($market)) continue;
+                    if (isset($market['outcomes']) && is_array($market['outcomes'])) return true;
+                }
+            }
+        }
+
+        if (isset($payload['swishMarkets']) && is_array($payload['swishMarkets'])) {
+            foreach ($payload['swishMarkets'] as $swish) {
+                if (!is_array($swish)) continue;
+                foreach (['matchMarkets','matchProps','teamProps','playerProps'] as $bucket) {
+                    if (!empty($swish[$bucket]) && is_array($swish[$bucket])) return true;
+                }
+            }
+        }
+
+        if (isset($payload['markets']) && is_array($payload['markets'])) {
+            foreach ($payload['markets'] as $market) {
+                if (is_array($market) && isset($market['outcomes']) && is_array($market['outcomes'])) return true;
+            }
+        }
+
+        if (isset($payload['outcomes']) && is_array($payload['outcomes'])) return true;
+
+        foreach ($payload as $value) {
+            if (is_array($value) && self::stakeHasMarketContract($value, $depth + 1)) return true;
+        }
+        return false;
+    }
+
+    /** @param array<string,mixed>|list<mixed>|null $payload */
+    private static function stakePayloadShape(?array $payload): string
+    {
+        if (!is_array($payload)) return 'null';
+        if (array_is_list($payload)) {
+            $first = $payload[0] ?? null;
+            $keys = is_array($first) ? array_slice(array_map('strval', array_keys($first)), 0, 12) : [];
+            return 'list['.count($payload).']{'.implode(',', $keys).'}';
+        }
+
+        $keys = array_slice(array_map('strval', array_keys($payload)), 0, 16);
+        $parts = ['object{'.implode(',', $keys).'}'];
+        foreach (['fixture','data','odds','result','groups','swishMarkets','markets'] as $key) {
+            $value = $payload[$key] ?? null;
+            if (!is_array($value)) continue;
+            if (array_is_list($value)) {
+                $first = $value[0] ?? null;
+                $childKeys = is_array($first) ? array_slice(array_map('strval', array_keys($first)), 0, 10) : [];
+                $parts[] = $key.'=list['.count($value).']{'.implode(',', $childKeys).'}';
+            } else {
+                $parts[] = $key.'=object{'.implode(',', array_slice(array_map('strval', array_keys($value)), 0, 12)).'}';
+            }
+        }
+        return implode(';', $parts);
+    }
+
+    private static function safeToken(string $value): string
+    {
+        return preg_match('/^[A-Za-z0-9._:-]{1,200}$/D', $value) ? $value : '[invalid]';
+    }
+
+    /** @param array{ok:bool,http_code:?int,latency_ms:int,error:?string,payload:?array} $result */
+    private static function stakeContractFailure(array $result, string $reason, ?array $payload): array
+    {
+        $error = $reason . ' shape=' . self::stakePayloadShape($payload);
+        return [
+            'ok' => false,
+            'message' => 'Stake: ' . $error,
+            'latency_ms' => (int)$result['latency_ms'],
+            'http_code' => $result['http_code'],
+            'error' => $error,
+        ];
     }
 
     /** @return array{ok:bool,message:string,latency_ms:int,http_code:?int,error:?string} */

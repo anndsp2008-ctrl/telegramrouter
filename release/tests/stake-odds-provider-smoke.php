@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 
 require_once __DIR__.'/../app/StakeOddsProvider.php';
+require_once __DIR__.'/../app/SportsApiIntegration.php';
 require_once __DIR__.'/../app/AdaptiveVipCardRenderer.php';
 
 use App\StakeOddsProvider;
@@ -727,6 +728,38 @@ foreach($validatedBuilder['legs'] as $leg){
     if(($leg['odd']??'')!==''){
         throw new RuntimeException('Bet Builder must keep per-selection odds hidden after Stake check.');
     }
+}
+
+$healthHasMarkets=new ReflectionMethod(\App\SportsApiIntegration::class,'stakeHasMarketContract');
+$healthHasMarkets->setAccessible(true);
+$healthShape=new ReflectionMethod(\App\SportsApiIntegration::class,'stakePayloadShape');
+$healthShape->setAccessible(true);
+
+$healthNested=[
+    'data'=>[
+        'result'=>[
+            'fixture'=>[
+                'groups'=>[
+                    ['markets'=>[
+                        ['outcomes'=>[['name'=>'Yes','odds'=>1.70]]],
+                    ]],
+                ],
+            ],
+        ],
+    ],
+];
+if($healthHasMarkets->invoke(null,$healthNested)!==true){
+    throw new RuntimeException('Stake startup health probe must detect recursively wrapped market payloads.');
+}
+if($healthHasMarkets->invoke(null,['fixture'=>['slug'=>'only-metadata']])!==false){
+    throw new RuntimeException('Stake startup health probe must reject metadata-only fixture payloads.');
+}
+$shape=(string)$healthShape->invoke(null,[
+    'fixture'=>['slug'=>'safe-fixture','name'=>'Example'],
+    'token'=>'must-not-be-logged',
+]);
+if(!str_contains($shape,'fixture')||str_contains($shape,'must-not-be-logged')){
+    throw new RuntimeException('Stake health payload shape must expose keys only, never payload values.');
 }
 
 echo "STAKE_ODDS_PROVIDER_TESTS_PASSED\n";
