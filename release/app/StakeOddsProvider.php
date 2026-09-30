@@ -237,32 +237,55 @@ final class StakeOddsProvider
                 static fn(): array=>self::request('/fixtures/'.rawurlencode($slug))
             );
 
-            $stakeOdd=self::selectOdd(
-                $detail,
-                (string)($bet['market']??''),
-                (string)($bet['selection']??'')
-            );
+            $market=(string)($bet['market']??'');
+            $selection=(string)($bet['selection']??'');
+            $primaryResult=self::selectOddResult($detail,$market,$selection);
+            if($primaryResult['status']==='odds_payload_invalid'){
+                self::logPayloadContract('fixtures',$slug,$detail);
+                unset(self::$cache['fixture:'.$slug]);
+            }
 
-            if($stakeOdd===null && self::marketRowsFromPayload($detail)===[]){
-                // Stake also documents a dedicated /odds/{fixture} endpoint.
-                // Some providers/fixtures may expose the market payload there
-                // even when /fixtures/{slug} contains only fixture metadata.
-                $oddsDetail=self::cached(
-                    'odds:'.$slug,
-                    self::DETAIL_CACHE_TTL,
-                    static fn(): array=>self::request('/odds/'.rawurlencode($slug))
-                );
-                $stakeOdd=self::selectOdd(
-                    $oddsDetail,
-                    (string)($bet['market']??''),
-                    (string)($bet['selection']??'')
-                );
-                if($stakeOdd!==null){
-                    error_log('TMR_STAKE_ODDS_SOURCE odds_endpoint');
+            $finalResult=$primaryResult;
+
+            // The official API exposes both /fixtures/{fixture} and
+            // /odds/{fixture}. If the primary detail does not validate the
+            // requested market, consult the dedicated odds endpoint too.
+            // A failure of this secondary endpoint must not erase useful
+            // diagnostics from the primary response.
+            if($primaryResult['odd']===null){
+                try{
+                    $oddsDetail=self::cached(
+                        'odds:'.$slug,
+                        self::DETAIL_CACHE_TTL,
+                        static fn(): array=>self::request('/odds/'.rawurlencode($slug))
+                    );
+                    $oddsResult=self::selectOddResult($oddsDetail,$market,$selection);
+                    if($oddsResult['status']==='odds_payload_invalid'){
+                        self::logPayloadContract('odds',$slug,$oddsDetail);
+                        unset(self::$cache['odds:'.$slug]);
+                    }
+                    if($oddsResult['odd']!==null){
+                        $finalResult=$oddsResult;
+                        error_log('TMR_STAKE_ODDS_SOURCE odds_endpoint');
+                    }elseif($primaryResult['status']==='odds_payload_invalid'){
+                        $finalResult=$oddsResult;
+                    }
+                }catch(\Throwable $secondaryError){
+                    error_log('TMR_STAKE_ODDS_ENDPOINT '.json_encode([
+                        'status'=>'failed',
+                        'error'=>get_class($secondaryError),
+                    ],JSON_UNESCAPED_SLASHES));
                 }
             }
+
+            $stakeOdd=$finalResult['odd'];
             if($stakeOdd===null){
-                return ['bet'=>$bet,'status'=>'market_or_line_not_found','changed'=>false,'error'=>''];
+                return [
+                    'bet'=>$bet,
+                    'status'=>(string)$finalResult['status'],
+                    'changed'=>false,
+                    'error'=>''
+                ];
             }
 
             // Never invent a missing published odd. Exact Stake matching is still
@@ -398,6 +421,42 @@ final class StakeOddsProvider
                             (string)($tournament['name']??$tournamentSlug)
                         );
                         $fixture=self::selectFixture($tournamentFixtures,$match,$league,$date);
+
+                        if($fixture===null){
+                            $alternate=self::cached(
+                                'tournament-fixtures-alt:'.$sportSlug.':'.$slug.':'.$tournamentSlug,
+                                self::FIXTURE_CACHE_TTL,
+                                static fn(): array=>self::request(
+                                    '/sport/'.rawurlencode($sportSlug)
+                                    .'/category/'.rawurlencode($slug)
+                                    .'/tournament/'.rawurlencode($tournamentSlug)
+                                    .'/fixture'
+                                )
+                            );
+                            $alternate=self::withTournamentContext(
+                                $alternate,
+                                (string)($tournament['name']??$tournamentSlug)
+                            );
+                            $fixture=self::selectFixture($alternate,$match,$league,$date);
+                        }
+
+                        if($fixture===null){
+                            $schedule=self::cached(
+                                'tournament-schedule:'.$sportSlug.':'.$slug.':'.$tournamentSlug,
+                                self::FIXTURE_CACHE_TTL,
+                                static fn(): array=>self::request(
+                                    '/schedule/sport/'.rawurlencode($sportSlug)
+                                    .'/'.rawurlencode($slug)
+                                    .'/tournament/'.rawurlencode($tournamentSlug)
+                                )
+                            );
+                            $schedule=self::withTournamentContext(
+                                $schedule,
+                                (string)($tournament['name']??$tournamentSlug)
+                            );
+                            $fixture=self::selectFixture($schedule,$match,$league,$date);
+                        }
+
                         if($fixture!==null){
                             error_log('TMR_STAKE_FIXTURE_MATCH tournament_fallback '.json_encode([
                                 'category'=>mb_substr((string)($category['name']??$slug),0,80),
@@ -633,11 +692,48 @@ final class StakeOddsProvider
         $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
         unset($ch);
 
-        if($body===false || $errno!==0)return [null,$http,false];
-        $decoded=json_decode((string)$body,true);
-        if($http>=200 && $http<300 && is_array($decoded))return [$decoded,$http,false];
+        if($body===false || $errno!==0){
+            error_log('TMR_STAKE_HTTP '.json_encode([
+                'path'=>$path,
+                'http'=>$http,
+                'network_error'=>$errno,
+            ],JSON_UNESCAPED_SLASHES));
+            return [null,$http,false];
+        }
 
+        $decoded=json_decode((string)$body,true);
+        if($http>=200 && $http<300 && is_array($decoded)){
+            if(self::providerPayloadHasError($decoded)){
+                error_log('TMR_STAKE_HTTP '.json_encode([
+                    'path'=>$path,
+                    'http'=>$http,
+                    'provider_error'=>true,
+                    'shape'=>self::payloadShape($decoded),
+                ],JSON_UNESCAPED_SLASHES));
+                return [null,$http,false];
+            }
+            return [$decoded,$http,false];
+        }
+
+        error_log('TMR_STAKE_HTTP '.json_encode([
+            'path'=>$path,
+            'http'=>$http,
+            'auth_failure'=>in_array($http,[401,403],true),
+        ],JSON_UNESCAPED_SLASHES));
         return [null,$http,in_array($http,[401,403],true)];
+    }
+
+    /** @param array<string,mixed> $payload */
+    private static function providerPayloadHasError(array $payload): bool
+    {
+        if(isset($payload['errors']) && $payload['errors']!==[] && $payload['errors']!==null)return true;
+        if(array_key_exists('error',$payload)){
+            $error=$payload['error'];
+            if(is_string($error) && trim($error)!=='')return true;
+            if(is_array($error) && $error!==[])return true;
+            if(is_bool($error) && $error)return true;
+        }
+        return false;
     }
 
     /** @param array<string,mixed> $payload @return ?array<string,mixed> */
@@ -779,22 +875,39 @@ final class StakeOddsProvider
     /** @param array<string,mixed> $payload */
     private static function selectOdd(array $payload,string $market,string $selection): ?string
     {
-        $fixture=self::fixtureMarketObject($payload);
-        if($fixture===[])return null;
+        return self::selectOddResult($payload,$market,$selection)['odd'];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return array{odd:?string,status:string}
+     */
+    private static function selectOddResult(array $payload,string $market,string $selection): array
+    {
+        $rows=self::marketRowsFromPayload($payload);
+        if($rows===[])return ['odd'=>null,'status'=>'odds_payload_invalid'];
+
         $wantedMarket=self::canonical($market);
         $wantedSelection=self::canonicalSelection($selection);
-        if($wantedMarket===''||$wantedSelection==='')return null;
+        if($wantedMarket===''||$wantedSelection===''){
+            return ['odd'=>null,'status'=>'market_input_invalid'];
+        }
 
         $wantedLine=self::marketNeedsLine($market,$selection)
             ?self::extractLine($selection.' '.$market)
             :null;
 
+        $marketMatches=0;
+        $lineMatches=0;
+        $selectionMatches=0;
         $matches=[];
-        foreach(self::marketRows($fixture) as $row){
+
+        foreach($rows as $row){
             if(!$row['active'])continue;
 
             $marketScore=self::marketScore($wantedMarket,self::canonical($row['market']));
             if($marketScore<0.62)continue;
+            $marketMatches++;
 
             if($wantedLine!==null){
                 $candidateLine=self::extractLine(
@@ -802,6 +915,7 @@ final class StakeOddsProvider
                 );
                 if($candidateLine===null || abs($candidateLine-$wantedLine)>0.0001)continue;
             }
+            $lineMatches++;
 
             $selectionScore=self::selectionScore(
                 $wantedSelection,
@@ -810,6 +924,7 @@ final class StakeOddsProvider
                 $row['selection']
             );
             if($selectionScore<0.70)continue;
+            $selectionMatches++;
 
             $score=($marketScore*0.48)+($selectionScore*0.52);
             if($wantedLine!==null)$score+=0.06;
@@ -817,24 +932,29 @@ final class StakeOddsProvider
         }
 
         if($matches===[]){
-            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
-            return null;
+            self::logMarketCandidates($payload,$market,$selection,$wantedLine);
+            if($marketMatches===0)return ['odd'=>null,'status'=>'market_not_found'];
+            if($wantedLine!==null && $lineMatches===0)return ['odd'=>null,'status'=>'line_not_found'];
+            if($selectionMatches===0)return ['odd'=>null,'status'=>'selection_not_found'];
+            return ['odd'=>null,'status'=>'market_or_line_not_found'];
         }
+
         usort($matches,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
         $best=$matches[0];
         $second=(float)($matches[1]['score']??0.0);
 
         if((float)$best['score']<0.77){
-            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
-            return null;
+            self::logMarketCandidates($payload,$market,$selection,$wantedLine);
+            return ['odd'=>null,'status'=>'selection_not_found'];
         }
         if((float)$best['score']<0.96 && ((float)$best['score']-$second)<0.025){
-            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
-            return null;
+            self::logMarketCandidates($payload,$market,$selection,$wantedLine);
+            return ['odd'=>null,'status'=>'market_ambiguous'];
         }
 
         $odd=self::normalizeOdd((string)$best['odd']);
-        return $odd!==''?$odd:null;
+        if($odd==='')return ['odd'=>null,'status'=>'odd_invalid'];
+        return ['odd'=>$odd,'status'=>'validated'];
     }
 
     /** @param array<string,mixed> $payload @return array<string,mixed> */
@@ -875,8 +995,86 @@ final class StakeOddsProvider
      */
     private static function marketRowsFromPayload(array $payload): array
     {
-        $fixture=self::fixtureMarketObject($payload);
-        return $fixture===[]?[]:self::marketRows($fixture);
+        $rows=[];
+        self::collectMarketRows($payload,$rows,'',0);
+
+        $unique=[];
+        foreach($rows as $row){
+            $key=implode('|',[
+                self::canonical((string)$row['market']),
+                self::canonicalSelection((string)$row['selection']),
+                (string)$row['specifier'],
+                self::normalizeOdd((string)$row['odd']),
+                $row['active']?'1':'0',
+            ]);
+            $unique[$key]=$row;
+        }
+        return array_values($unique);
+    }
+
+    /**
+     * Recursively accepts the documented fixture.groups/swishMarkets shape and
+     * common wrapper/list variants returned by upstream gateways.
+     *
+     * @param array<string,mixed>|list<mixed> $node
+     * @param list<array{market:string,selection:string,odd:string,specifier:string,active:bool}> $rows
+     */
+    private static function collectMarketRows(array $node,array &$rows,string $context,int $depth): void
+    {
+        if($depth>7)return;
+
+        if(isset($node['groups']) || isset($node['swishMarkets'])){
+            foreach(self::marketRows($node) as $row)$rows[]=$row;
+        }
+
+        if(isset($node['markets']) && is_array($node['markets'])){
+            $groupName=trim((string)($node['name']??$node['groupName']??$context));
+            $synthetic=['groups'=>[[
+                'name'=>$groupName,
+                'markets'=>$node['markets'],
+            ]]];
+            foreach(self::marketRows($synthetic) as $row)$rows[]=$row;
+        }
+
+        if(isset($node['outcomes']) && is_array($node['outcomes'])){
+            if(isset($node['marketName'])){
+                $synthetic=['swishMarkets'=>[[
+                    'matchMarkets'=>[$node],
+                ]]];
+                foreach(self::marketRows($synthetic) as $row)$rows[]=$row;
+            }elseif(isset($node['name'])){
+                $synthetic=['groups'=>[[
+                    'name'=>$context,
+                    'markets'=>[$node],
+                ]]];
+                foreach(self::marketRows($synthetic) as $row)$rows[]=$row;
+            }
+        }
+
+        foreach($node as $key=>$value){
+            if(!is_array($value))continue;
+            if(in_array((string)$key,['groups','swishMarkets','markets','outcomes'],true))continue;
+
+            if(array_is_list($value)){
+                foreach($value as $item){
+                    if(is_array($item)){
+                        self::collectMarketRows(
+                            $item,
+                            $rows,
+                            is_string($key)?$key:$context,
+                            $depth+1
+                        );
+                    }
+                }
+            }else{
+                self::collectMarketRows(
+                    $value,
+                    $rows,
+                    is_string($key)?$key:$context,
+                    $depth+1
+                );
+            }
+        }
     }
 
     /** @param array<string,mixed> $fixture
@@ -946,17 +1144,39 @@ final class StakeOddsProvider
     private static function marketScore(string $a,string $b): float
     {
         if($a===$b)return 1.0;
+
+        $sigA=self::marketSignature($a);
+        $sigB=self::marketSignature($b);
+
+        foreach([
+            'btts','corners','cards','handicap','double_chance',
+            'correct_score','first_half','team_total'
+        ] as $feature){
+            if($sigA[$feature]!==$sigB[$feature] && ($sigA[$feature]||$sigB[$feature])){
+                return 0.0;
+            }
+        }
+
+        // A total market is not interchangeable with a winner/BTTS/etc.
+        if($sigA['total']!==$sigB['total'] && ($sigA['total']||$sigB['total'])){
+            return 0.0;
+        }
+
+        // When the requested market explicitly contains a winner component,
+        // the candidate must contain that component too (and vice versa for
+        // combined markets). This blocks Match Winner from matching
+        // Match Winner + BTTS merely because the strings are similar.
+        if($sigA['winner']!==$sigB['winner'] && ($sigA['winner']||$sigB['winner'])){
+            return 0.0;
+        }
+
         $score=self::similarity($a,$b);
-        $aWinner=str_contains($a,'matchwinner')||str_contains($a,'matchresult')||str_contains($a,'moneyline');
-        $bWinner=str_contains($b,'matchwinner')||str_contains($b,'matchresult')||str_contains($b,'moneyline');
-        $aBtts=str_contains($a,'bothteamstoscore')||str_contains($a,'btts');
-        $bBtts=str_contains($b,'bothteamstoscore')||str_contains($b,'btts');
-        if($aWinner&&$bWinner&&$aBtts&&$bBtts)$score=max($score,0.98);
+        if($sigA===$sigB)$score=max($score,0.92);
 
         foreach([
             ['corner','corners'],['card','cards'],['goal','goals'],
             ['asianhandicap','handicap'],['doublechance'],
-            ['bothteamstoscore','btts'],['matchwinner','matchresult','moneyline'],
+            ['bothteamstoscore','btts'],['matchwinner','matchresult','moneyline','1x2'],
             ['total','overunder'],
         ] as $family){
             $left=false;$right=false;
@@ -964,9 +1184,34 @@ final class StakeOddsProvider
                 if(str_contains($a,$term))$left=true;
                 if(str_contains($b,$term))$right=true;
             }
-            if($left&&$right)$score=max($score,0.86);
+            if($left&&$right)$score=max($score,0.88);
+        }
+
+        if($sigA['winner']&&$sigB['winner']&&$sigA['btts']&&$sigB['btts']){
+            $score=max($score,0.99);
         }
         return $score;
+    }
+
+    /** @return array{winner:bool,btts:bool,total:bool,corners:bool,cards:bool,handicap:bool,double_chance:bool,correct_score:bool,first_half:bool,team_total:bool} */
+    private static function marketSignature(string $value): array
+    {
+        $v=self::canonical($value);
+        return [
+            'winner'=>str_contains($v,'matchwinner')
+                ||str_contains($v,'matchresult')
+                ||str_contains($v,'moneyline')
+                ||str_contains($v,'1x2'),
+            'btts'=>str_contains($v,'bothteamstoscore')||str_contains($v,'btts'),
+            'total'=>str_contains($v,'total')||str_contains($v,'overunder'),
+            'corners'=>str_contains($v,'corner'),
+            'cards'=>str_contains($v,'card'),
+            'handicap'=>str_contains($v,'handicap'),
+            'double_chance'=>str_contains($v,'doublechance'),
+            'correct_score'=>str_contains($v,'correctscore')||str_contains($v,'exactscore'),
+            'first_half'=>str_contains($v,'firsthalf')||str_contains($v,'1sthalf'),
+            'team_total'=>str_contains($v,'teamtotal'),
+        ];
     }
 
     private static function selectionScore(string $a,string $b,string $rawA,string $rawB): float
@@ -1057,11 +1302,11 @@ final class StakeOddsProvider
         return preg_replace('/(?:^|\s)[+-]?\d+(?:\.\d+)?(?:\s|$)/u',' ',$value)??$value;
     }
 
-    /** @param array<string,mixed> $fixture */
-    private static function logMarketCandidates(array $fixture,string $market,string $selection,?float $wantedLine): void
+    /** @param array<string,mixed> $payload */
+    private static function logMarketCandidates(array $payload,string $market,string $selection,?float $wantedLine): void
     {
         $rows=[];
-        foreach(self::marketRows($fixture) as $row){
+        foreach(self::marketRowsFromPayload($payload) as $row){
             if(!$row['active'])continue;
             $marketScore=self::marketScore(self::canonical($market),self::canonical($row['market']));
             $selectionScore=self::selectionScore(
@@ -1074,7 +1319,7 @@ final class StakeOddsProvider
             $score=($marketScore*0.48)+($selectionScore*0.52);
             if($wantedLine!==null && $candidateLine!==null && abs($candidateLine-$wantedLine)<=0.0001)$score+=0.06;
             $rows[]=[
-                'score'=>$score,
+                'score'=>round($score,3),
                 'market'=>mb_substr($row['market'],0,100),
                 'selection'=>mb_substr($row['selection'],0,100),
                 'line'=>$candidateLine,
@@ -1086,8 +1331,64 @@ final class StakeOddsProvider
             'wanted_market'=>mb_substr($market,0,100),
             'wanted_selection'=>mb_substr($selection,0,100),
             'wanted_line'=>$wantedLine,
+            'row_count'=>count(self::marketRowsFromPayload($payload)),
             'top'=>array_slice($rows,0,5),
         ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+    }
+
+    /** @param array<string,mixed> $payload */
+    private static function logPayloadContract(string $endpoint,string $slug,array $payload): void
+    {
+        error_log('TMR_STAKE_PAYLOAD_CONTRACT '.json_encode([
+            'endpoint'=>$endpoint,
+            'fixture_slug'=>mb_substr($slug,0,180),
+            'shape'=>self::payloadShape($payload),
+        ],JSON_UNESCAPED_SLASHES));
+    }
+
+    /** @param array<string,mixed>|list<mixed> $payload @return array<string,mixed> */
+    private static function payloadShape(array $payload,int $depth=0): array
+    {
+        $shape=[
+            'kind'=>array_is_list($payload)?'list':'object',
+            'count'=>count($payload),
+        ];
+        if(array_is_list($payload)){
+            $first=$payload[0]??null;
+            if(is_array($first) && $depth<2){
+                $shape['first']=self::payloadShape($first,$depth+1);
+            }
+            return $shape;
+        }
+
+        $keys=array_slice(array_map('strval',array_keys($payload)),0,24);
+        $shape['keys']=$keys;
+        if($depth<2){
+            $children=[];
+            foreach($keys as $key){
+                $value=$payload[$key]??null;
+                if(is_array($value)){
+                    $children[$key]=[
+                        'kind'=>array_is_list($value)?'list':'object',
+                        'count'=>count($value),
+                    ];
+                    if($value!==[]){
+                        $sample=array_is_list($value)?($value[0]??null):$value;
+                        if(is_array($sample)){
+                            $children[$key]['keys']=array_slice(
+                                array_map('strval',array_keys($sample)),
+                                0,
+                                16
+                            );
+                        }
+                    }
+                }else{
+                    $children[$key]=['type'=>get_debug_type($value)];
+                }
+            }
+            $shape['children']=$children;
+        }
+        return $shape;
     }
 
     private static function marketNeedsLine(string $market,string $selection): bool
@@ -1154,15 +1455,29 @@ final class StakeOddsProvider
         $value=strtr($value,[
             'vencedor da partida e ambas as equipes marcam'=>'match winner both teams to score',
             'vencedor da partida + ambas as equipes marcam'=>'match winner both teams to score',
+            'resultado da partida e ambas as equipes marcam'=>'match winner both teams to score',
+            'match result and both teams to score'=>'match winner both teams to score',
+            'match winner & both teams to score'=>'match winner both teams to score',
+            'match winner / both teams to score'=>'match winner both teams to score',
             'ambas as equipes marcam'=>'both teams to score',
             'ambas equipes marcam'=>'both teams to score',
+            'ambas marcam'=>'both teams to score',
+            'both teams score'=>'both teams to score',
             'mais de'=>'over','acima de'=>'over','menos de'=>'under','abaixo de'=>'under',
             'escanteios'=>'corners','escanteio'=>'corner','cantos'=>'corners',
             'cartões'=>'cards','cartoes'=>'cards','cartão'=>'card','cartao'=>'card',
-            'gols'=>'goals','gol'=>'goal','ambas marcam'=>'both teams to score',
-            'dupla chance'=>'double chance','handicap asiático'=>'asian handicap',
-            'handicap asiatico'=>'asian handicap','resultado da partida'=>'match result',
+            'gols'=>'goals','gol'=>'goal',
+            'dupla chance'=>'double chance',
+            'handicap asiático'=>'asian handicap','handicap asiatico'=>'asian handicap',
+            'resultado da partida'=>'match winner',
             'vencedor da partida'=>'match winner',
+            'resultado final'=>'match winner',
+            'moneyline'=>'match winner',
+            '1x2'=>'match winner',
+            'primeiro tempo'=>'first half','1º tempo'=>'first half','1° tempo'=>'first half','1o tempo'=>'first half',
+            'first-half'=>'first half',
+            'placar correto'=>'correct score','resultado correto'=>'correct score',
+            'total da equipe'=>'team total','total do time'=>'team total',
         ]);
         $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
         if(is_string($ascii)&&$ascii!=='')$value=strtolower($ascii);

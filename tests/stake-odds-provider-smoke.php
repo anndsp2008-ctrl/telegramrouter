@@ -340,6 +340,214 @@ if(!is_array($listRows)||count($listRows)!==3){
     throw new RuntimeException('Stake list-wrapped fixture market payload unwrapping failed.');
 }
 
+$selectOddResultMethod=new ReflectionMethod(StakeOddsProvider::class,'selectOddResult');
+$selectOddResultMethod->setAccessible(true);
+$marketScoreMethod=new ReflectionMethod(StakeOddsProvider::class,'marketScore');
+$marketScoreMethod->setAccessible(true);
+$marketRowsPayloadMethod=new ReflectionMethod(StakeOddsProvider::class,'marketRowsFromPayload');
+$marketRowsPayloadMethod->setAccessible(true);
+$providerErrorMethod=new ReflectionMethod(StakeOddsProvider::class,'providerPayloadHasError');
+$providerErrorMethod->setAccessible(true);
+
+$officialDocsPayload=[
+    'fixture'=>[
+        'slug'=>'18790-hera-sitaux',
+        'groups'=>[
+            [
+                'name'=>'threeway',
+                'markets'=>[
+                    [
+                        'status'=>'active',
+                        'specifiers'=>'variant=way:two|way=two',
+                        'extendedSpecifiers'=>'',
+                        'name'=>'Match Winner - twoway',
+                        'outcomes'=>[
+                            ['odds'=>1.17,'active'=>true,'name'=>'Hera'],
+                            ['odds'=>4.20,'active'=>true,'name'=>'Sitaux'],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+        'swishMarkets'=>[
+            [
+                'matchMarkets'=>[
+                    [
+                        'competitorName'=>'Dallas Mavericks',
+                        'teamName'=>'Dallas Mavericks',
+                        'marketName'=>'moneyline',
+                        'outcomes'=>[
+                            ['line'=>12.5,'over'=>1.91,'under'=>1.47],
+                        ],
+                    ],
+                ],
+                'matchProps'=>[],
+                'teamProps'=>[],
+                'playerProps'=>[],
+            ],
+        ],
+    ],
+];
+$officialRows=$marketRowsPayloadMethod->invoke(null,$officialDocsPayload);
+if(!is_array($officialRows)||count($officialRows)!==4){
+    throw new RuntimeException('Stake documented fixture.groups/swishMarkets payload was not fully parsed.');
+}
+$officialWinner=$selectOddResultMethod->invoke(null,$officialDocsPayload,'Vencedor da partida','Hera');
+if(($officialWinner['status']??'')!=='validated'||($officialWinner['odd']??'')!=='1.17'){
+    throw new RuntimeException('Stake documented Match Winner payload did not validate.');
+}
+
+$directGroups=[
+    [
+        'name'=>'totals',
+        'markets'=>[
+            [
+                'status'=>'active',
+                'name'=>'Total Goals',
+                'specifiers'=>'total=2.5',
+                'outcomes'=>[
+                    ['name'=>'Over','odds'=>1.91,'active'=>true],
+                    ['name'=>'Under','odds'=>1.89,'active'=>true],
+                ],
+            ],
+        ],
+    ],
+];
+$directRows=$marketRowsPayloadMethod->invoke(null,$directGroups);
+if(!is_array($directRows)||count($directRows)!==2){
+    throw new RuntimeException('Stake direct list-of-groups payload parsing failed.');
+}
+
+$directMarkets=[
+    'data'=>[
+        'markets'=>[
+            [
+                'status'=>'active',
+                'name'=>'Both Teams To Score',
+                'outcomes'=>[
+                    ['name'=>'Yes','odds'=>1.72,'active'=>true],
+                    ['name'=>'No','odds'=>2.05,'active'=>true],
+                ],
+            ],
+        ],
+    ],
+];
+$directMarketRows=$marketRowsPayloadMethod->invoke(null,$directMarkets);
+if(!is_array($directMarketRows)||count($directMarketRows)!==2){
+    throw new RuntimeException('Stake wrapped direct markets payload parsing failed.');
+}
+
+if((float)$marketScoreMethod->invoke(
+    null,
+    'matchwinner',
+    'matchwinnerbothteamstoscore'
+)!==0.0){
+    throw new RuntimeException('Stake must not match simple Match Winner against Winner + BTTS.');
+}
+if((float)$marketScoreMethod->invoke(
+    null,
+    'totalcorners',
+    'totalgoals'
+)!==0.0){
+    throw new RuntimeException('Stake must not match corner totals against goal totals.');
+}
+if((float)$marketScoreMethod->invoke(
+    null,
+    'firsthalfmatchwinner',
+    'matchwinner'
+)!==0.0){
+    throw new RuntimeException('Stake must not match first-half winner against full-match winner.');
+}
+if((float)$marketScoreMethod->invoke(
+    null,
+    'totalcards',
+    'totalcorners'
+)!==0.0){
+    throw new RuntimeException('Stake must not match cards against corners.');
+}
+$comboMarketScore=(float)$marketScoreMethod->invoke(
+    null,
+    'matchwinnerbothteamstoscore',
+    'matchwinnerbothteamstoscore'
+);
+if($comboMarketScore<0.98){
+    throw new RuntimeException('Stake Winner + BTTS semantic market matching regressed.');
+}
+
+if($providerErrorMethod->invoke(null,['errors'=>['invalid']])!==true){
+    throw new RuntimeException('Stake provider error payload must be rejected.');
+}
+if($providerErrorMethod->invoke(null,['error'=>'invalid'])!==true){
+    throw new RuntimeException('Stake provider scalar error payload must be rejected.');
+}
+if($providerErrorMethod->invoke(null,['fixture'=>['groups'=>[]]])!==false){
+    throw new RuntimeException('Stake valid fixture payload was incorrectly classified as provider error.');
+}
+
+$invalidPayloadResult=$selectOddResultMethod->invoke(
+    null,
+    ['fixture'=>['slug'=>'empty-market-fixture']],
+    'Vencedor da partida',
+    'Benfica'
+);
+if(($invalidPayloadResult['status']??'')!=='odds_payload_invalid'){
+    throw new RuntimeException('Stake empty odds contract must be classified as odds_payload_invalid.');
+}
+
+$strictDetail=[
+    'fixture'=>[
+        'groups'=>[
+            [
+                'name'=>'main',
+                'markets'=>[
+                    [
+                        'status'=>'active',
+                        'name'=>'Match Winner',
+                        'outcomes'=>[
+                            ['name'=>'Benfica','odds'=>1.85,'active'=>true],
+                            ['name'=>'Bayern Munich','odds'=>2.10,'active'=>true],
+                        ],
+                    ],
+                    [
+                        'status'=>'suspended',
+                        'name'=>'Both Teams To Score',
+                        'outcomes'=>[
+                            ['name'=>'Yes','odds'=>1.20,'active'=>true],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ],
+];
+$missingMarket=$selectOddResultMethod->invoke(
+    null,
+    $strictDetail,
+    'Total de escanteios',
+    'Mais de 8.5 escanteios'
+);
+if(($missingMarket['status']??'')!=='market_not_found'){
+    throw new RuntimeException('Stake missing market must be classified as market_not_found.');
+}
+$missingSelection=$selectOddResultMethod->invoke(
+    null,
+    $strictDetail,
+    'Vencedor da partida',
+    'Chelsea'
+);
+if(($missingSelection['status']??'')!=='selection_not_found'){
+    throw new RuntimeException('Stake missing selection must be classified as selection_not_found.');
+}
+$suspendedBtts=$selectOddResultMethod->invoke(
+    null,
+    $strictDetail,
+    'Ambas as equipes marcam',
+    'Sim'
+);
+if(($suspendedBtts['odd']??null)!==null){
+    throw new RuntimeException('Stake suspended market must never publish an odd.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
