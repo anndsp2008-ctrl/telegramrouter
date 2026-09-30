@@ -14,6 +14,10 @@ $checks=[
     $root.'/app/StakeOddsProvider.php'=>[
         "SportsApiIntegration::stakeKey()",
     ],
+    $root.'/app/Repository.php'=>[
+        "'football_data'",
+        "saveProviderTest",
+    ],
     $root.'/app/Reporting/ResultWorker.php'=>[
         "SportsApiIntegration::apiFootballKey()",
         "SportsApiIntegration::footballDataKey()",
