@@ -229,6 +229,33 @@ if(($rankedTournaments[0]['slug']??'')!=='uefa-womens-champions-league'){
     throw new RuntimeException('Stake women tournament ranking did not prioritize the women competition.');
 }
 
+$womenTournamentFixture=[
+    'fixture'=>[
+        [
+            'slug'=>'benfica-bayern-women-context',
+            'name'=>'SL Benfica - Bayern Munich',
+            'competitors'=>['SL Benfica','Bayern Munich'],
+            '_stake_tournament_context'=>"UEFA Women's Champions League",
+        ],
+        [
+            'slug'=>'benfica-bayern-men',
+            'name'=>'SL Benfica - Bayern Munich',
+            'competitors'=>['SL Benfica','Bayern Munich'],
+            '_stake_tournament_context'=>'UEFA Champions League',
+        ],
+    ],
+];
+$womenTournamentMatch=$fixtureMethod->invoke(
+    null,
+    $womenTournamentFixture,
+    'Benfica vs Bayern de Munique Feminino',
+    "Liga dos Campeões Feminina",
+    ''
+);
+if(!is_array($womenTournamentMatch)||($womenTournamentMatch['slug']??'')!=='benfica-bayern-women-context'){
+    throw new RuntimeException('Stake women tournament context must match bare team labels and translated Bayern de Munique.');
+}
+
 $detail=[
     'fixture'=>[
         'groups'=>[
