@@ -58,10 +58,10 @@ ltOk(str_contains($css,'.reporting-switch-row>input'),'switches de relatorios po
 ltOk(str_contains($css,'.reporting-choice>input'),'radios de relatorios possuem tema claro');
 ltOk(str_contains($css,'.reporting-status-badge.green'),'status do relatorio possui cores semanticas claras');
 ltOk(str_contains($css,'.reporting-history-row-dark>td'),'zebrado claro permanece coberto');
-ltOk(str_contains($runtime,'/assets/brand/theme.css?v=3'),'runtime injeta CSS claro v2');
+ltOk(str_contains($runtime,'/assets/brand/theme.css?v=4'),'runtime injeta CSS claro v2');
 
 foreach($pages as $name=>$page){
-    ltOk(str_contains($page,'/assets/brand/theme.css?v=3'),$name.' invalida cache do tema claro');
+    ltOk(str_contains($page,'/assets/brand/theme.css?v=4'),$name.' invalida cache do tema claro');
 }
 
 foreach([
@@ -75,3 +75,5 @@ foreach([
 }
 
 echo "LIGHT_THEME_SMOKE_PASSED\n";
+
+ltOk(str_contains($css,'TMR_LIGHT_THEME_VISUAL_V4'),'refinamento visual claro v4 presente');

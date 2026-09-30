@@ -51,7 +51,7 @@ foreach([
     'ai-learning'=>$aiLearning,
 ] as $name=>$page){
     ok(str_contains($page,'/assets/brand/theme.js?v=1'),$name.' carrega inicializacao do tema');
-    ok(str_contains($page,'/assets/brand/theme.css?v=3'),$name.' carrega estilo do tema');
+    ok(str_contains($page,'/assets/brand/theme.css?v=4'),$name.' carrega estilo do tema');
 }
 foreach([
     'index'=>$index,
