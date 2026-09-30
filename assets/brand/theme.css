@@ -1955,3 +1955,26 @@ html[data-theme="light"] .rules-panel .rule-card + .rule-card{
   html[data-theme="light"] #biblioteca .ai-search{grid-template-columns:1fr!important}
   html[data-theme="light"] #biblioteca .ai-search button{width:100%!important}
 }
+
+
+/* Ajustes encontrados na primeira captura responsiva v10. */
+@media(max-width:1024px){
+  html[data-theme="light"] .saas-content select:not([multiple]),
+  html[data-theme="light"] body:has(.translation-provider-grid) select:not([multiple]){
+    background-repeat:no-repeat!important;
+    background-size:17px 17px!important;
+    background-position:right 12px center!important;
+  }
+  html[data-theme="light"] body:has(.translation-provider-grid) .integrations-connection::before{
+    border:0!important;
+    background-color:transparent!important;
+    box-shadow:none!important;
+  }
+}
+@media(max-width:640px){
+  html[data-theme="light"] .saas-content select:not([multiple]),
+  html[data-theme="light"] body:has(.translation-provider-grid) select:not([multiple]){
+    background-size:16px 16px!important;
+    background-position:right 11px center!important;
+  }
+}
