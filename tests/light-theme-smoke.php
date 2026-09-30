@@ -27,6 +27,7 @@ function ltContrast(string $a,string $b): float {
 
 $css=(string)file_get_contents(__DIR__.'/../assets/brand/theme.css');
 $runtime=(string)file_get_contents(__DIR__.'/../runtime-theme.php');
+$activityStatusCss=(string)file_get_contents(__DIR__.'/../assets/brand/activity-status-badges.css');
 $pages=[
     'index'=>(string)file_get_contents(__DIR__.'/../index.php'),
     'reports'=>(string)file_get_contents(__DIR__.'/../reports.php'),
