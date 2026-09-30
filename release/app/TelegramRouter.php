@@ -621,7 +621,7 @@ final class TelegramRouter extends SimpleEventHandler
                     'SMART_MEDIA_TEMP_PATH_INVALID'
                 ],true);
                 if($deterministic||$attempt>=2)break;
-                usleep(300000);
+                $this->sleep(0.3);
             }
         }
 
