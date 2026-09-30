@@ -33,3 +33,9 @@ test -s "$OUT/ai-library-tablet.png"
 test -s "$OUT/ai-library-mobile.png"
 test -s "$OUT/reports-history-tablet.png"
 test -s "$OUT/reports-history-mobile.png"
+
+# Responsive theme-toggle regression: one icon per theme.
+"$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=1200 --window-size=390,260 --screenshot="$OUT/header-dark-mobile.png" "http://127.0.0.1:$PORT/tests/light-theme-visual-fixture.html?screen=dashboard&theme=dark" >/dev/null 2>&1
+"$CHROME" --headless --no-sandbox --disable-gpu --virtual-time-budget=1200 --window-size=390,260 --screenshot="$OUT/header-light-mobile.png" "http://127.0.0.1:$PORT/tests/light-theme-visual-fixture.html?screen=dashboard&theme=light" >/dev/null 2>&1
+test -s "$OUT/header-dark-mobile.png"
+test -s "$OUT/header-light-mobile.png"

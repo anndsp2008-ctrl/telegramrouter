@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/release/assets/brand/mobile-shell.css?v=2">
 <link rel="stylesheet" href="/release/assets/brand/integrations-v10.css?v=9">
 <link rel="stylesheet" href="/release/assets/brand/activity-status-badges.css?v=5">
-<link rel="stylesheet" href="/release/assets/brand/mobile-visual-audit.css?v=17">
+<link rel="stylesheet" href="/release/assets/brand/mobile-visual-audit.css?v=18">
 <link rel="stylesheet" href="/release/assets/brand/mobile-bottom-navigation.css?v=2">
 <link rel="stylesheet" href="/release/assets/reporting.css?v=12">
 <link rel="stylesheet" href="/release/assets/ai-learning.css?v=2">
@@ -49,7 +49,7 @@ body{margin:0} body.audit-connect .saas-sidebar,body.audit-connect .saas-topbar,
     </nav>
   </aside>
   <div class="saas-main">
-    <header class="saas-topbar"><div class="saas-user"><span class="saas-avatar">AN</span><span>Boa noite, Anderson</span><span class="connected-phone">Telegram: +55 11 99999-9999</span><button class="tmr-theme-toggle" type="button">☾</button><button class="saas-logout" type="button">↪</button></div></header>
+    <header class="saas-topbar"><div class="saas-user"><span class="saas-avatar">AN</span><span>Boa noite, Anderson</span><span class="connected-phone">Telegram: +55 11 99999-9999</span><button class="tmr-theme-toggle" type="button" aria-label="Alternar tema"><svg class="tmr-theme-icon tmr-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="tmr-theme-icon tmr-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg></button><button class="saas-logout" type="button">↪</button></div></header>
     <main class="saas-content">
 
       <section class="visual-screen" data-screen="dashboard">
@@ -148,7 +148,7 @@ body{margin:0} body.audit-connect .saas-sidebar,body.audit-connect .saas-topbar,
 </div>
 <nav class="tmr-mobile-navigation audit-mobile-nav"><a class="is-active">Início</a><a>Regras</a><a class="tmr-nav-create">+</a><a>Relatórios</a><details class="tmr-nav-more"><summary>Mais</summary></details></nav>
 <script>
-const wanted=new URLSearchParams(location.search).get('screen')||'dashboard';if(wanted==='connect')document.body.classList.add('audit-connect');
+const params=new URLSearchParams(location.search);const wanted=params.get('screen')||'dashboard';const auditTheme=params.get('theme');if(auditTheme==='dark'||auditTheme==='light')document.documentElement.dataset.theme=auditTheme;if(wanted==='connect')document.body.classList.add('audit-connect');
 document.querySelectorAll('.visual-screen').forEach(el=>el.hidden=el.dataset.screen!==wanted);
 document.querySelectorAll('.saas-nav a').forEach(a=>a.classList.remove('active'));
 </script>
