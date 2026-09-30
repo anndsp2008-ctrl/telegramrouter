@@ -374,6 +374,10 @@ final class StakeOddsProvider
                                 .'/fixtures'
                             )
                         );
+                        $tournamentFixtures=self::withTournamentContext(
+                            $tournamentFixtures,
+                            (string)($tournament['name']??$tournamentSlug)
+                        );
                         $fixture=self::selectFixture($tournamentFixtures,$match,$league,$date);
                         if($fixture!==null){
                             error_log('TMR_STAKE_FIXTURE_MATCH tournament_fallback '.json_encode([
@@ -431,6 +435,28 @@ final class StakeOddsProvider
             static fn(array $row): array=>$row['category'],
             $scored
         ));
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,mixed> */
+    private static function withTournamentContext(array $payload,string $tournamentName): array
+    {
+        foreach(['fixture','fixtures'] as $key){
+            if(!is_array($payload[$key]??null) || !array_is_list($payload[$key]))continue;
+            foreach($payload[$key] as $i=>$fixture){
+                if(!is_array($fixture))continue;
+                $fixture['_stake_tournament_context']=$tournamentName;
+                $payload[$key][$i]=$fixture;
+            }
+        }
+
+        if(array_is_list($payload)){
+            foreach($payload as $i=>$fixture){
+                if(!is_array($fixture))continue;
+                $fixture['_stake_tournament_context']=$tournamentName;
+                $payload[$i]=$fixture;
+            }
+        }
+        return $payload;
     }
 
     /** @param list<mixed> $tournaments @return list<array<string,mixed>> */
@@ -623,10 +649,22 @@ final class StakeOddsProvider
             }
             if($actualA===''||$actualB==='')continue;
 
-            $directA=self::teamSimilarity($wantedA,$actualA,$wantedVariant);
-            $directB=self::teamSimilarity($wantedB,$actualB,$wantedVariant);
-            $reverseA=self::teamSimilarity($wantedA,$actualB,$wantedVariant);
-            $reverseB=self::teamSimilarity($wantedB,$actualA,$wantedVariant);
+            $tournamentValue=$fixture['tournament']??'';
+            $actualLeague=is_string($tournamentValue)?trim($tournamentValue):'';
+            $stakeTournamentContext=trim((string)($fixture['_stake_tournament_context']??''));
+            $actualVariant=self::eventVariant(
+                (string)($fixture['name']??''),
+                trim($actualLeague.' '.$stakeTournamentContext)
+            );
+
+            if($wantedVariant!==null && $actualVariant!==null && $wantedVariant!==$actualVariant){
+                continue;
+            }
+
+            $directA=self::teamSimilarity($wantedA,$actualA,$wantedVariant,$actualVariant);
+            $directB=self::teamSimilarity($wantedB,$actualB,$wantedVariant,$actualVariant);
+            $reverseA=self::teamSimilarity($wantedA,$actualB,$wantedVariant,$actualVariant);
+            $reverseB=self::teamSimilarity($wantedB,$actualA,$wantedVariant,$actualVariant);
             $direct=($directA+$directB)/2;
             $reverse=($reverseA+$reverseB)/2;
 
@@ -638,8 +676,6 @@ final class StakeOddsProvider
                 $sideMin=min($reverseA,$reverseB);
             }
 
-            $tournamentValue=$fixture['tournament']??'';
-            $actualLeague=is_string($tournamentValue)?trim($tournamentValue):'';
             if($league!=='' && $actualLeague!==''){
                 // League is only a weak tie-breaker because source text can be
                 // translated while Stake normally exposes the official name.
@@ -954,10 +990,14 @@ final class StakeOddsProvider
         return max(0.0,min(1.0,$percent/100));
     }
 
-    private static function teamSimilarity(string $a,string $b,?string $expectedVariant=null): float
-    {
+    private static function teamSimilarity(
+        string $a,
+        string $b,
+        ?string $expectedVariant=null,
+        ?string $actualContextVariant=null
+    ): float {
         $variantA=$expectedVariant??self::teamVariant($a);
-        $variantB=self::teamVariant($b);
+        $variantB=$actualContextVariant??self::teamVariant($b);
         if($variantA!==$variantB)return 0.0;
 
         $a=self::teamComparable($a);
@@ -1041,8 +1081,14 @@ final class StakeOddsProvider
         $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
         if(is_string($ascii)&&$ascii!=='')$value=strtolower($ascii);
 
+        $value=str_replace(
+            ['munique','munchen','muenchen'],
+            ['munich','munich','munich'],
+            $value
+        );
+
         $value=preg_replace(
-            '/\\b(?:fc|cf|sc|ac|afc|club|clube|women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|fem)\\b/u',
+            '/\\b(?:fc|cf|sc|ac|afc|club|clube|de|da|do|del|women|woman|womens|ladies|feminino|feminina|feminin|femenino|femenina|fem)\\b/u',
             ' ',
             $value
         )??$value;
