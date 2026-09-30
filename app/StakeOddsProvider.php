@@ -796,13 +796,22 @@ final class StakeOddsProvider
             $matches[]=['score'=>$score,'odd'=>$row['odd']];
         }
 
-        if($matches===[])return null;
+        if($matches===[]){
+            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
+            return null;
+        }
         usort($matches,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
         $best=$matches[0];
         $second=(float)($matches[1]['score']??0.0);
 
-        if((float)$best['score']<0.77)return null;
-        if((float)$best['score']<0.96 && ((float)$best['score']-$second)<0.025)return null;
+        if((float)$best['score']<0.77){
+            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
+            return null;
+        }
+        if((float)$best['score']<0.96 && ((float)$best['score']-$second)<0.025){
+            self::logMarketCandidates($fixture,$market,$selection,$wantedLine);
+            return null;
+        }
 
         $odd=self::normalizeOdd((string)$best['odd']);
         return $odd!==''?$odd:null;
@@ -911,7 +920,63 @@ final class StakeOddsProvider
             }
             if($left&&$right)$score=max($score,0.92);
         }
+
+        if($directionA===null && $directionB===null
+            && preg_match('/[A-Za-zÀ-ÿ]{3}/u',$rawA)
+            && preg_match('/[A-Za-zÀ-ÿ]{3}/u',$rawB)){
+            $teamA=self::teamComparable(self::withoutBetLine($rawA));
+            $teamB=self::teamComparable(self::withoutBetLine($rawB));
+            if($teamA!=='' && $teamB!==''){
+                if($teamA===$teamB)$score=max($score,0.98);
+                elseif(str_contains($teamA,$teamB)||str_contains($teamB,$teamA))$score=max($score,0.94);
+                else{
+                    similar_text($teamA,$teamB,$teamPercent);
+                    $score=max($score,min(0.93,$teamPercent/100));
+                }
+            }
+        }
         return $score;
+    }
+
+    private static function withoutBetLine(string $value): string
+    {
+        $value=str_replace(',','.',$value);
+        $value=preg_replace('/(?:total|line|hcp|handicap)\s*[=:]?\s*[+-]?\d+(?:\.\d+)?/iu',' ',$value)??$value;
+        $value=preg_replace('/(?:over|under|mais\s+de|menos\s+de|acima\s+de|abaixo\s+de)\s*[+-]?\d+(?:\.\d+)?/iu',' ',$value)??$value;
+        return preg_replace('/(?:^|\s)[+-]?\d+(?:\.\d+)?(?:\s|$)/u',' ',$value)??$value;
+    }
+
+    /** @param array<string,mixed> $fixture */
+    private static function logMarketCandidates(array $fixture,string $market,string $selection,?float $wantedLine): void
+    {
+        $rows=[];
+        foreach(self::marketRows($fixture) as $row){
+            if(!$row['active'])continue;
+            $marketScore=self::marketScore(self::canonical($market),self::canonical($row['market']));
+            $selectionScore=self::selectionScore(
+                self::canonicalSelection($selection),
+                self::canonicalSelection($row['selection']),
+                $selection,
+                $row['selection']
+            );
+            $candidateLine=self::extractLine($row['specifier'].' '.$row['market'].' '.$row['selection']);
+            $score=($marketScore*0.48)+($selectionScore*0.52);
+            if($wantedLine!==null && $candidateLine!==null && abs($candidateLine-$wantedLine)<=0.0001)$score+=0.06;
+            $rows[]=[
+                'score'=>$score,
+                'market'=>mb_substr($row['market'],0,100),
+                'selection'=>mb_substr($row['selection'],0,100),
+                'line'=>$candidateLine,
+                'odd'=>$row['odd'],
+            ];
+        }
+        usort($rows,static fn(array $a,array $b): int=>$b['score']<=>$a['score']);
+        error_log('TMR_STAKE_MARKET_DIAG '.json_encode([
+            'wanted_market'=>mb_substr($market,0,100),
+            'wanted_selection'=>mb_substr($selection,0,100),
+            'wanted_line'=>$wantedLine,
+            'top'=>array_slice($rows,0,5),
+        ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
     }
 
     private static function marketNeedsLine(string $market,string $selection): bool
@@ -952,6 +1017,21 @@ final class StakeOddsProvider
 
     private static function canonicalSelection(string $value): string
     {
+        $value=mb_strtolower(trim($value),'UTF-8');
+        $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);
+        if(is_string($ascii)&&$ascii!=='')$value=strtolower($ascii);
+
+        $value=str_replace(
+            ['bayern de munique','bayern munique','bayern munchen','bayern muenchen'],
+            ['bayern munich','bayern munich','bayern munich','bayern munich'],
+            $value
+        );
+        $value=preg_replace(
+            '/\b(?:women|woman|womens|wfc|ladies|feminino|feminina|femenino|femenina|female)\b/u',
+            ' ',
+            $value
+        )??$value;
+
         $value=self::canonical($value);
         $value=preg_replace('/(?:vitoria|vence|vencedor|winner|win|ganha|ganhar)/u','',$value)??$value;
         return preg_replace('/[^a-z0-9.+-]+/','',$value)??'';
