@@ -9,6 +9,11 @@ final class ApiFootballClient implements FootballResultsClient
         private readonly string $baseUrl = 'https://v3.football.api-sports.io'
     ) {}
 
+    public function providerKey(): string
+    {
+        return 'api_football';
+    }
+
     public function fixturesByDate(string $date): array
     {
         $payload = $this->get('/fixtures?date=' . rawurlencode($date));
