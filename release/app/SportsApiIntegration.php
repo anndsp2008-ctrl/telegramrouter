@@ -73,24 +73,106 @@ final class SportsApiIntegration
         ];
 
         $last = null;
-        foreach ($modes as $headers) {
-            $result = self::request(
-                self::STAKE_BASE_URL . '/sport/soccer/fixture',
-                array_merge(['Accept: application/json'], $headers)
+        foreach ($modes as $authHeaders) {
+            $sports = self::requestJson(
+                self::STAKE_BASE_URL . '/sports',
+                array_merge(['Accept: application/json'], $authHeaders)
             );
-            $last = $result;
+            $last = $sports;
 
-            if ($result['ok']) {
+            if (!$sports['ok']) {
+                if (in_array((int)($sports['http_code'] ?? 0), [401, 403], true)) continue;
+                break;
+            }
+
+            $sportPayload = $sports['payload'];
+            if (!is_array($sportPayload) || !array_is_list($sportPayload)) {
+                return self::failed('Stake', [
+                    'ok'=>false,
+                    'http_code'=>$sports['http_code'],
+                    'latency_ms'=>$sports['latency_ms'],
+                    'error'=>'Contrato inválido em /sports.',
+                ]);
+            }
+
+            $hasSoccer = false;
+            foreach ($sportPayload as $sport) {
+                if (is_array($sport) && ($sport['slug'] ?? null) === 'soccer') {
+                    $hasSoccer = true;
+                    break;
+                }
+            }
+            if (!$hasSoccer) {
+                return self::failed('Stake', [
+                    'ok'=>false,
+                    'http_code'=>$sports['http_code'],
+                    'latency_ms'=>$sports['latency_ms'],
+                    'error'=>'A Stake respondeu, mas o esporte soccer não apareceu em /sports.',
+                ]);
+            }
+
+            $fixtures = self::requestJson(
+                self::STAKE_BASE_URL . '/sport/soccer/fixture',
+                array_merge(['Accept: application/json'], $authHeaders)
+            );
+            if (!$fixtures['ok']) return self::failed('Stake', $fixtures);
+
+            $fixtureRows = [];
+            $fixturePayload = $fixtures['payload'];
+            if (is_array($fixturePayload)) {
+                if (is_array($fixturePayload['fixture'] ?? null)) {
+                    $fixtureRows = array_values(array_filter($fixturePayload['fixture'], 'is_array'));
+                } elseif (array_is_list($fixturePayload)) {
+                    $fixtureRows = array_values(array_filter($fixturePayload, 'is_array'));
+                }
+            }
+
+            if ($fixtureRows === []) {
                 return [
                     'ok' => true,
-                    'message' => 'Stake conectada com sucesso.',
-                    'latency_ms' => $result['latency_ms'],
-                    'http_code' => $result['http_code'],
+                    'message' => 'Stake conectada; contrato base válido, sem fixture disponível para validar mercados agora.',
+                    'latency_ms' => $sports['latency_ms'] + $fixtures['latency_ms'],
+                    'http_code' => $fixtures['http_code'],
                     'error' => null,
                 ];
             }
 
-            if (!in_array((int)($result['http_code'] ?? 0), [401, 403], true)) break;
+            $checked = 0;
+            foreach ($fixtureRows as $fixture) {
+                $slug = trim((string)($fixture['slug'] ?? ''));
+                if ($slug === '') continue;
+                if (++$checked > 3) break;
+
+                $detail = self::requestJson(
+                    self::STAKE_BASE_URL . '/fixtures/' . rawurlencode($slug),
+                    array_merge(['Accept: application/json'], $authHeaders)
+                );
+                if (!$detail['ok']) continue;
+
+                $payload = $detail['payload'];
+                $fixtureDetail = is_array($payload['fixture'] ?? null)
+                    ? $payload['fixture']
+                    : (is_array($payload) ? $payload : []);
+
+                if (is_array($fixtureDetail)
+                    && (array_key_exists('groups', $fixtureDetail)
+                        || array_key_exists('swishMarkets', $fixtureDetail))) {
+                    return [
+                        'ok' => true,
+                        'message' => 'Stake conectada e contrato de fixtures/mercados validado.',
+                        'latency_ms' => $sports['latency_ms'] + $fixtures['latency_ms'] + $detail['latency_ms'],
+                        'http_code' => $detail['http_code'],
+                        'error' => null,
+                    ];
+                }
+            }
+
+            return self::failed('Stake', [
+                'ok'=>false,
+                'http_code'=>$fixtures['http_code'],
+                'latency_ms'=>$sports['latency_ms'] + $fixtures['latency_ms'],
+                'error'=>'Stake conectada, porém o detalhe dos fixtures não apresentou groups/swishMarkets conforme o contrato esperado.',
+            ]);
         }
 
         return self::failed('Stake', $last);
@@ -120,6 +202,57 @@ final class SportsApiIntegration
         }
 
         return self::failed('API-Football', $result);
+    }
+
+    /** @return array{ok:bool,http_code:?int,latency_ms:int,error:?string,payload:?array} */
+    private static function requestJson(string $url, array $headers): array
+    {
+        if (!function_exists('curl_init')) {
+            return ['ok'=>false,'http_code'=>null,'latency_ms'=>0,'error'=>'Extensão cURL indisponível.','payload'=>null];
+        }
+
+        $started = microtime(true);
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return ['ok'=>false,'http_code'=>null,'latency_ms'=>0,'error'=>'Falha ao iniciar cliente HTTP.','payload'=>null];
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_CONNECTTIMEOUT_MS => 2500,
+            CURLOPT_TIMEOUT_MS => 7000,
+            CURLOPT_NOSIGNAL => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_FOLLOWLOCATION => false,
+        ]);
+
+        $body = curl_exec($ch);
+        $errno = curl_errno($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $latency = max(0, (int)round((microtime(true) - $started) * 1000));
+
+        if ($body === false || $errno !== 0) {
+            return ['ok'=>false,'http_code'=>$http ?: null,'latency_ms'=>$latency,'error'=>'Falha de rede ao consultar o provedor.','payload'=>null];
+        }
+
+        $decoded = json_decode((string)$body, true);
+        if ($http >= 200 && $http < 300 && is_array($decoded)) {
+            if ((isset($decoded['errors']) && !empty($decoded['errors']))
+                || (isset($decoded['error']) && !empty($decoded['error']))) {
+                return ['ok'=>false,'http_code'=>$http,'latency_ms'=>$latency,'error'=>'O provedor retornou erro no payload.','payload'=>null];
+            }
+            return ['ok'=>true,'http_code'=>$http,'latency_ms'=>$latency,'error'=>null,'payload'=>$decoded];
+        }
+
+        $error = match ($http) {
+            401, 403 => 'Chave rejeitada pelo provedor.',
+            429 => 'Limite de requisições atingido.',
+            default => $http > 0 ? 'Resposta HTTP ' . $http . '.' : 'Sem resposta HTTP válida.',
+        };
+
+        return ['ok'=>false,'http_code'=>$http ?: null,'latency_ms'=>$latency,'error'=>$error,'payload'=>null];
     }
 
     /** @return array{ok:bool,http_code:?int,latency_ms:int,error:?string} */
