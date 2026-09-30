@@ -1,7 +1,9 @@
 <?php declare(strict_types=1);
 
 require __DIR__ . '/../app/Reporting/TicketNormalizer.php';
+require __DIR__ . '/../app/Reporting/FootballResultsClient.php';
 require __DIR__ . '/../app/Reporting/ApiFootballClient.php';
+require __DIR__ . '/../app/Reporting/FootballDataClient.php';
 require __DIR__ . '/../app/Reporting/SettlementEngine.php';
 require __DIR__ . '/../app/Reporting/FixtureMatcher.php';
 require __DIR__ . '/../app/Reporting/ResultWorker.php';
@@ -30,6 +32,27 @@ $searchTerm->setAccessible(true);
 assertTrue($searchTerm->invoke(null, 'Atlético-MG (BRA)') === 'Atletico MG BRA', 'normaliza acentos, hifen e parenteses para /teams?search');
 assertTrue($searchTerm->invoke(null, "Paris Saint-Germain FC") === 'Paris Saint Germain FC', 'normaliza pontuacao no nome do time');
 assertTrue($searchTerm->invoke(null, 'São Paulo') === 'Sao Paulo', 'normaliza caracteres unicode para busca da API');
+
+$footballDataStatus = new ReflectionMethod(\App\Reporting\FootballDataClient::class, 'statusShort');
+$footballDataStatus->setAccessible(true);
+assertTrue($footballDataStatus->invoke(null, 'FINISHED') === 'FT', 'football-data normaliza FINISHED para FT');
+assertTrue($footballDataStatus->invoke(null, 'SCHEDULED') === 'NS', 'football-data normaliza SCHEDULED para NS');
+assertTrue($footballDataStatus->invoke(null, 'EXTRA_TIME') === 'ET', 'football-data preserva prorrogacao como estado em andamento');
+
+$footballDataNormalize = new ReflectionMethod(\App\Reporting\FootballDataClient::class, 'normalizeMatch');
+$footballDataNormalize->setAccessible(true);
+$footballDataFixture = $footballDataNormalize->invoke(null, [
+    'id'=>987654,
+    'utcDate'=>'2026-09-27T19:00:00Z',
+    'status'=>'FINISHED',
+    'competition'=>['id'=>2021,'name'=>'Premier League'],
+    'homeTeam'=>['id'=>10,'name'=>'Manchester City'],
+    'awayTeam'=>['id'=>11,'name'=>'Arsenal'],
+    'score'=>['fullTime'=>['home'=>2,'away'=>1]],
+]);
+assertTrue(($footballDataFixture['fixture']['id'] ?? 0) === 987654, 'football-data preserva id numerico');
+assertTrue(($footballDataFixture['teams']['home']['name'] ?? '') === 'Manchester City', 'football-data normaliza mandante');
+assertTrue(($footballDataFixture['score']['fulltime']['home'] ?? null) === 2.0, 'football-data normaliza placar final');
 
 $ticket = TicketNormalizer::fromModel([
     'kind'=>'simple',
@@ -121,7 +144,9 @@ assertTrue(!str_contains($reportingRepositorySource, '$candidate = $now->setTime
 $resultWorkerSource=(string)file_get_contents(__DIR__.'/../app/Reporting/ResultWorker.php');
 assertTrue(str_contains($resultWorkerSource,'if ($attempts >= 3)'), 'lookup permite dois retries controlados antes de revisao');
 assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 30);'), 'fixture vazio ou interrompido recebe retry curto');
-assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 60);'), 'erro transitorio de fixture recebe retry em uma hora');
+assertTrue(str_contains($resultWorkerSource,'Repository::rescheduleFixture($fixtureId, 60, $storedProvider);'), 'erro transitorio de fixture recebe retry em uma hora');
+assertTrue(str_contains($resultWorkerSource,'TMR_REPORTING_SETTLEMENT_FALLBACK'), 'worker registra uso do fallback de resultados');
+assertTrue(str_contains($resultWorkerSource,'TMR_REPORTING_FALLBACK_STATS_UNAVAILABLE'), 'fallback gratuito nao inventa estatisticas ausentes');
 
 $apiFootballSource=(string)file_get_contents(__DIR__.'/../app/Reporting/ApiFootballClient.php');
 assertTrue(str_contains($apiFootballSource,'private static function safeErrors'), 'cliente registra detalhes sanitizados de erro da API');
