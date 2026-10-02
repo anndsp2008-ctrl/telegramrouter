@@ -704,7 +704,9 @@ if(!str_contains($smartFormattingSource,'é proibido omitir esse marcador')){
     throw new RuntimeException('Smart formatter prompt must explicitly forbid dropping team category markers.');
 }
 
-$telegramRouterSource=(string)file_get_contents(__DIR__.'/../release/app/TelegramRouter.php');
+$telegramRouterPath=__DIR__.'/../app/TelegramRouter.php';
+if(!is_file($telegramRouterPath))$telegramRouterPath=__DIR__.'/../release/app/TelegramRouter.php';
+$telegramRouterSource=(string)file_get_contents($telegramRouterPath);
 $runtimeInstallerSource=(string)file_get_contents(__DIR__.'/../runtime-smart-format.php');
 foreach([
     'new \\Amp\\TimeoutCancellation(',
@@ -712,7 +714,7 @@ foreach([
     '$this->downloadToDir($media,$tempDir,$progress,$cancellation)',
     "'SMART_MEDIA_DOWNLOAD_TIMEOUT'",
     '$smartFormatFailure=$error;',
-    "&& $smartFormatFailure->getMessage()==='SMART_CARD_SOURCE_MEDIA_UNAVAILABLE'",
+    '&& $smartFormatFailure->getMessage()===\'SMART_CARD_SOURCE_MEDIA_UNAVAILABLE\'',
     'throw $smartFormatFailure;'
 ] as $timeoutAnchor){
     if(!str_contains($telegramRouterSource,$timeoutAnchor)){
