@@ -736,6 +736,7 @@ if(!str_contains($telegramRouterSource,'$error instanceof \\Amp\\CancelledExcept
    ||!str_contains($telegramRouterSource,'$previous instanceof \\Amp\\TimeoutException')){
     throw new RuntimeException('Amp timeout cancellation is not normalized to SMART_MEDIA_DOWNLOAD_TIMEOUT.');
 }
+if(!isset($smartFormattingSource))$smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
 if(!str_contains($smartFormattingSource,'public static function beginEvent(array $rule=[]): void')
    ||!str_contains($smartFormattingSource,'self::beginEvent($rule);')){
     throw new RuntimeException('SmartFormatting diagnostics must reset before media processing and again at prepare start.');
