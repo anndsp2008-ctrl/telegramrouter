@@ -703,6 +703,27 @@ if(str_contains($telegramRouterSource,'usleep(')){
 if(!str_contains($telegramRouterSource,'$this->sleep(0.3);')){
     throw new RuntimeException('Telegram media retry must use MadelineProto async sleep().');
 }
+$runtimeInstallerSource=(string)file_get_contents(__DIR__.'/../runtime-smart-format.php');
+foreach([
+    'new \\Amp\\TimeoutCancellation(',
+    '$media->downloadToDir($tempDir,$progress,$cancellation)',
+    '$this->downloadToDir($media,$tempDir,$progress,$cancellation)',
+    "'SMART_MEDIA_DOWNLOAD_TIMEOUT'",
+    '$smartFormatFailure=$error;',
+    "&& $smartFormatFailure->getMessage()==='SMART_CARD_SOURCE_MEDIA_UNAVAILABLE'",
+    'throw $smartFormatFailure;'
+] as $timeoutAnchor){
+    if(!str_contains($telegramRouterSource,$timeoutAnchor)){
+        throw new RuntimeException('TelegramRouter hard media timeout regression: '.$timeoutAnchor);
+    }
+    if(!str_contains($runtimeInstallerSource,$timeoutAnchor)){
+        throw new RuntimeException('Runtime installer hard media timeout regression: '.$timeoutAnchor);
+    }
+}
+if(!str_contains($telegramRouterSource,'$error instanceof \\Amp\\CancelledException')
+   ||!str_contains($telegramRouterSource,'$previous instanceof \\Amp\\TimeoutException')){
+    throw new RuntimeException('Amp timeout cancellation is not normalized to SMART_MEDIA_DOWNLOAD_TIMEOUT.');
+}
 
 $smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
 if(!str_contains($smartFormattingSource,'teamVariantPreservationInstruction')){
