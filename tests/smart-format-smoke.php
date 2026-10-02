@@ -704,6 +704,31 @@ if(!str_contains($smartFormattingSource,'é proibido omitir esse marcador')){
     throw new RuntimeException('Smart formatter prompt must explicitly forbid dropping team category markers.');
 }
 
+$telegramRouterPath=__DIR__.'/../app/TelegramRouter.php';
+if(!is_file($telegramRouterPath))$telegramRouterPath=__DIR__.'/../release/app/TelegramRouter.php';
+$telegramRouterSource=(string)file_get_contents($telegramRouterPath);
+$runtimeInstallerSource=(string)file_get_contents(__DIR__.'/../runtime-smart-format.php');
+foreach([
+    'new \\Amp\\TimeoutCancellation(',
+    '$media->downloadToDir($tempDir,$progress,$cancellation)',
+    '$this->downloadToDir($media,$tempDir,$progress,$cancellation)',
+    "'SMART_MEDIA_DOWNLOAD_TIMEOUT'",
+    '$smartFormatFailure=$error;',
+    '&& $smartFormatFailure->getMessage()===\'SMART_CARD_SOURCE_MEDIA_UNAVAILABLE\'',
+    'throw $smartFormatFailure;'
+] as $timeoutAnchor){
+    if(!str_contains($telegramRouterSource,$timeoutAnchor)){
+        throw new RuntimeException('TelegramRouter hard media timeout regression: '.$timeoutAnchor);
+    }
+    if(!str_contains($runtimeInstallerSource,$timeoutAnchor)){
+        throw new RuntimeException('Runtime installer hard media timeout regression: '.$timeoutAnchor);
+    }
+}
+if(!str_contains($telegramRouterSource,'$error instanceof \\Amp\\CancelledException')
+   ||!str_contains($telegramRouterSource,'$previous instanceof \\Amp\\TimeoutException')){
+    throw new RuntimeException('Amp timeout cancellation is not normalized to SMART_MEDIA_DOWNLOAD_TIMEOUT.');
+}
+
 echo "SMART_FORMAT_SINGLE_PASS_TRANSLATION_TESTS_PASSED\n";
 echo "SMART_FORMAT_VIP_SEAL_TESTS_PASSED\n";
 echo "SMART_FORMAT_APPROVED_DAY_CARD_TESTS_PASSED\n";
