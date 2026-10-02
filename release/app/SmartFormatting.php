@@ -350,21 +350,27 @@ final class SmartFormatting
      * $localImage must be a temporary file downloaded from the received Telegram message.
      * @return array{caption:string,image:?string,mode:string}|null
      */
-    public static function prepare(string $sourceText,array $rule,?string $localImage,string $mode): ?array
+    public static function beginEvent(array $rule=[]): void
     {
-        self::$failureCodes=[]; // Never carry another message's errors into this event.
+        self::$failureCodes=[];
         self::$providerOrder=[];
         self::$providerAttempts=[];
-        self::$prepareStartedAt=microtime(true);
+        self::$prepareStartedAt=0.0;
         self::$aiFinishedAt=0.0;
         self::$renderMs=0;
         self::$multipleDetected=false;
         self::$multipleDetails='';
         self::$multipleDetailsTranslated=false;
-        self::$lastReportingTicket=null; // TMR_REPORTING_RESET_IN_PREPARE
+        self::$lastReportingTicket=null;
         self::$telemetryRuleId=(int)($rule['id']??0);
         self::$telemetrySourceChat=(string)($rule['source_chat']??'');
         self::$telemetryTargetLanguage=trim((string)($rule['translation_target_language']??'pt-BR'))?:'pt-BR';
+    }
+
+    public static function prepare(string $sourceText,array $rule,?string $localImage,string $mode): ?array
+    {
+        self::beginEvent($rule);
+        self::$prepareStartedAt=microtime(true);
         $hasImage=$localImage!==null&&is_file($localImage);
         // CARD_MODELS_V1: text-only multiple tips continue through structured AI extraction.
 
