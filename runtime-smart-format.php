@@ -546,11 +546,56 @@ HTML;
                     'SMART_MEDIA_TEMP_PATH_INVALID'
                 ],true);
                 if($deterministic||$attempt>=2)break;
+
+                if($timedOut){
+                    $reconnected=$this->reconnectSmartMediaDc($media);
+                    error_log('TMR_SMART_MEDIA_DC_RECONNECT '.json_encode([
+                        'attempt'=>$attempt,
+                        'status'=>$reconnected?'success':'unavailable'
+                    ],JSON_UNESCAPED_SLASHES));
+                    usleep($reconnected?800000:300000);
+                    continue;
+                }
+
                 usleep(300000);
             }
         }
 
         throw new \RuntimeException('SMART_MEDIA_ANALYSIS_DOWNLOAD_FAILED: '.$lastReason);
+    }
+
+    private function reconnectSmartMediaDc(mixed $media): bool
+    {
+        try {
+            $info=[];
+            if(is_object($media) && method_exists($media,'getDownloadInfo')){
+                $info=(array)$media->getDownloadInfo();
+            } else {
+                $info=(array)$this->getFileInfo($media);
+            }
+
+            $location=is_array($info['InputFileLocation']??null)?$info['InputFileLocation']:[];
+            $dc=(int)($location['dc_id']??$info['dc_id']??0);
+            if($dc<=0)return false;
+
+            $api=$this->wrapper->getAPI();
+            if(!$api instanceof \danog\MadelineProto\MTProto)return false;
+
+            $mediaDc=-abs($dc);
+            if(!$api->datacenter->has($mediaDc))return false;
+
+            $api->datacenter->getDataCenterConnection($mediaDc)->reconnect();
+            error_log('TMR_SMART_MEDIA_DC_RECONNECTED '.json_encode([
+                'dc'=>$mediaDc
+            ],JSON_UNESCAPED_SLASHES));
+            return true;
+        } catch(\Throwable $reconnectError) {
+            error_log('TMR_SMART_MEDIA_DC_RECONNECT_FAILED '.json_encode([
+                'exception'=>get_class($reconnectError),
+                'reason'=>TranslationService::sanitizeError($reconnectError->getMessage())
+            ],JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+            return false;
+        }
     }
 
     private function smartAnalysisMediaIsImage(mixed $media): bool
