@@ -715,7 +715,12 @@ foreach([
     "'SMART_MEDIA_DOWNLOAD_TIMEOUT'",
     '$smartFormatFailure=$error;',
     '&& $smartFormatFailure->getMessage()===\'SMART_CARD_SOURCE_MEDIA_UNAVAILABLE\'',
-    'throw $smartFormatFailure;'
+    'throw $smartFormatFailure;',
+    'reconnectSmartMediaDc($media)',
+    '$mediaDc=-abs($dc);',
+    'getDataCenterConnection($mediaDc)->reconnect()',
+    'TMR_SMART_MEDIA_DC_RECONNECTED',
+    'TMR_SMART_MEDIA_DC_RECONNECT_FAILED'
 ] as $timeoutAnchor){
     if(!str_contains($telegramRouterSource,$timeoutAnchor)){
         throw new RuntimeException('TelegramRouter hard media timeout regression: '.$timeoutAnchor);
