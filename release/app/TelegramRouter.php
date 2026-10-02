@@ -224,6 +224,10 @@ final class TelegramRouter extends SimpleEventHandler
         } catch(\Throwable $error) {
             throw new \RuntimeException('SMART_FORMAT_SETTINGS_UNAVAILABLE',0,$error);
         }
+        // Reset per-message diagnostics before any media operation. A mandatory
+        // image can fail before SmartFormatting::prepare(), so prepare-only reset
+        // would leak diagnostics from the previous Telegram message.
+        SmartFormatting::beginEvent($rule);
         $formatted=null;
         $sourceImage=null;
         $analysisMediaDownloadMs=0;
@@ -663,26 +667,61 @@ final class TelegramRouter extends SimpleEventHandler
     private function reconnectSmartMediaDc(mixed $media): bool
     {
         try {
-            $info=[];
-            if(is_object($media) && method_exists($media,'getDownloadInfo')){
-                $info=(array)$media->getDownloadInfo();
-            } else {
-                $info=(array)$this->getFileInfo($media);
+            $api=$this->wrapper->getAPI();
+            if(!$api instanceof \danog\MadelineProto\MTProto){
+                error_log('TMR_SMART_MEDIA_DC_RECONNECT_UNAVAILABLE '.json_encode([
+                    'reason'=>'api_not_mtproto',
+                    'api_class'=>is_object($api)?get_class($api):gettype($api)
+                ],JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+                return false;
             }
 
+            $info=[];
+            try {
+                if(is_object($media) && method_exists($media,'getDownloadInfo')){
+                    $info=(array)$media->getDownloadInfo();
+                } else {
+                    $info=(array)$this->getFileInfo($media);
+                }
+            } catch(\Throwable $infoError) {
+                error_log('TMR_SMART_MEDIA_DC_INFO_FALLBACK '.json_encode([
+                    'exception'=>get_class($infoError),
+                    'reason'=>TranslationService::sanitizeError($infoError->getMessage())
+                ],JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+            }
+
+            // Mirror MadelineProto Files::downloadToCallable(): prefer the media
+            // location dc_id and otherwise fall back to the authorized account DC.
             $location=is_array($info['InputFileLocation']??null)?$info['InputFileLocation']:[];
             $dc=(int)($location['dc_id']??$info['dc_id']??0);
-            if($dc<=0)return false;
+            $dcSource=$dc>0?'media':'authorized';
+            if($dc<=0){
+                $dc=(int)($api->loginState->getState()->authorizedDc??0);
+            }
+            if($dc<=0){
+                error_log('TMR_SMART_MEDIA_DC_RECONNECT_UNAVAILABLE '.json_encode([
+                    'reason'=>'dc_unresolved',
+                    'dc_source'=>$dcSource
+                ],JSON_UNESCAPED_SLASHES));
+                return false;
+            }
 
-            $api=$this->wrapper->getAPI();
-            if(!$api instanceof \danog\MadelineProto\MTProto)return false;
+            if($api->isTestMode() && $dc<10000)$dc+=10000;
+            $resolvedDc=$api->datacenter->has(-$dc)?-$dc:$dc;
+            if(!$api->datacenter->has($resolvedDc)){
+                error_log('TMR_SMART_MEDIA_DC_RECONNECT_UNAVAILABLE '.json_encode([
+                    'reason'=>'dc_not_configured',
+                    'dc_source'=>$dcSource,
+                    'dc'=>$dc,
+                    'resolved_dc'=>$resolvedDc
+                ],JSON_UNESCAPED_SLASHES));
+                return false;
+            }
 
-            $mediaDc=-abs($dc);
-            if(!$api->datacenter->has($mediaDc))return false;
-
-            $api->datacenter->getDataCenterConnection($mediaDc)->reconnect();
+            $api->datacenter->getDataCenterConnection($resolvedDc)->reconnect();
             error_log('TMR_SMART_MEDIA_DC_RECONNECTED '.json_encode([
-                'dc'=>$mediaDc
+                'dc_source'=>$dcSource,
+                'dc'=>$resolvedDc
             ],JSON_UNESCAPED_SLASHES));
             return true;
         } catch(\Throwable $reconnectError) {

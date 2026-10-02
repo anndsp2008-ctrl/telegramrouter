@@ -713,10 +713,13 @@ foreach([
     '&& $smartFormatFailure->getMessage()===\'SMART_CARD_SOURCE_MEDIA_UNAVAILABLE\'',
     'throw $smartFormatFailure;',
     'reconnectSmartMediaDc($media)',
-    '$mediaDc=-abs($dc);',
-    'getDataCenterConnection($mediaDc)->reconnect()',
+    '$api->loginState->getState()->authorizedDc',
+    '$resolvedDc=$api->datacenter->has(-$dc)?-$dc:$dc;',
+    'getDataCenterConnection($resolvedDc)->reconnect()',
     'TMR_SMART_MEDIA_DC_RECONNECTED',
-    'TMR_SMART_MEDIA_DC_RECONNECT_FAILED'
+    'TMR_SMART_MEDIA_DC_RECONNECT_UNAVAILABLE',
+    'TMR_SMART_MEDIA_DC_RECONNECT_FAILED',
+    'SmartFormatting::beginEvent($rule);'
 ] as $timeoutAnchor){
     if(!str_contains($telegramRouterSource,$timeoutAnchor)){
         throw new RuntimeException('TelegramRouter hard media timeout regression: '.$timeoutAnchor);
@@ -728,6 +731,11 @@ foreach([
 if(!str_contains($telegramRouterSource,'$error instanceof \\Amp\\CancelledException')
    ||!str_contains($telegramRouterSource,'$previous instanceof \\Amp\\TimeoutException')){
     throw new RuntimeException('Amp timeout cancellation is not normalized to SMART_MEDIA_DOWNLOAD_TIMEOUT.');
+}
+if(!isset($smartFormattingSource))$smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
+if(!str_contains($smartFormattingSource,'public static function beginEvent(array $rule=[]): void')
+   ||!str_contains($smartFormattingSource,'self::beginEvent($rule);')){
+    throw new RuntimeException('SmartFormatting diagnostics must reset before media processing and again at prepare start.');
 }
 
 $smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
