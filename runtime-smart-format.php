@@ -132,6 +132,7 @@ HTML;
         $analysisMediaDownloadMs=0;
         $contingencyTranslationMs=0;
         $contingencyRenderMs=0;
+        $smartFormatFailure=null;
         try {
             if($setting['enabled']){
                 if($analysisMedia!==null){
@@ -292,6 +293,7 @@ HTML;
                 'exception'=>get_class($error),
                 'location'=>basename($error->getFile()).':'.$error->getLine()
             ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
+            $smartFormatFailure=$error;
             $formatted=null;
         } finally {
             if($sourceImage!==null)@unlink($sourceImage);
@@ -437,6 +439,12 @@ HTML;
                 'diagnostics'=>SmartFormatting::diagnostics()
             ],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
             if(($setting['output_mode']??'')==='card'){
+                // Preserve the actionable root cause when the mandatory receipt image
+                // could not be downloaded; do not mask it as a renderer failure.
+                if($smartFormatFailure instanceof \RuntimeException
+                    && $smartFormatFailure->getMessage()==='SMART_CARD_SOURCE_MEDIA_UNAVAILABLE'){
+                    throw $smartFormatFailure;
+                }
                 // A mandatory-card rule must never leak a raw/original delivery.
                 // Both GD and pure-PHP card renderers were already attempted.
                 throw new \RuntimeException('SMART_CARD_CONTINGENCY_UNAVAILABLE');
@@ -473,11 +481,18 @@ HTML;
                     throw new \RuntimeException('SMART_MEDIA_DOWNLOAD_TIMEOUT');
                 }
             };
+            // The progress callback cannot fire while Telegram is stalled waiting for
+            // upload.getFile. Pass a real Amp cancellation into MadelineProto so the
+            // attempt is bounded even when zero bytes/progress events are received.
+            $cancellation=new \Amp\TimeoutCancellation(
+                (float)$timeout,
+                'SMART_MEDIA_DOWNLOAD_TIMEOUT'
+            );
             try {
                 if(is_object($media) && method_exists($media,'downloadToDir')){
-                    $path=$media->downloadToDir($tempDir,$progress);
+                    $path=$media->downloadToDir($tempDir,$progress,$cancellation);
                 } else {
-                    $path=$this->downloadToDir($media,$tempDir,$progress);
+                    $path=$this->downloadToDir($media,$tempDir,$progress,$cancellation);
                 }
                 if(!is_string($path)||$path===''||!is_file($path)){
                     throw new \RuntimeException('SMART_MEDIA_DOWNLOAD_EMPTY');
@@ -511,7 +526,13 @@ HTML;
                 return ['path'=>$realPath,'ms'=>$totalMs,'attempts'=>$attempt];
             } catch(\Throwable $error) {
                 $attemptMs=self::elapsedMs($attemptStarted);
-                $lastReason=TranslationService::sanitizeError($error->getMessage());
+                $previous=$error->getPrevious();
+                $timedOut=$error instanceof \Amp\TimeoutException
+                    || ($error instanceof \Amp\CancelledException && $previous instanceof \Amp\TimeoutException)
+                    || $error->getMessage()==='SMART_MEDIA_DOWNLOAD_TIMEOUT';
+                $lastReason=$timedOut
+                    ?'SMART_MEDIA_DOWNLOAD_TIMEOUT'
+                    :TranslationService::sanitizeError($error->getMessage());
                 error_log('TMR_SMART_MEDIA_ANALYSIS_DOWNLOAD '.json_encode([
                     'status'=>'failed',
                     'attempt'=>$attempt,
