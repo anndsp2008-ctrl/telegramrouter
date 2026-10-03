@@ -677,21 +677,32 @@ final class TelegramRouter extends SimpleEventHandler
             }
 
             $info=[];
+            $infoResolved=false;
             try {
-                if(is_object($media) && method_exists($media,'getDownloadInfo')){
-                    $info=(array)$media->getDownloadInfo();
-                } else {
-                    $info=(array)$this->getFileInfo($media);
-                }
+                // Use the exact same resolver as MadelineProto's download path.
+                // getDownloadInfo() accepts Media objects, messages, strings and
+                // raw Telegram arrays and preserves InputFileLocation.dc_id.
+                $info=(array)$api->getDownloadInfo($media);
+                $infoResolved=true;
             } catch(\Throwable $infoError) {
-                error_log('TMR_SMART_MEDIA_DC_INFO_FALLBACK '.json_encode([
+                error_log('TMR_SMART_MEDIA_DC_INFO_FAILED '.json_encode([
                     'exception'=>get_class($infoError),
                     'reason'=>TranslationService::sanitizeError($infoError->getMessage())
                 ],JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));
             }
 
+            // Never guess the authorized DC after metadata resolution itself failed:
+            // the real upload.getFile may already be running on a different media DC.
+            if(!$infoResolved){
+                error_log('TMR_SMART_MEDIA_DC_RECONNECT_UNAVAILABLE '.json_encode([
+                    'reason'=>'download_info_unavailable'
+                ],JSON_UNESCAPED_SLASHES));
+                return false;
+            }
+
             // Mirror MadelineProto Files::downloadToCallable(): prefer the media
-            // location dc_id and otherwise fall back to the authorized account DC.
+            // location dc_id and only use authorizedDc when getDownloadInfo()
+            // succeeded but the resulting InputFileLocation legitimately has no dc_id.
             $location=is_array($info['InputFileLocation']??null)?$info['InputFileLocation']:[];
             $dc=(int)($location['dc_id']??$info['dc_id']??0);
             $dcSource=$dc>0?'media':'authorized';

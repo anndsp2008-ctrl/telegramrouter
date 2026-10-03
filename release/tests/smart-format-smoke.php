@@ -713,9 +713,12 @@ foreach([
     '&& $smartFormatFailure->getMessage()===\'SMART_CARD_SOURCE_MEDIA_UNAVAILABLE\'',
     'throw $smartFormatFailure;',
     'reconnectSmartMediaDc($media)',
+    '$info=(array)$api->getDownloadInfo($media);',
+    "'download_info_unavailable'",
     '$api->loginState->getState()->authorizedDc',
     '$resolvedDc=$api->datacenter->has(-$dc)?-$dc:$dc;',
     'getDataCenterConnection($resolvedDc)->reconnect()',
+    'TMR_SMART_MEDIA_DC_INFO_FAILED',
     'TMR_SMART_MEDIA_DC_RECONNECTED',
     'TMR_SMART_MEDIA_DC_RECONNECT_UNAVAILABLE',
     'TMR_SMART_MEDIA_DC_RECONNECT_FAILED',
@@ -731,6 +734,13 @@ foreach([
 if(!str_contains($telegramRouterSource,'$error instanceof \\Amp\\CancelledException')
    ||!str_contains($telegramRouterSource,'$previous instanceof \\Amp\\TimeoutException')){
     throw new RuntimeException('Amp timeout cancellation is not normalized to SMART_MEDIA_DOWNLOAD_TIMEOUT.');
+}
+$reconnectStart=strpos($telegramRouterSource,'private function reconnectSmartMediaDc');
+$reconnectEnd=strpos($telegramRouterSource,'private function smartAnalysisMediaIsImage',$reconnectStart?:0);
+$reconnectSource=($reconnectStart!==false&&$reconnectEnd!==false)
+    ?substr($telegramRouterSource,$reconnectStart,$reconnectEnd-$reconnectStart):'';
+if($reconnectSource==='' || str_contains($reconnectSource,'$this->getFileInfo($media)')){
+    throw new RuntimeException('Media DC reconnect must use MadelineProto getDownloadInfo(), not getFileInfo().');
 }
 if(!isset($smartFormattingSource))$smartFormattingSource=(string)file_get_contents(__DIR__.'/../app/SmartFormatting.php');
 if(!str_contains($smartFormattingSource,'public static function beginEvent(array $rule=[]): void')
